@@ -190,10 +190,14 @@ int main(int argc, char ** argv)
 
         vector<int> user_results;
 
-        for (unsigned i = 0;  i < 10;  ++i)
-            user_results.push_back(num_watchers[i].first);
+        for (int i = 0;  user_results.size() < 10;  ++i) {
+            int repo_id = num_watchers[i].first;
 
-        //user_results = boost::assign::list_of(17)(302)(654)(76)(616)(58)(8)(866)(29)(84);
+            // Don't add one already watched
+            if (users[user_id].watching.count(repo_id)) continue;
+
+            user_results.push_back(repo_id);
+        }
 
         out << user_id << ":";
         for (unsigned j = 0;  j < user_results.size();  ++j) {
