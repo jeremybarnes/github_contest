@@ -17,6 +17,15 @@
 using namespace std;
 using namespace ML;
 
+template<typename X>
+std::ostream & operator << (std::ostream & stream, const std::set<X> & s)
+{
+    stream << "{ ";
+    std::copy(s.begin(), s.end(),
+              std::ostream_iterator<X>(stream, " "));
+    return stream << "}";
+}
+
 struct Repo {
     int id;
     string user;
@@ -151,6 +160,17 @@ int main(int argc, char ** argv)
         users_to_test.push_back(user_id);
     }
 
+
+    for (unsigned i = 0;  i < users_to_test.size();  ++i) {
+        int user_id = users_to_test[i];
+        
+        cerr << "user " << user_id << " is watching "
+             << users[user_id].watching.size() << " repositories"
+             << ": " << users[user_id].watching
+             << endl;
+    }
+
+
     ofstream out("results.txt");
 
     for (unsigned i = 0;  i < users_to_test.size();  ++i) {
@@ -159,7 +179,7 @@ int main(int argc, char ** argv)
 
         vector<int> user_results;
 
-        user_results = boost::assign::list_of(17)(302)(654)(76)(616)(58)(8)(866)(84)(29);
+        user_results = boost::assign::list_of(17)(302)(654)(76)(616)(58)(8)(866)(29)(84);
 
         out << user_id << ":";
         for (unsigned j = 0;  j < user_results.size();  ++j) {
