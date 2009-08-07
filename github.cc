@@ -13,6 +13,7 @@
 #include "utils/string_functions.h"
 #include <boost/assign/list_of.hpp>
 #include <fstream>
+#include "utils/vector_utils.h"
 
 using namespace std;
 using namespace ML;
@@ -144,6 +145,16 @@ int main(int argc, char ** argv)
         user_entry.watching.insert(repo_id);
     }
 
+    // Sort repository in order of number of watchers to see which are the
+    // most watched
+    vector<pair<int, int> > num_watchers;
+    for (unsigned i = 0;  i < repos.size();  ++i) {
+        if (repos[i].watchers.empty()) continue;
+        num_watchers.push_back(make_pair(i, repos[i].watchers.size()));
+    }
+    sort_on_second_descending(num_watchers);
+
+
     vector<int> users_to_test;
     users_to_test.reserve(5000);
 
@@ -179,7 +190,10 @@ int main(int argc, char ** argv)
 
         vector<int> user_results;
 
-        user_results = boost::assign::list_of(17)(302)(654)(76)(616)(58)(8)(866)(29)(84);
+        for (unsigned i = 0;  i < 10;  ++i)
+            user_results.push_back(num_watchers[i].first);
+
+        //user_results = boost::assign::list_of(17)(302)(654)(76)(616)(58)(8)(866)(29)(84);
 
         out << user_id << ":";
         for (unsigned j = 0;  j < user_results.size();  ++j) {
