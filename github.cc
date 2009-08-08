@@ -338,7 +338,6 @@ int main(int argc, char ** argv)
             user_results.insert(repo_id);
         }
 
-#if 0
         // Next: watched authors
         set<int> repos_by_watched_authors;
         for (set<int>::const_iterator
@@ -361,7 +360,6 @@ int main(int argc, char ** argv)
             if (user.watching.count(repo_id)) continue;
             user_results.insert(repo_id);
         }
-#endif
 
         vector<int> ranked_ancestors
             = rank_repos(ancestors_of_watched.begin(),
