@@ -14,6 +14,8 @@
 #include <boost/assign/list_of.hpp>
 #include <fstream>
 #include "utils/vector_utils.h"
+#include "utils/pair_utils.h"
+
 
 using namespace std;
 using namespace ML;
@@ -54,6 +56,24 @@ struct User {
     set<int> watching;
 };
 
+template<class Iterator>
+vector<int>
+rank_repos(Iterator first, Iterator last,
+           const vector<Repo> & repos)
+{
+    vector<pair<int, int> > results;  // repo, num watchers
+    for (; first != last;  ++first) {
+        int repo = *first;
+        results.push_back(make_pair(repo, repos[repo].watchers.size()));
+    }
+
+    sort_on_second_descending(results);
+
+    vector<int> result(first_extractor(results.begin()),
+                       first_extractor(results.end()));
+    
+    return result;
+}
 
 int main(int argc, char ** argv)
 {
@@ -271,20 +291,30 @@ int main(int argc, char ** argv)
 
         // Now generate the results
 
+        vector<int> ranked_parents
+            = rank_repos(parents_of_watched.begin(),
+                         parents_of_watched.end(),
+                         repos);
+
         // First: parents of watched repos
-        for (set<int>::const_iterator
-                 it = parents_of_watched.begin(),
-                 end = parents_of_watched.end();
+        for (vector<int>::const_iterator
+                 it = ranked_parents.begin(),
+                 end = ranked_parents.end();
              it != end && user_results.size() < 10;  ++it) {
             int repo_id = *it;
             if (user.watching.count(repo_id)) continue;
             user_results.push_back(repo_id);
         }
 
+        vector<int> ranked_ancestors
+            = rank_repos(ancestors_of_watched.begin(),
+                         ancestors_of_watched.end(),
+                         repos);
+
         // Second: ancestors of watched repos
-        for (set<int>::const_iterator
-                 it = ancestors_of_watched.begin(),
-                 end = ancestors_of_watched.end();
+        for (vector<int>::const_iterator
+                 it = ranked_ancestors.begin(),
+                 end = ranked_ancestors.end();
              it != end && user_results.size() < 10;  ++it) {
             int repo_id = *it;
             if (user.watching.count(repo_id)) continue;
