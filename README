@@ -2,6 +2,7 @@ For the moment, there's nothing much to see here...
 
 Currently, I use a heuristic with the following features:
 * First, add the parent repositories of repositories that the user is already watching, in order of popularity
+* Then, those other repositories by the same author as the current one
 * Then, add ancestor repositories (ie, more than one parent away)
 * Finally, add in order of popularity
 
@@ -12,7 +13,6 @@ Thanks to:
 * asciiarmor's code (thanks for publishing it) for the basic features necessary to get to reasonable performance
 
 Future things that I will try:
-* Add in other repositories that were created by the same users that created our repository;
 * Use a classifier instead of a heuristic to rank the set of potential repositories (this will help us where the user has a lot of watched repositories);
 * Look at language matches;
 * Look at keywords in the repository names (eg, "rails" says a lot about which kind of repos that people like)
