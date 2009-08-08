@@ -32,6 +32,10 @@ struct Repo {
     string user;
     string name;
     string date;
+    int parent;
+    int depth;
+    vector<int> ancestors;
+    set<int> all_ancestors;
     map<int, size_t> languages;
     size_t total_loc;
     set<int> watchers;
@@ -68,7 +72,16 @@ int main(int argc, char ** argv)
         repo_file.expect_literal('/');
         repo.name = repo_file.expect_text(',', false);
         repo_file.expect_literal(',');
-        repo.date = repo_file.expect_text('\n', false);
+        repo.date = repo_file.expect_text("\n,", false);
+        if (repo_file.match_literal(',')) {
+            repo.parent = repo_file.expect_int();
+            repo.depth = -1;
+        }
+        else {
+            repo.parent = -1;
+            repo.depth = 0;
+        }
+
         repo_file.expect_eol();
 
         if (repo.id < 1 || repo.id >= repos.size())
@@ -81,6 +94,35 @@ int main(int argc, char ** argv)
     map<string, int> language_to_id;
     vector<Language> languages;
     languages.reserve(1000);
+
+    /* Expand all parents */
+    cerr << "expanding parents..." << endl;
+    bool need_another = true;
+    int depth;
+
+    for (depth = 0;  need_another;  ++depth) {
+        need_another = false;
+        for (unsigned i = 0;  i < repos.size();  ++i) {
+            Repo & repo = repos[i];
+            if (repo.depth != -1) continue;
+            if (repo.parent == -1)
+                throw Exception("logic error: parent invalid");
+
+            Repo & parent = repos[repo.parent];
+            if (parent.depth == -1) {
+                need_another = true;
+                continue;
+            }
+
+            repo.depth = parent.depth + 1;
+            repo.ancestors = parent.ancestors;
+            repo.ancestors.push_back(repo.parent);
+            repo.all_ancestors.insert(repo.ancestors.begin(),
+                                      repo.ancestors.end());
+        }
+    }
+
+    cerr << "max parent depth was " << depth << endl;
 
 
     Parse_Context lang_file("download/lang.txt");
@@ -172,6 +214,7 @@ int main(int argc, char ** argv)
     }
 
 
+#if 0
     for (unsigned i = 0;  i < users_to_test.size();  ++i) {
         int user_id = users_to_test[i];
         
@@ -180,6 +223,7 @@ int main(int argc, char ** argv)
              << ": " << users[user_id].watching
              << endl;
     }
+#endif
 
 
     ofstream out("results.txt");
@@ -187,15 +231,73 @@ int main(int argc, char ** argv)
     for (unsigned i = 0;  i < users_to_test.size();  ++i) {
 
         int user_id = users_to_test[i];
+        const User & user = users[user_id];
 
         vector<int> user_results;
 
+        /* Like everyone else, see which parents and ancestors weren't
+           watched */
+        set<int> parents_of_watched;
+        set<int> ancestors_of_watched;
+
+        for (set<int>::const_iterator
+                 it = user.watching.begin(),
+                 end = user.watching.end();
+             it != end;  ++it) {
+            int watched_id = *it;
+            const Repo & watched = repos[watched_id];
+
+            if (watched.parent == -1) continue;
+
+            parents_of_watched.insert(watched.parent);
+            ancestors_of_watched.insert(watched.ancestors.begin(),
+                                        watched.ancestors.end());
+        }
+
+        // Make them exclusive
+        for (set<int>::const_iterator
+                 it = parents_of_watched.begin(),
+                 end = parents_of_watched.end();
+             it != end;  ++it)
+            ancestors_of_watched.erase(*it);
+
+        for (set<int>::const_iterator
+                 it = user.watching.begin(),
+                 end = user.watching.end();
+             it != end;  ++it) {
+            parents_of_watched.erase(*it);
+            ancestors_of_watched.erase(*it);
+        }
+
+        // Now generate the results
+
+        // First: parents of watched repos
+        for (set<int>::const_iterator
+                 it = parents_of_watched.begin(),
+                 end = parents_of_watched.end();
+             it != end && user_results.size() < 10;  ++it) {
+            int repo_id = *it;
+            if (user.watching.count(repo_id)) continue;
+            user_results.push_back(repo_id);
+        }
+
+        // Second: ancestors of watched repos
+        for (set<int>::const_iterator
+                 it = ancestors_of_watched.begin(),
+                 end = ancestors_of_watched.end();
+             it != end && user_results.size() < 10;  ++it) {
+            int repo_id = *it;
+            if (user.watching.count(repo_id)) continue;
+            user_results.push_back(repo_id);
+        }
+
+        // Third: by popularity
         for (int i = 0;  user_results.size() < 10;  ++i) {
             int repo_id = num_watchers[i].first;
 
             // Don't add one already watched
             if (users[user_id].watching.count(repo_id)) continue;
-
+            
             user_results.push_back(repo_id);
         }
 
