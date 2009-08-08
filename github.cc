@@ -31,7 +31,7 @@ std::ostream & operator << (std::ostream & stream, const std::set<X> & s)
 
 struct Repo {
     int id;
-    string user;
+    int author;
     string name;
     string date;
     int parent;
@@ -50,10 +50,18 @@ struct Language {
     size_t total_loc;
 };
 
+// NOTE: users and authors are the same, but we are explicitly not allowed to
+// map them onto each other.
+
 struct User {
     int id;
-    string name;
     set<int> watching;
+};
+
+struct Author {
+    int id;
+    string name;
+    set<int> repositories;
 };
 
 template<class Iterator>
@@ -84,11 +92,31 @@ int main(int argc, char ** argv)
     vector<Repo> repos;
     repos.resize(125000);
 
+    map<string, int> author_name_to_id;
+    vector<Author> authors;
+    authors.resize(60000);
+
     while (repo_file) {
         Repo repo;
         repo.id = repo_file.expect_int();
         repo_file.expect_literal(':');
-        repo.user = repo_file.expect_text('/', true /* line 14444 has no user */);
+        string author_name = repo_file.expect_text('/', true /* line 14444 has no user */);
+        if (author_name == "")
+            repo.author = -1;
+        else {
+            if (!author_name_to_id.count(author_name)) {
+                // Unseen author... add it
+                repo.author = author_name_to_id[author_name] = authors.size();
+                Author new_author;
+                new_author.name = author_name;
+                new_author.id = repo.author;
+                authors.push_back(new_author);
+            }
+            else repo.author = author_name_to_id[author_name];
+
+            authors[repo.author].repositories.insert(repo.id);
+        }
+            
         repo_file.expect_literal('/');
         repo.name = repo_file.expect_text(',', false);
         repo_file.expect_literal(',');
@@ -253,12 +281,13 @@ int main(int argc, char ** argv)
         int user_id = users_to_test[i];
         const User & user = users[user_id];
 
-        vector<int> user_results;
+        set<int> user_results;
 
         /* Like everyone else, see which parents and ancestors weren't
            watched */
         set<int> parents_of_watched;
         set<int> ancestors_of_watched;
+        set<int> authors_of_watched_repos;
 
         for (set<int>::const_iterator
                  it = user.watching.begin(),
@@ -266,6 +295,9 @@ int main(int argc, char ** argv)
              it != end;  ++it) {
             int watched_id = *it;
             const Repo & watched = repos[watched_id];
+
+            if (watched.author != -1)
+                authors_of_watched_repos.insert(watched.author);
 
             if (watched.parent == -1) continue;
 
@@ -303,8 +335,33 @@ int main(int argc, char ** argv)
              it != end && user_results.size() < 10;  ++it) {
             int repo_id = *it;
             if (user.watching.count(repo_id)) continue;
-            user_results.push_back(repo_id);
+            user_results.insert(repo_id);
         }
+
+#if 0
+        // Next: watched authors
+        set<int> repos_by_watched_authors;
+        for (set<int>::const_iterator
+                 it = authors_of_watched_repos.begin(),
+                 end = authors_of_watched_repos.end();
+             it != end;  ++it)
+            repos_by_watched_authors.insert(authors[*it].repositories.begin(),
+                                            authors[*it].repositories.end());
+        
+        vector<int> ranked_by_watched
+            = rank_repos(repos_by_watched_authors.begin(),
+                         repos_by_watched_authors.end(),
+                         repos);
+
+        for (vector<int>::const_iterator
+                 it = ranked_by_watched.begin(),
+                 end = ranked_by_watched.end();
+             it != end && user_results.size() < 10;  ++it) {
+            int repo_id = *it;
+            if (user.watching.count(repo_id)) continue;
+            user_results.insert(repo_id);
+        }
+#endif
 
         vector<int> ranked_ancestors
             = rank_repos(ancestors_of_watched.begin(),
@@ -318,7 +375,7 @@ int main(int argc, char ** argv)
              it != end && user_results.size() < 10;  ++it) {
             int repo_id = *it;
             if (user.watching.count(repo_id)) continue;
-            user_results.push_back(repo_id);
+            user_results.insert(repo_id);
         }
 
         // Third: by popularity
@@ -328,12 +385,16 @@ int main(int argc, char ** argv)
             // Don't add one already watched
             if (users[user_id].watching.count(repo_id)) continue;
             
-            user_results.push_back(repo_id);
+            user_results.insert(repo_id);
         }
 
         out << user_id << ":";
-        for (unsigned j = 0;  j < user_results.size();  ++j) {
-            out << user_results[j];
+        int j = 0;
+        for (set<int>::const_iterator
+                 it = user_results.begin(),
+                 end = user_results.end();
+             it != end;  ++it, ++j) {
+            out << *it;
             if (j != user_results.size() - 1)
                 out << ',';
         }

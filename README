@@ -1,1 +1,34 @@
-For the moment, there's nothing to see here...
+For the moment, there's nothing much to see here...
+
+Currently, I use a heuristic with the following features:
+* First, add the parent repositories of repositories that the user is already watching, in order of popularity
+* Then, add ancestor repositories (ie, more than one parent away)
+* Finally, add in order of popularity
+
+By "order of popularity", I mean in order of the number of users that are watching.
+
+Thanks to:
+* Daniel Haran's code and README for the idea of using parent repositories;
+* asciiarmor's code (thanks for publishing it) for the basic features necessary to get to reasonable performance
+
+Future things that I will try:
+* Add in other repositories that were created by the same users that created our repository;
+* Use a classifier instead of a heuristic to rank the set of potential repositories (this will help us where the user has a lot of watched repositories);
+* Look at language matches;
+* Look at keywords in the repository names (eg, "rails" says a lot about which kind of repos that people like)
+* Add a simple knn implementation based upon a dot product between repos to find new ones
+* EM on a graphical model to learn a smoothed user/repo matrix
+* Embed both repositories and users into the same feature space using a deep neural network and use cosine similarity between embedded representations to learn similarity.
+* Potentially, other (simpler) matrix factorization models
+* Blending, of course, once I have enough models to make it useful
+
+Feel free to browse my code and take my ideas for your system, if ever they are useful.
+
+If ever you want to use my code, you can do so under the Affero GPL v3.  Note that getting it to work might be difficult; it relies on JML (Jeremy's Machine Learning Library) at http://bitbucket.org/jeremy_barnes/jml/.  This code needs to be downloaded and compiled and the jml symlink in the github repo set to point to it.  I build it on 32 and 64 bit Ubuntu 8.10/9.04 machines; anything else might be difficult.
+
+I'm currently looking for consulting contracts.
+
+You can contact me on <my firstname> at <my family name>+"o" .com.
+
+Jeremy Barnes
+8 August 2009
