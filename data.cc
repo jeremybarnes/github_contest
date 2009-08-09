@@ -163,14 +163,7 @@ void Data::load()
         user_entry.watching.insert(repo_id);
     }
 
-    // Sort repository in order of number of watchers to see which are the
-    // most watched
-    for (unsigned i = 0;  i < repos.size();  ++i) {
-        if (repos[i].watchers.empty()) continue;
-        num_watchers.push_back(make_pair(i, repos[i].watchers.size()));
-    }
-    sort_on_second_descending(num_watchers);
-
+    calc_popularity();
 
     users_to_test.reserve(5000);
 
@@ -189,6 +182,134 @@ void Data::load()
     }
 
 
+}
+
+void
+Data::
+calc_popularity()
+{
+    num_watchers.clear();
+
+    // Sort repository in order of number of watchers to see which are the
+    // most watched
+    for (unsigned i = 0;  i < repos.size();  ++i) {
+        if (repos[i].watchers.empty()) continue;
+        num_watchers.push_back(make_pair(i, repos[i].watchers.size()));
+    }
+    sort_on_second_descending(num_watchers);
+
+    // Now go through and get popularity rank
+    int last_num_watchers = -1;
+    int last_rank = -1;
+
+    for (unsigned i = 0;  i < num_watchers.size();  ++i) {
+        int rank = (last_num_watchers == num_watchers[i].second
+                    ? last_rank : i);
+        last_rank = rank;
+
+        repos[num_watchers[i].first].popularity_rank = rank;
+    }
+}
+
+void
+Data::
+setup_fake_test(int nusers)
+{
+    /* Problems:
+       1.  We shouldn't allow a repo to lose all of its watchers.  Currently,
+           that can happen which makes it rather difficult.
+    */
+
+    // First, go through and select the users
+    vector<int> candidate_users;
+    candidate_users.reserve(users.size());
+    for (unsigned i = 0;  i < users.size();  ++i) {
+        // To be a candidate, a user must:
+        // a) not be incomplete
+        // b) have more than one watched repository
+
+        const User & user = users[i];
+        if (user.incomplete) continue;
+        if (user.watching.size() < 2) continue;
+
+        candidate_users.push_back(i);
+    }
+
+    if (candidate_users.size() <= nusers)
+        throw Exception("tried to fake test on too many users");
+
+    // Re-order randomly
+    std::random_shuffle(candidate_users.begin(),
+                        candidate_users.end());
+    
+    // Select the first N
+    candidate_users.erase(candidate_users.begin() + nusers,
+                          candidate_users.end());
+
+    std::sort(candidate_users.begin(), candidate_users.end());
+    
+    answers.resize(nusers);
+    users_to_test = candidate_users;
+
+    int badly_removed = 0;
+
+    // Modify the users, one by one
+    for (unsigned i = 0;  i < candidate_users.size();  ++i) {
+        int user_id = candidate_users[i];
+        User & user = users[user_id];
+
+        user.incomplete = true;
+
+        // Select a repo to remove
+        vector<int> all_watched(user.watching.begin(),
+                                user.watching.end());
+
+        std::random_shuffle(all_watched.begin(),
+                            all_watched.end());
+
+        bool found = false;
+
+        for (unsigned j = 0; j < all_watched.size() && !found;  ++j) {
+            int repo_id = all_watched[j];
+            Repo & repo = repos[repo_id];
+
+            // Don't remove if only one watcher, unless it's the last one in
+            // which case we have to remove something...
+            if (repo.watchers.size() < 2 && j != all_watched.size() - 1)
+                continue;
+
+            if (repo.watchers.size() < 2) ++badly_removed;
+
+            repo.watchers.erase(user_id);
+            user.watching.erase(repo_id);
+
+            answers[i] = repo_id;
+            found = true;
+        }
+    }
+
+    cerr << "created test with " << nusers << " users but "
+         << badly_removed << " badly removed" << endl;
+
+    // Re-calculate derived data structures
+    calc_popularity();
+}
+
+set<int>
+Data::
+get_most_popular_repos(int n) const
+{
+    if (n > repos.size())
+        throw Exception("get_most_popular_repos: too many requested");
+
+    set<int> top_n;
+
+    for (int i = 0;  i < n;  ++i) {
+        int repo_id = num_watchers[i].first;
+        top_n.insert(repo_id);
+    }
+
+    return top_n;
 }
 
 template<class Iterator>

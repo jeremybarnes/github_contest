@@ -9,8 +9,14 @@
 
 #include <fstream>
 #include <iterator>
+#include <iostream>
+
+#include "arch/exception.h"
+#include "utils/string_functions.h"
+
 
 using namespace std;
+using namespace ML;
 
 template<typename X>
 std::ostream & operator << (std::ostream & stream, const std::set<X> & s)
@@ -45,18 +51,21 @@ void rank_and_add(const set<int> & to_add,
 
 int main(int argc, char ** argv)
 {
+    // Do we perform a fake test (where we test different users than the ones
+    // from the real test) but it works locally.
+    bool fake_test = false;
+
     // Load up the data
     Data data;
     data.load();
 
-    ofstream out("results.txt");
+    if (fake_test)
+        data.setup_fake_test();
 
-    // Get the top 10 watched repos for the final fallback
-    set<int> top_ten;
-    for (int i = 0;  i < 10;  ++i) {
-        int repo_id = data.num_watchers[i].first;
-        top_ten.insert(repo_id);
-    }
+    set<int> top_ten = data.get_most_popular_repos(10);
+
+    vector<set<int> > results;
+    results.reserve(data.users_to_test.size());
 
     for (unsigned i = 0;  i < data.users_to_test.size();  ++i) {
 
@@ -124,15 +133,47 @@ int main(int argc, char ** argv)
         // Finally: by popularity
         rank_and_add(top_ten, user_results, user, data);
 
+        results.push_back(user_results);
+    }
+
+    if (results.size() != data.users_to_test.size())
+        throw Exception("wrong number of results");
+
+
+    if (fake_test) {
+        // We now perform the evaluation
+        size_t correct = 0;
+        for (unsigned i = 0;  i < results.size();  ++i)
+            correct += results[i].count(data.answers[i]);
+
+        cerr << format("fake test results: correct %d/%d = %6.2f%%",
+                       correct, results.size(),
+                       100.0 * correct / results.size());
+
+        // don't write results
+        return 0;
+    }
+
+
+    // Write out results file
+    ofstream out("results.txt");
+
+    for (unsigned i = 0;  i < data.users_to_test.size();  ++i) {
+
+        int user_id = data.users_to_test[i];
+
+        const set<int> & user_results = results[i];
 
         // Write to results file
         out << user_id << ":";
         int j = 0;
+
         for (set<int>::const_iterator
                  it = user_results.begin(),
                  end = user_results.end();
              it != end;  ++it, ++j) {
             out << *it;
+
             if (j != user_results.size() - 1)
                 out << ',';
         }

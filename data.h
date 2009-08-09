@@ -25,6 +25,7 @@ struct Repo {
     std::map<int, size_t> languages;
     size_t total_loc;
     std::set<int> watchers;
+    int popularity_rank;
 };
 
 struct Language {
@@ -72,8 +73,25 @@ struct Data {
 
     std::vector<int> users_to_test;
 
+    /// Answers, for when running a fake test
+    std::vector<int> answers;
+
+    void calc_popularity();
+
     std::vector<int>
     rank_repos_by_popularity(const std::set<int> & repos) const;
+
+    std::set<int> get_most_popular_repos(int n = 10) const;
+    
+
+    /* Fake testing */
+
+    /** Setup a different test, where we use different users than the ones
+        in the testing file, and perform a real scoring process. */
+    void setup_fake_test(int nusers = 4788);
+
+    /** Score the fake test */
+    void score_fake_test(const std::vector<std::set<int> > & results) const;
 
 private:
     template<class Iterator>
