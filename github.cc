@@ -14,6 +14,12 @@
 #include "arch/exception.h"
 #include "utils/string_functions.h"
 
+#include "boost/program_options/cmdline.hpp"
+#include "boost/program_options/options_description.hpp"
+#include "boost/program_options/positional_options.hpp"
+#include "boost/program_options/parsers.hpp"
+#include "boost/program_options/variables_map.hpp"
+
 
 using namespace std;
 using namespace ML;
@@ -54,6 +60,38 @@ int main(int argc, char ** argv)
     // Do we perform a fake test (where we test different users than the ones
     // from the real test) but it works locally.
     bool fake_test = false;
+
+
+    {
+        using namespace boost::program_options;
+
+        options_description options("Options");
+        options.add_options()
+            ("fake-test,f", value<bool>(&fake_test)->zero_tokens(),
+             "run a fake local test instead of generating real results");
+
+        //positional_options_description p;
+        //p.add("dataset", -1);
+
+        options_description all_opt;
+        all_opt
+            .add(options);
+        all_opt.add_options()
+            ("help,h", "print this message");
+        
+        variables_map vm;
+        store(command_line_parser(argc, argv)
+              .options(all_opt)
+              //.positional(p)
+              .run(),
+              vm);
+        notify(vm);
+
+        if (vm.count("help")) {
+            cout << all_opt << endl;
+            return 1;
+        }
+    }
 
     // Load up the data
     Data data;
@@ -113,6 +151,7 @@ int main(int argc, char ** argv)
         }
 
         // Now generate the results
+
         rank_and_add(parents_of_watched, user_results, user, data);
 
         // Next: watched authors
@@ -143,12 +182,16 @@ int main(int argc, char ** argv)
     if (fake_test) {
         // We now perform the evaluation
         size_t correct = 0;
-        for (unsigned i = 0;  i < results.size();  ++i)
+        for (unsigned i = 0;  i < results.size();  ++i) {
+            if (results[i].size() > 10)
+                throw Exception("invalid result");
             correct += results[i].count(data.answers[i]);
+        }
 
         cerr << format("fake test results: correct %d/%d = %6.2f%%",
                        correct, results.size(),
-                       100.0 * correct / results.size());
+                       100.0 * correct / results.size())
+             << endl;
 
         // don't write results
         return 0;
