@@ -103,7 +103,9 @@ int main(int argc, char ** argv)
     set<int> top_ten = data.get_most_popular_repos(10);
 
     vector<set<int> > results;
+    vector<set<int> > result_possible_choices;
     results.reserve(data.users_to_test.size());
+    result_possible_choices.reserve(data.users_to_test.size());
 
     for (unsigned i = 0;  i < data.users_to_test.size();  ++i) {
 
@@ -111,6 +113,7 @@ int main(int argc, char ** argv)
         const User & user = data.users[user_id];
 
         set<int> user_results;
+        set<int> possible_choices;
 
         /* Like everyone else, see which parents and ancestors weren't
            watched */
@@ -150,11 +153,7 @@ int main(int argc, char ** argv)
             ancestors_of_watched.erase(*it);
         }
 
-        // Now generate the results
-
-        rank_and_add(parents_of_watched, user_results, user, data);
-
-        // Next: watched authors
+        // Find all other repos by authors of watched repos
         set<int> repos_by_watched_authors;
         for (set<int>::const_iterator
                  it = authors_of_watched_repos.begin(),
@@ -164,6 +163,19 @@ int main(int argc, char ** argv)
                 .insert(data.authors[*it].repositories.begin(),
                         data.authors[*it].repositories.end());
 
+
+        possible_choices.insert(parents_of_watched.begin(),
+                                parents_of_watched.end());
+        possible_choices.insert(ancestors_of_watched.begin(),
+                                ancestors_of_watched.end());
+        possible_choices.insert(repos_by_watched_authors.begin(),
+                                repos_by_watched_authors.end());
+
+        // Now generate the results
+
+        rank_and_add(parents_of_watched, user_results, user, data);
+
+        // Next: watched authors
         rank_and_add(repos_by_watched_authors, user_results, user, data);
 
         // Next: ancestors (more distant than parents)
@@ -173,6 +185,7 @@ int main(int argc, char ** argv)
         rank_and_add(top_ten, user_results, user, data);
 
         results.push_back(user_results);
+        result_possible_choices.push_back(possible_choices);
     }
 
     if (results.size() != data.users_to_test.size())
@@ -182,15 +195,49 @@ int main(int argc, char ** argv)
     if (fake_test) {
         // We now perform the evaluation
         size_t correct = 0;
+        size_t in_set = 0;
+        size_t not_enough = 0, is_enough = 0;
+        size_t total_not_enough = 0, total_is_enough = 0;
+        size_t not_enough_correct = 0, not_enough_incorrect = 0;
+        size_t is_enough_correct = 0, is_enough_incorrect = 0;
+
         for (unsigned i = 0;  i < results.size();  ++i) {
             if (results[i].size() > 10)
                 throw Exception("invalid result");
             correct += results[i].count(data.answers[i]);
+            in_set += result_possible_choices[i].count(data.answers[i]);
+            if (result_possible_choices[i].size() < 10) {
+                ++not_enough;
+                total_not_enough += result_possible_choices[i].size();
+
+                if (result_possible_choices[i].count(data.answers[i]))
+                    ++not_enough_correct;
+                else ++not_enough_incorrect;
+            }
+            else {
+                ++is_enough;
+                total_is_enough += result_possible_choices[i].size();
+                if (result_possible_choices[i].count(data.answers[i]))
+                    ++is_enough_correct;
+                else ++is_enough_incorrect;
+            }
         }
 
-        cerr << format("fake test results: correct %d/%d = %6.2f%%",
+        cerr << format("fake test results: \n"
+                       "     correct     %6zd/%6zd = %6.2f%%\n",
                        correct, results.size(),
                        100.0 * correct / results.size())
+             << format("     possible    %6zd/%6zd = %6.2f%%\n",
+                       in_set, results.size(),
+                       100.0 * in_set / results.size())
+             << format("     enough:     %6zd/%6zd = %6.2f%% avg num %5.1f\n",
+                       is_enough_correct, is_enough,
+                       100.0 * is_enough_correct / is_enough,
+                       total_is_enough * 1.0 / is_enough)
+             << format("     not enough: %6zd/%6zd = %6.2f%% avg num %5.1f\n",
+                       not_enough_correct, not_enough,
+                       100.0 * not_enough_correct / not_enough,
+                       total_not_enough * 1.0 / not_enough)
              << endl;
 
         // don't write results
