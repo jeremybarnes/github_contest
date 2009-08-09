@@ -77,6 +77,9 @@ struct Data {
 
     std::vector<std::pair<int, int> > num_watchers;
 
+    std::map<std::string, std::vector<int> > repo_name_to_repos;
+
+
     std::vector<int> users_to_test;
 
     /// Answers, for when running a fake test

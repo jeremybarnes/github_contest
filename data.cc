@@ -67,13 +67,13 @@ void Data::load()
             throw Exception("invalid repo number " + ostream_format(repo.id));
         
         repos[repo.id] = repo;
+        repo_name_to_repos[repo.name].push_back(repo.id);
     }
 
 
     languages.reserve(1000);
 
     /* Expand all parents */
-    cerr << "expanding parents..." << endl;
     bool need_another = true;
     int depth;
 
@@ -103,14 +103,14 @@ void Data::load()
             repo.all_ancestors.insert(repo.ancestors.begin(),
                                       repo.ancestors.end());
 
+#if 0
             if (depth > 1)
                 cerr << "repo " << repo.id << " " << repo.name
                      << " has ancestors "
                      << repo.ancestors << endl;
+#endif
         }
     }
-
-    cerr << "max parent depth was " << depth << endl;
 
 
     Parse_Context lang_file("download/lang.txt");
@@ -149,8 +149,6 @@ void Data::load()
             lang_file.expect_literal(',');
         }
     }
-
-    cerr << "total of " << languages.size() << " languages" << endl;
 
     Parse_Context data_file("download/data.txt");
 

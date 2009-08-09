@@ -120,6 +120,7 @@ int main(int argc, char ** argv)
         set<int> parents_of_watched;
         set<int> ancestors_of_watched;
         set<int> authors_of_watched_repos;
+        set<int> repos_with_same_name;
 
         for (set<int>::const_iterator
                  it = user.watching.begin(),
@@ -136,6 +137,13 @@ int main(int argc, char ** argv)
             parents_of_watched.insert(watched.parent);
             ancestors_of_watched.insert(watched.ancestors.begin(),
                                         watched.ancestors.end());
+
+            // Find repos with the same name
+            const vector<int> & with_same_name
+                = data.repo_name_to_repos[watched.name];
+            repos_with_same_name.insert(with_same_name.begin(),
+                                        with_same_name.end());
+            repos_with_same_name.erase(watched_id);
         }
 
         // Make them exclusive
@@ -170,6 +178,8 @@ int main(int argc, char ** argv)
                                 ancestors_of_watched.end());
         possible_choices.insert(repos_by_watched_authors.begin(),
                                 repos_by_watched_authors.end());
+        possible_choices.insert(repos_with_same_name.begin(),
+                                repos_with_same_name.end());
 
         // Now generate the results
 
@@ -180,6 +190,9 @@ int main(int argc, char ** argv)
 
         // Next: ancestors (more distant than parents)
         rank_and_add(ancestors_of_watched, user_results, user, data);
+
+        // Next: those with same name
+        rank_and_add(repos_with_same_name, user_results, user, data);
 
         // Finally: by popularity
         rank_and_add(top_ten, user_results, user, data);
