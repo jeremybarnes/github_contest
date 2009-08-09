@@ -38,7 +38,7 @@ LIBBOOSTING_TOOLS_LINK :=       boosting
 
 $(eval $(call add_sources,exception_hook.cc))
 
-$(eval $(call program,github,utils ACE boost_program_options-mt boost_regex-mt db arch,github.cc exception_hook.cc,tools))
+$(eval $(call program,github,utils ACE boost_program_options-mt boost_regex-mt db arch,github.cc exception_hook.cc data.cc,tools))
 
 
 
