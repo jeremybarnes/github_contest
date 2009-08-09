@@ -21,27 +21,42 @@ std::ostream & operator << (std::ostream & stream, const std::set<X> & s)
     return stream << "}";
 }
 
+/** Add the given set of results to the user results, ranking before doing so */
+void rank_and_add(const set<int> & to_add,
+                  set<int> & user_results,
+                  const User & user,
+                  const Data & data)
+{
+    if (user_results.size() >= 10) return;
+
+    vector<int> ranked
+            = data.rank_repos_by_popularity(to_add);
+    
+    // First: parents of watched repos
+    for (vector<int>::const_iterator
+             it = ranked.begin(),
+             end = ranked.end();
+         it != end && user_results.size() < 10;  ++it) {
+        int repo_id = *it;
+        if (user.watching.count(repo_id)) continue;
+        user_results.insert(repo_id);
+    }
+}
 
 int main(int argc, char ** argv)
 {
+    // Load up the data
     Data data;
     data.load();
 
-    // Load up the repos
-
-#if 0
-    for (unsigned i = 0;  i < data.users_to_test.size();  ++i) {
-        int user_id = data.users_to_test[i];
-        
-        cerr << "user " << user_id << " is watching "
-             << users[user_id].watching.size() << " repositories"
-             << ": " << users[user_id].watching
-             << endl;
-    }
-#endif
-
-
     ofstream out("results.txt");
+
+    // Get the top 10 watched repos for the final fallback
+    set<int> top_ten;
+    for (int i = 0;  i < 10;  ++i) {
+        int repo_id = data.num_watchers[i].first;
+        top_ten.insert(repo_id);
+    }
 
     for (unsigned i = 0;  i < data.users_to_test.size();  ++i) {
 
@@ -89,19 +104,7 @@ int main(int argc, char ** argv)
         }
 
         // Now generate the results
-
-        vector<int> ranked_parents
-            = data.rank_repos_by_popularity(parents_of_watched);
-
-        // First: parents of watched repos
-        for (vector<int>::const_iterator
-                 it = ranked_parents.begin(),
-                 end = ranked_parents.end();
-             it != end && user_results.size() < 10;  ++it) {
-            int repo_id = *it;
-            if (user.watching.count(repo_id)) continue;
-            user_results.insert(repo_id);
-        }
+        rank_and_add(parents_of_watched, user_results, user, data);
 
         // Next: watched authors
         set<int> repos_by_watched_authors;
@@ -112,42 +115,17 @@ int main(int argc, char ** argv)
             repos_by_watched_authors
                 .insert(data.authors[*it].repositories.begin(),
                         data.authors[*it].repositories.end());
-        
-        vector<int> ranked_by_watched
-            = data.rank_repos_by_popularity(repos_by_watched_authors);
 
-        for (vector<int>::const_iterator
-                 it = ranked_by_watched.begin(),
-                 end = ranked_by_watched.end();
-             it != end && user_results.size() < 10;  ++it) {
-            int repo_id = *it;
-            if (user.watching.count(repo_id)) continue;
-            user_results.insert(repo_id);
-        }
+        rank_and_add(repos_by_watched_authors, user_results, user, data);
 
-        vector<int> ranked_ancestors
-            = data.rank_repos_by_popularity(ancestors_of_watched);
+        // Next: ancestors (more distant than parents)
+        rank_and_add(ancestors_of_watched, user_results, user, data);
 
-        // Second: ancestors of watched repos
-        for (vector<int>::const_iterator
-                 it = ranked_ancestors.begin(),
-                 end = ranked_ancestors.end();
-             it != end && user_results.size() < 10;  ++it) {
-            int repo_id = *it;
-            if (user.watching.count(repo_id)) continue;
-            user_results.insert(repo_id);
-        }
+        // Finally: by popularity
+        rank_and_add(top_ten, user_results, user, data);
 
-        // Third: by popularity
-        for (int i = 0;  user_results.size() < 10;  ++i) {
-            int repo_id = data.num_watchers[i].first;
 
-            // Don't add one already watched
-            if (user.watching.count(repo_id)) continue;
-            
-            user_results.insert(repo_id);
-        }
-
+        // Write to results file
         out << user_id << ":";
         int j = 0;
         for (set<int>::const_iterator
