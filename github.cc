@@ -198,8 +198,8 @@ int main(int argc, char ** argv)
         size_t in_set = 0;
         size_t not_enough = 0, is_enough = 0;
         size_t total_not_enough = 0, total_is_enough = 0;
-        size_t not_enough_correct = 0, not_enough_incorrect = 0;
-        size_t is_enough_correct = 0, is_enough_incorrect = 0;
+        size_t not_enough_correct = 0, is_enough_correct = 0;
+        size_t not_enough_in_set = 0, is_enough_in_set = 0;
 
         for (unsigned i = 0;  i < results.size();  ++i) {
             if (results[i].size() > 10)
@@ -210,33 +210,37 @@ int main(int argc, char ** argv)
                 ++not_enough;
                 total_not_enough += result_possible_choices[i].size();
 
-                if (result_possible_choices[i].count(data.answers[i]))
-                    ++not_enough_correct;
-                else ++not_enough_incorrect;
+                not_enough_correct += results[i].count(data.answers[i]);
+                not_enough_in_set += result_possible_choices[i].count(data.answers[i]);
             }
             else {
                 ++is_enough;
                 total_is_enough += result_possible_choices[i].size();
-                if (result_possible_choices[i].count(data.answers[i]))
-                    ++is_enough_correct;
-                else ++is_enough_incorrect;
+                is_enough_correct += results[i].count(data.answers[i]);
+                is_enough_in_set += result_possible_choices[i].count(data.answers[i]);
             }
         }
 
         cerr << format("fake test results: \n"
-                       "     correct     %6zd/%6zd = %6.2f%%\n",
+                       "     total:      real: %4zd/%4zd = %6.2f%%  "
+                       "poss: %4zd/%4zd = %6.2f%%\n",
                        correct, results.size(),
-                       100.0 * correct / results.size())
-             << format("     possible    %6zd/%6zd = %6.2f%%\n",
+                       100.0 * correct / results.size(),
                        in_set, results.size(),
                        100.0 * in_set / results.size())
-             << format("     enough:     %6zd/%6zd = %6.2f%% avg num %5.1f\n",
+             << format("     enough:     real: %4zd/%4zd = %6.2f%%  "
+                       "poss: %4zd/%4zd = %6.2f%%  avg num: %5.1f\n",
                        is_enough_correct, is_enough,
                        100.0 * is_enough_correct / is_enough,
+                       is_enough_in_set, is_enough,
+                       100.0 * is_enough_in_set / is_enough,
                        total_is_enough * 1.0 / is_enough)
-             << format("     not enough: %6zd/%6zd = %6.2f%% avg num %5.1f\n",
+             << format("     not enough: real: %4zd/%4zd = %6.2f%%  "
+                       "poss: %4zd/%4zd = %6.2f%%  avg num: %5.1f\n",
                        not_enough_correct, not_enough,
                        100.0 * not_enough_correct / not_enough,
+                       not_enough_in_set, not_enough,
+                       100.0 * not_enough_in_set / not_enough,
                        total_not_enough * 1.0 / not_enough)
              << endl;
 

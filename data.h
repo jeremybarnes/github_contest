@@ -14,6 +14,12 @@
 #include <string>
 
 struct Repo {
+    Repo()
+        : id(-1), author(-1), parent(-1), depth(-1), total_loc(0),
+          popularity_rank(-1)
+    {
+    }
+
     int id;
     int author;
     std::string name;

@@ -81,9 +81,15 @@ void Data::load()
         need_another = false;
         for (unsigned i = 0;  i < repos.size();  ++i) {
             Repo & repo = repos[i];
+            if (repo.id == -1) continue;  // invalid repo
             if (repo.depth != -1) continue;
-            if (repo.parent == -1)
+            if (repo.parent == -1) {
+                cerr << "repo id: " << i << endl;
+                cerr << "repo: " << repo.name << endl;
+                cerr << "depth: " << repo.depth << endl;
+                cerr << "mydepth: " << depth << endl;
                 throw Exception("logic error: parent invalid");
+            }
 
             Repo & parent = repos[repo.parent];
             if (parent.depth == -1) {
@@ -96,6 +102,11 @@ void Data::load()
             repo.ancestors.push_back(repo.parent);
             repo.all_ancestors.insert(repo.ancestors.begin(),
                                       repo.ancestors.end());
+
+            if (depth > 1)
+                cerr << "repo " << repo.id << " " << repo.name
+                     << " has ancestors "
+                     << repo.ancestors << endl;
         }
     }
 
@@ -242,23 +253,14 @@ setup_fake_test(int nusers)
     std::random_shuffle(candidate_users.begin(),
                         candidate_users.end());
     
-    // Select the first N
-    candidate_users.erase(candidate_users.begin() + nusers,
-                          candidate_users.end());
-
-    std::sort(candidate_users.begin(), candidate_users.end());
-    
-    answers.resize(nusers);
-    users_to_test = candidate_users;
-
-    int badly_removed = 0;
+    vector<pair<int, int> > accum;
 
     // Modify the users, one by one
-    for (unsigned i = 0;  i < candidate_users.size();  ++i) {
+    for (unsigned i = 0;
+         i < candidate_users.size() && accum.size() < nusers;
+         ++i) {
         int user_id = candidate_users[i];
         User & user = users[user_id];
-
-        user.incomplete = true;
 
         // Select a repo to remove
         vector<int> all_watched(user.watching.begin(),
@@ -267,29 +269,36 @@ setup_fake_test(int nusers)
         std::random_shuffle(all_watched.begin(),
                             all_watched.end());
 
-        bool found = false;
-
-        for (unsigned j = 0; j < all_watched.size() && !found;  ++j) {
+        for (unsigned j = 0; j < all_watched.size();  ++j) {
             int repo_id = all_watched[j];
             Repo & repo = repos[repo_id];
 
-            // Don't remove if only one watcher, unless it's the last one in
-            // which case we have to remove something...
-            if (repo.watchers.size() < 2 && j != all_watched.size() - 1)
+            // Don't remove if only one watcher
+            if (repo.watchers.size() < 2)
                 continue;
-
-            if (repo.watchers.size() < 2) ++badly_removed;
 
             repo.watchers.erase(user_id);
             user.watching.erase(repo_id);
+            user.incomplete = true;
 
-            answers[i] = repo_id;
-            found = true;
+            accum.push_back(make_pair(user_id, repo_id));
+            break;
         }
     }
 
-    cerr << "created test with " << nusers << " users but "
-         << badly_removed << " badly removed" << endl;
+    // Put them in user number order, in case that helps something...
+
+    std::sort(accum.begin(), accum.end());
+
+    answers.clear();
+    answers.insert(answers.end(),
+                   second_extractor(accum.begin()),
+                   second_extractor(accum.end()));
+
+    users_to_test.clear();
+    users_to_test.insert(users_to_test.end(),
+                         first_extractor(accum.begin()),
+                         first_extractor(accum.end()));
 
     // Re-calculate derived data structures
     calc_popularity();
