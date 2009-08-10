@@ -19,7 +19,8 @@
 struct Repo {
     Repo()
         : id(-1), author(-1), parent(-1), depth(-1), total_loc(0),
-          popularity_rank(-1)
+          popularity_rank(-1),
+          repos_watched_by_watchers_initialized(false)
     {
     }
 
@@ -35,6 +36,9 @@ struct Repo {
     size_t total_loc;
     std::set<int> watchers;
     int popularity_rank;
+
+    mutable std::map<int, int> repos_watched_by_watchers;
+    mutable bool repos_watched_by_watchers_initialized;
 
     bool invalid() const { return id == -1; }
 };

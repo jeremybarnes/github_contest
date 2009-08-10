@@ -66,7 +66,42 @@ candidates(const Data & data, int user_id) const
         repos_with_same_name.insert(with_same_name.begin(),
                                     with_same_name.end());
         repos_with_same_name.erase(watched_id);
+
+#if 0
+        map<int, int> & repos_watched_by_watchers
+            = watched.repos_watched_by_watchers;
+
+        if (!watched.repos_watched_by_watchers_initialized) {
         
+            // Find those also watched by those that watched this one
+            for (set<int>::const_iterator
+                     jt = watched.watchers.begin(),
+                     jend = watched.watchers.end();
+                 jt != jend;  ++jt) {
+                int watcher_id = *jt;
+                
+                const User & watcher = data.users[watcher_id];
+                
+                for (set<int>::const_iterator
+                         kt = watcher.watching.begin(),
+                         kend = watcher.watching.end();
+                     kt != kend;  ++kt) {
+                    if (*kt == watched_id) continue;
+                    
+                    repos_watched_by_watchers[*kt] += 1;
+                }
+            }
+
+            watched.repos_watched_by_watchers_initialized = true;
+        }
+
+        for (map<int, int>::const_iterator
+                 jt = repos_watched_by_watchers.begin(),
+                 jend = repos_watched_by_watchers.end();
+             jt != jend;  ++jt) {
+            also_watched_by_people_who_watched[jt->first] += jt->second;
+        }
+#else
         // Find those also watched by those that watched this one
         for (set<int>::const_iterator
                  jt = watched.watchers.begin(),
@@ -82,10 +117,10 @@ candidates(const Data & data, int user_id) const
                      kend = watcher.watching.end();
                  kt != kend;  ++kt) {
                 if (*kt == watched_id) continue;
-                
                 also_watched_by_people_who_watched[*kt] += 1;
             }
         }
+#endif
     }
     
     // Make them exclusive
@@ -200,14 +235,15 @@ rank(const Data & data, int user_id,
             = (data.repos.size() - repo.popularity_rank)
             * 1.0 / data.repos.size();
 
-        score += c.parent_of_watched * 256;
-        score += c.by_author_of_watched_repo * 128;
-        score += c.ancestor_of_watched * 64;
-        score += c.same_name * 32;
-        score += c.also_watched_by_people_who_watched * 16;
+        score += c.parent_of_watched * 200;
+        score += c.by_author_of_watched_repo * 100;
+        //score += c.ancestor_of_watched * 10;
+        score += c.same_name * 20;
+        score += c.also_watched_by_people_who_watched * 5;
+        //score += c.also_watched_percentile * 5;
 
         // Add in a popularity score
-        score += popularity;
+        score += popularity * 20;
 
         result.push_back(make_pair(repo_id, score));
     }
