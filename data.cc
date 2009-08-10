@@ -51,7 +51,9 @@ void Data::load()
         repo_file.expect_literal('/');
         repo.name = repo_file.expect_text(',', false);
         repo_file.expect_literal(',');
-        repo.date = repo_file.expect_text("\n,", false);
+        string date_str = repo_file.expect_text("\n,", false);
+        repo.date = boost::gregorian::from_simple_string(date_str);
+
         if (repo_file.match_literal(',')) {
             repo.parent = repo_file.expect_int();
             repo.depth = -1;

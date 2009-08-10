@@ -13,6 +13,8 @@
 #include <vector>
 #include <string>
 
+#include <boost/date_time/gregorian/gregorian.hpp>
+
 
 struct Repo {
     Repo()
@@ -24,7 +26,7 @@ struct Repo {
     int id;
     int author;
     std::string name;
-    std::string date;
+    boost::gregorian::date date;
     int parent;
     int depth;
     std::vector<int> ancestors;
@@ -33,6 +35,8 @@ struct Repo {
     size_t total_loc;
     std::set<int> watchers;
     int popularity_rank;
+
+    bool invalid() const { return id == -1; }
 };
 
 struct Language {
@@ -56,6 +60,8 @@ struct User {
     /// Is there a watch missing from this user?  True for users being tested.
     /// In this case, we should be careful about using negative evidence.
     bool incomplete;
+
+    bool invalid() const { return id == -1; }
 };
 
 struct Author {
