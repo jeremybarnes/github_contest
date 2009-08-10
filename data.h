@@ -13,6 +13,7 @@
 #include <vector>
 #include <string>
 
+
 struct Repo {
     Repo()
         : id(-1), author(-1), parent(-1), depth(-1), total_loc(0),
@@ -97,7 +98,7 @@ struct Data {
 
     /** Setup a different test, where we use different users than the ones
         in the testing file, and perform a real scoring process. */
-    void setup_fake_test(int nusers = 4788);
+    void setup_fake_test(int nusers = 4788, int seed = 0);
 
     /** Score the fake test */
     void score_fake_test(const std::vector<std::set<int> > & results) const;

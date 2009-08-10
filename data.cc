@@ -222,8 +222,10 @@ calc_popularity()
 
 void
 Data::
-setup_fake_test(int nusers)
+setup_fake_test(int nusers, int seed)
 {
+    srand(seed);
+
     /* Problems:
        1.  We shouldn't allow a repo to lose all of its watchers.  Currently,
            that can happen which makes it rather difficult.

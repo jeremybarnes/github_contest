@@ -13,6 +13,8 @@
 
 #include "arch/exception.h"
 #include "utils/string_functions.h"
+#include "utils/pair_utils.h"
+#include "utils/vector_utils.h"
 
 #include "boost/program_options/cmdline.hpp"
 #include "boost/program_options/options_description.hpp"
@@ -50,6 +52,24 @@ void rank_and_add(const set<int> & to_add,
              end = ranked.end();
          it != end && user_results.size() < 10;  ++it) {
         int repo_id = *it;
+        if (user.watching.count(repo_id)) continue;
+        user_results.insert(repo_id);
+    }
+}
+
+void rank_and_add(const map<int, int> & to_add,
+                  set<int> & user_results,
+                  const User & user,
+                  const Data & data)
+{
+    if (user_results.size() >= 10) return;
+
+    vector<pair<int, int> > ranked(to_add.begin(), to_add.end());
+    sort_on_second_descending(ranked);
+
+    // First: parents of watched repos
+    for (unsigned i = 0;  i < ranked.size() && user_results.size() < 10;  ++i) {
+        int repo_id = ranked[i].first;
         if (user.watching.count(repo_id)) continue;
         user_results.insert(repo_id);
     }
@@ -121,7 +141,8 @@ int main(int argc, char ** argv)
         set<int> ancestors_of_watched;
         set<int> authors_of_watched_repos;
         set<int> repos_with_same_name;
-
+        map<int, int> also_watched_by_people_who_watched;
+        
         for (set<int>::const_iterator
                  it = user.watching.begin(),
                  end = user.watching.end();
@@ -144,6 +165,26 @@ int main(int argc, char ** argv)
             repos_with_same_name.insert(with_same_name.begin(),
                                         with_same_name.end());
             repos_with_same_name.erase(watched_id);
+
+            // Find those also watched by those that watched this one
+            for (set<int>::const_iterator
+                     jt = watched.watchers.begin(),
+                     jend = watched.watchers.end();
+                 jt != jend;  ++jt) {
+                int watcher_id = *jt;
+                if (watcher_id == user_id) continue;
+
+                const User & watcher = data.users[watcher_id];
+
+                for (set<int>::const_iterator
+                         kt = watcher.watching.begin(),
+                         kend = watcher.watching.end();
+                     kt != kend;  ++kt) {
+                    if (*kt == watched_id) continue;
+
+                    also_watched_by_people_who_watched[*kt] += 1;
+                }
+            }
         }
 
         // Make them exclusive
@@ -181,6 +222,9 @@ int main(int argc, char ** argv)
         possible_choices.insert(repos_with_same_name.begin(),
                                 repos_with_same_name.end());
 
+        possible_choices.insert(first_extractor(also_watched_by_people_who_watched.begin()),
+                                first_extractor(also_watched_by_people_who_watched.end()));
+
         // Now generate the results
 
         rank_and_add(parents_of_watched, user_results, user, data);
@@ -193,6 +237,10 @@ int main(int argc, char ** argv)
 
         // Next: those with same name
         rank_and_add(repos_with_same_name, user_results, user, data);
+
+        // Next: also watched by those who watched
+        rank_and_add(also_watched_by_people_who_watched, user_results, user,
+                     data);
 
         // Finally: by popularity
         rank_and_add(top_ten, user_results, user, data);
