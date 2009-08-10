@@ -26,9 +26,29 @@ Feel free to browse my code and take my ideas for your system, if ever they are 
 
 If ever you want to use my code, you can do so under the Affero GPL v3.  Note that getting it to work might be difficult; it relies on JML (Jeremy's Machine Learning Library) at http://bitbucket.org/jeremy_barnes/jml/.  This code needs to be downloaded and compiled and the jml symlink in the github repo set to point to it.  I build it on 32 and 64 bit Ubuntu 8.10/9.04 machines; anything else might be difficult.
 
-I'm currently looking for consulting contracts.
+I'm currently looking for consulting contracts.  I do pretty much any data mining, machine learning or early-stage technology stuff, but I'm particularly experienced in Natural Language Processing.
 
 You can contact me on <my firstname> at <my family name>+"o" .com.
 
 Jeremy Barnes
 8 August 2009
+
+==================
+
+Notes
+
+Before also watched:
+
+fake test results: 
+     total:      real: 2286/4788 =  47.74%  poss: 2679/4788 =  55.95%
+     enough:     real: 1397/3348 =  41.73%  poss: 1811/3348 =  54.09%  avg num: 300.9
+     not enough: real:  889/1440 =  61.74%  poss:  868/1440 =  60.28%  avg num:   3.7
+
+After also watched:
+
+fake test results: 
+     total:      real: 2289/4788 =  47.81%  poss: 3014/4788 =  62.95%
+     enough:     real: 1431/3383 =  42.30%  poss: 2177/3383 =  64.35%  avg num: 1481.3
+     not enough: real:  858/1405 =  61.07%  poss:  837/1405 =  59.57%  avg num:   3.7
+
+So we moved a lot from impossible to possible, but they didn't tend to be the highest ones.

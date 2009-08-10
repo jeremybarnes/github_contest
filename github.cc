@@ -6,6 +6,7 @@
 */
 
 #include "data.h"
+#include "ranker.h"
 
 #include <fstream>
 #include <iterator>
@@ -26,61 +27,14 @@
 using namespace std;
 using namespace ML;
 
-template<typename X>
-std::ostream & operator << (std::ostream & stream, const std::set<X> & s)
-{
-    stream << "{ ";
-    std::copy(s.begin(), s.end(),
-              std::ostream_iterator<X>(stream, " "));
-    return stream << "}";
-}
-
-/** Add the given set of results to the user results, ranking before doing so */
-void rank_and_add(const set<int> & to_add,
-                  set<int> & user_results,
-                  const User & user,
-                  const Data & data)
-{
-    if (user_results.size() >= 10) return;
-
-    vector<int> ranked
-            = data.rank_repos_by_popularity(to_add);
-    
-    // First: parents of watched repos
-    for (vector<int>::const_iterator
-             it = ranked.begin(),
-             end = ranked.end();
-         it != end && user_results.size() < 10;  ++it) {
-        int repo_id = *it;
-        if (user.watching.count(repo_id)) continue;
-        user_results.insert(repo_id);
-    }
-}
-
-void rank_and_add(const map<int, int> & to_add,
-                  set<int> & user_results,
-                  const User & user,
-                  const Data & data)
-{
-    if (user_results.size() >= 10) return;
-
-    vector<pair<int, int> > ranked(to_add.begin(), to_add.end());
-    sort_on_second_descending(ranked);
-
-    // First: parents of watched repos
-    for (unsigned i = 0;  i < ranked.size() && user_results.size() < 10;  ++i) {
-        int repo_id = ranked[i].first;
-        if (user.watching.count(repo_id)) continue;
-        user_results.insert(repo_id);
-    }
-}
-
 int main(int argc, char ** argv)
 {
     // Do we perform a fake test (where we test different users than the ones
     // from the real test) but it works locally.
     bool fake_test = false;
 
+    // Dump the data to train a merger classifier?
+    bool dump_merger_data = false;
 
     {
         using namespace boost::program_options;
@@ -88,7 +42,9 @@ int main(int argc, char ** argv)
         options_description options("Options");
         options.add_options()
             ("fake-test,f", value<bool>(&fake_test)->zero_tokens(),
-             "run a fake local test instead of generating real results");
+             "run a fake local test instead of generating real results")
+            ("dump-merger-data", value<bool>(&dump_merger_data)->zero_tokens(),
+             "dump data to train a merger classifier");
 
         //positional_options_description p;
         //p.add("dataset", -1);
@@ -117,133 +73,38 @@ int main(int argc, char ** argv)
     Data data;
     data.load();
 
-    if (fake_test)
+    if (fake_test || dump_merger_data)
         data.setup_fake_test();
-
-    set<int> top_ten = data.get_most_popular_repos(10);
 
     vector<set<int> > results;
     vector<set<int> > result_possible_choices;
     results.reserve(data.users_to_test.size());
     result_possible_choices.reserve(data.users_to_test.size());
 
+    Candidate_Generator generator;
+    Ranker ranker;
+
     for (unsigned i = 0;  i < data.users_to_test.size();  ++i) {
 
         int user_id = data.users_to_test[i];
-        const User & user = data.users[user_id];
 
-        set<int> user_results;
+        vector<Candidate> candidates = generator.candidates(data, user_id);
+
         set<int> possible_choices;
+        for (unsigned j = 0;  j < candidates.size();  ++j)
+            possible_choices.insert(candidates[j].repo_id);
 
-        /* Like everyone else, see which parents and ancestors weren't
-           watched */
-        set<int> parents_of_watched;
-        set<int> ancestors_of_watched;
-        set<int> authors_of_watched_repos;
-        set<int> repos_with_same_name;
-        map<int, int> also_watched_by_people_who_watched;
-        
-        for (set<int>::const_iterator
-                 it = user.watching.begin(),
-                 end = user.watching.end();
-             it != end;  ++it) {
-            int watched_id = *it;
-            const Repo & watched = data.repos[watched_id];
+        Ranked ranked = ranker.rank(data, user_id, candidates);
 
-            if (watched.author != -1)
-                authors_of_watched_repos.insert(watched.author);
+        // Convert to other format
+        sort_on_second_descending(ranked);
 
-            if (watched.parent == -1) continue;
+        int nres = std::min<int>(10, ranked.size());
 
-            parents_of_watched.insert(watched.parent);
-            ancestors_of_watched.insert(watched.ancestors.begin(),
-                                        watched.ancestors.end());
-
-            // Find repos with the same name
-            const vector<int> & with_same_name
-                = data.repo_name_to_repos[watched.name];
-            repos_with_same_name.insert(with_same_name.begin(),
-                                        with_same_name.end());
-            repos_with_same_name.erase(watched_id);
-
-            // Find those also watched by those that watched this one
-            for (set<int>::const_iterator
-                     jt = watched.watchers.begin(),
-                     jend = watched.watchers.end();
-                 jt != jend;  ++jt) {
-                int watcher_id = *jt;
-                if (watcher_id == user_id) continue;
-
-                const User & watcher = data.users[watcher_id];
-
-                for (set<int>::const_iterator
-                         kt = watcher.watching.begin(),
-                         kend = watcher.watching.end();
-                     kt != kend;  ++kt) {
-                    if (*kt == watched_id) continue;
-
-                    also_watched_by_people_who_watched[*kt] += 1;
-                }
-            }
-        }
-
-        // Make them exclusive
-        for (set<int>::const_iterator
-                 it = parents_of_watched.begin(),
-                 end = parents_of_watched.end();
-             it != end;  ++it)
-            ancestors_of_watched.erase(*it);
-
-        for (set<int>::const_iterator
-                 it = user.watching.begin(),
-                 end = user.watching.end();
-             it != end;  ++it) {
-            parents_of_watched.erase(*it);
-            ancestors_of_watched.erase(*it);
-        }
-
-        // Find all other repos by authors of watched repos
-        set<int> repos_by_watched_authors;
-        for (set<int>::const_iterator
-                 it = authors_of_watched_repos.begin(),
-                 end = authors_of_watched_repos.end();
-             it != end;  ++it)
-            repos_by_watched_authors
-                .insert(data.authors[*it].repositories.begin(),
-                        data.authors[*it].repositories.end());
-
-
-        possible_choices.insert(parents_of_watched.begin(),
-                                parents_of_watched.end());
-        possible_choices.insert(ancestors_of_watched.begin(),
-                                ancestors_of_watched.end());
-        possible_choices.insert(repos_by_watched_authors.begin(),
-                                repos_by_watched_authors.end());
-        possible_choices.insert(repos_with_same_name.begin(),
-                                repos_with_same_name.end());
-
-        possible_choices.insert(first_extractor(also_watched_by_people_who_watched.begin()),
-                                first_extractor(also_watched_by_people_who_watched.end()));
+        set<int> user_results(first_extractor(ranked.begin()),
+                              first_extractor(ranked.begin() + nres));
 
         // Now generate the results
-
-        rank_and_add(parents_of_watched, user_results, user, data);
-
-        // Next: watched authors
-        rank_and_add(repos_by_watched_authors, user_results, user, data);
-
-        // Next: ancestors (more distant than parents)
-        rank_and_add(ancestors_of_watched, user_results, user, data);
-
-        // Next: those with same name
-        rank_and_add(repos_with_same_name, user_results, user, data);
-
-        // Next: also watched by those who watched
-        rank_and_add(also_watched_by_people_who_watched, user_results, user,
-                     data);
-
-        // Finally: by popularity
-        rank_and_add(top_ten, user_results, user, data);
 
         results.push_back(user_results);
         result_possible_choices.push_back(possible_choices);
