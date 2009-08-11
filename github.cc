@@ -16,6 +16,7 @@
 #include "utils/string_functions.h"
 #include "utils/pair_utils.h"
 #include "utils/vector_utils.h"
+#include "utils/filter_streams.h"
 
 #include "boost/program_options/cmdline.hpp"
 #include "boost/program_options/options_description.hpp"
@@ -33,6 +34,9 @@ int main(int argc, char ** argv)
     // from the real test) but it works locally.
     bool fake_test = false;
 
+    // Filename to dump output data to
+    string output_file;
+
     // Dump the data to train a merger classifier?
     bool dump_merger_data = false;
 
@@ -44,7 +48,10 @@ int main(int argc, char ** argv)
             ("fake-test,f", value<bool>(&fake_test)->zero_tokens(),
              "run a fake local test instead of generating real results")
             ("dump-merger-data", value<bool>(&dump_merger_data)->zero_tokens(),
-             "dump data to train a merger classifier");
+             "dump data to train a merger classifier")
+            ("output-file,o",
+             value<string>(&output_file)->default_value("results.txt"),
+             "dump an output file to the given filename");
 
         //positional_options_description p;
         //p.add("dataset", -1);
@@ -167,32 +174,33 @@ int main(int argc, char ** argv)
              << endl;
 
         // don't write results
-        return 0;
     }
 
 
-    // Write out results file
-    ofstream out("results.txt");
+    if (output_file != "") {
+        // Write out results file
+        filter_ostream out(output_file);
 
-    for (unsigned i = 0;  i < data.users_to_test.size();  ++i) {
+        for (unsigned i = 0;  i < data.users_to_test.size();  ++i) {
 
-        int user_id = data.users_to_test[i];
+            int user_id = data.users_to_test[i];
 
-        const set<int> & user_results = results[i];
+            const set<int> & user_results = results[i];
 
-        // Write to results file
-        out << user_id << ":";
-        int j = 0;
+            // Write to results file
+            out << user_id << ":";
+            int j = 0;
 
-        for (set<int>::const_iterator
-                 it = user_results.begin(),
-                 end = user_results.end();
-             it != end;  ++it, ++j) {
-            out << *it;
+            for (set<int>::const_iterator
+                     it = user_results.begin(),
+                     end = user_results.end();
+                 it != end;  ++it, ++j) {
+                out << *it;
 
-            if (j != user_results.size() - 1)
-                out << ',';
+                if (j != user_results.size() - 1)
+                    out << ',';
+            }
+            out << endl;
         }
-        out << endl;
     }
 }
