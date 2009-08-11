@@ -1,3 +1,14 @@
 # -*- Awk -*-
 # Configuration entry for Jeremy's GitHub entry
 # Jeremy Barnes, 11 August 2009
+
+default_generator=generator
+default_ranker=ranker
+
+generator {
+    type=basic
+}
+
+ranker {
+    type=basic
+}

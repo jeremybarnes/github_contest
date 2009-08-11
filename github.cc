@@ -19,11 +19,12 @@
 #include "utils/filter_streams.h"
 #include "utils/configuration.h"
 
-#include "boost/program_options/cmdline.hpp"
-#include "boost/program_options/options_description.hpp"
-#include "boost/program_options/positional_options.hpp"
-#include "boost/program_options/parsers.hpp"
-#include "boost/program_options/variables_map.hpp"
+#include <boost/program_options/cmdline.hpp>
+#include <boost/program_options/options_description.hpp>
+#include <boost/program_options/positional_options.hpp>
+#include <boost/program_options/parsers.hpp>
+#include <boost/program_options/variables_map.hpp>
+#include <boost/progress.hpp>
 
 #include "boosting/feature_space.h"
 
@@ -50,10 +51,10 @@ int main(int argc, char ** argv)
     string config_file = "config.txt";
 
     // Candidate generator to use
-    string generator_name = "@generator";
+    string generator_name = "@default_generator";
 
     // Ranker to use
-    string ranker_name = "@ranker";
+    string ranker_name = "@default_ranker";
 
     // Extra configuration options
     vector<string> extra_config_options;
@@ -119,8 +120,10 @@ int main(int argc, char ** argv)
     config.parse_command_line(extra_config_options);
 
     // Load up the data
+    cerr << "loading data...";
     Data data;
     data.load();
+    cerr << " done." << endl;
 
     if (fake_test || dump_merger_data)
         data.setup_fake_test();
@@ -154,7 +157,13 @@ int main(int argc, char ** argv)
         
     }
 
-    for (unsigned i = 0;  i < data.users_to_test.size();  ++i) {
+    cerr << "processing " << data.users_to_test.size() << " users..."
+         << endl;
+    
+    boost::progress_display progress(data.users_to_test.size(),
+                                     cerr);
+
+    for (unsigned i = 0;  i < data.users_to_test.size();  ++i, ++progress) {
 
         int user_id = data.users_to_test[i];
 
@@ -186,8 +195,12 @@ int main(int argc, char ** argv)
     if (results.size() != data.users_to_test.size())
         throw Exception("wrong number of results");
 
+    cerr << "done" << endl << endl;
+
 
     if (fake_test) {
+        cerr << "calculating test result...";
+
         // We now perform the evaluation
         size_t correct = 0;
         size_t in_set = 0;
@@ -215,6 +228,8 @@ int main(int argc, char ** argv)
                 is_enough_in_set += result_possible_choices[i].count(data.answers[i]);
             }
         }
+
+        cerr << " done." << endl;
 
         cerr << format("fake test results: \n"
                        "     total:      real: %4zd/%4zd = %6.2f%%  "
@@ -245,6 +260,8 @@ int main(int argc, char ** argv)
 
     if (dump_results) {
 
+        cerr << "dumping results...";
+
         for (unsigned i = 0;  i < data.users_to_test.size();  ++i) {
 
             int user_id = data.users_to_test[i];
@@ -266,5 +283,7 @@ int main(int argc, char ** argv)
             }
             out << endl;
         }
+
+        cerr << "done." << endl;
     }
 }

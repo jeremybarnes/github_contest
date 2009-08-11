@@ -303,6 +303,7 @@ get_candidate_generator(const Configuration & config,
                         const std::string & name)
 {
     boost::shared_ptr<Candidate_Generator> result;
+    result.reset(new Candidate_Generator());
     result->configure(config, name);
     result->init();
     return result;
@@ -314,6 +315,7 @@ get_ranker(const Configuration & config,
            boost::shared_ptr<Candidate_Generator> generator)
 {
     boost::shared_ptr<Ranker> result;
+    result.reset(new Ranker());
     result->configure(config, name);
     result->init(generator);
     return result;
