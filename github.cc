@@ -17,6 +17,7 @@
 #include "utils/pair_utils.h"
 #include "utils/vector_utils.h"
 #include "utils/filter_streams.h"
+#include "utils/configuration.h"
 
 #include "boost/program_options/cmdline.hpp"
 #include "boost/program_options/options_description.hpp"
@@ -34,38 +35,70 @@ int main(int argc, char ** argv)
     // from the real test) but it works locally.
     bool fake_test = false;
 
+    // Do we dump a results file?
+    bool dump_results = false;
+
     // Filename to dump output data to
     string output_file;
 
     // Dump the data to train a merger classifier?
     bool dump_merger_data = false;
 
+    // Configuration file to use
+    string config_file = "config.txt";
+
+    // Candidate generator to use
+    string generator_name = "@generator";
+
+    // Ranker to use
+    string ranker_name = "@ranker";
+
+    // Extra configuration options
+    vector<string> extra_config_options;
+
     {
         using namespace boost::program_options;
 
-        options_description options("Options");
-        options.add_options()
+        options_description config_options("Configuration");
+
+        config_options.add_options()
+            ("config-file,c", value<string>(&config_file),
+             "configuration file to read configuration options from")
+            ("generator-name,g", value<string>(&generator_name),
+             "name of object to generate candidates to be ranked")
+            ("ranker-name,r", value<string>(&ranker_name),
+             "name of object to rank candidates")
+            ("extra-config-option", value<vector<string> >(&extra_config_options),
+             "extra configuration option=value (can go directly on command line)");
+
+        options_description control_options("Control Options");
+
+        control_options.add_options()
             ("fake-test,f", value<bool>(&fake_test)->zero_tokens(),
              "run a fake local test instead of generating real results")
             ("dump-merger-data", value<bool>(&dump_merger_data)->zero_tokens(),
              "dump data to train a merger classifier")
+            ("dump-results", value<bool>(&dump_results)->zero_tokens(),
+             "dump ranked results in official submission format")
             ("output-file,o",
-             value<string>(&output_file)->default_value("results.txt"),
-             "dump an output file to the given filename");
+             value<string>(&output_file),
+             "dump output file to the given filename");
 
-        //positional_options_description p;
-        //p.add("dataset", -1);
+        positional_options_description p;
+        p.add("extra-config-option", -1);
 
         options_description all_opt;
         all_opt
-            .add(options);
+            .add(config_options)
+            .add(control_options);
+
         all_opt.add_options()
             ("help,h", "print this message");
         
         variables_map vm;
         store(command_line_parser(argc, argv)
               .options(all_opt)
-              //.positional(p)
+              .positional(p)
               .run(),
               vm);
         notify(vm);
@@ -76,12 +109,22 @@ int main(int argc, char ** argv)
         }
     }
 
+    // Load up configuration
+    Configuration config;
+    if (config_file != "") config.load(config_file);
+
+    // Allow configuration to be overridden on the command line
+    config.parse_command_line(extra_config_options);
+
     // Load up the data
     Data data;
     data.load();
 
     if (fake_test || dump_merger_data)
         data.setup_fake_test();
+
+    // Write out results file
+    filter_ostream out(output_file);
 
     vector<set<int> > results;
     vector<set<int> > result_possible_choices;
@@ -91,11 +134,19 @@ int main(int argc, char ** argv)
     Candidate_Generator generator;
     Ranker ranker;
 
+    // Dump the feature vector for the merger file
+    if (dump_merger_data) {
+        // Get the feature space for the merger file
+    }
+
     for (unsigned i = 0;  i < data.users_to_test.size();  ++i) {
 
         int user_id = data.users_to_test[i];
 
         vector<Candidate> candidates = generator.candidates(data, user_id);
+
+        if (dump_merger_data) {
+        }
 
         set<int> possible_choices;
         for (unsigned j = 0;  j < candidates.size();  ++j)
@@ -177,9 +228,7 @@ int main(int argc, char ** argv)
     }
 
 
-    if (output_file != "") {
-        // Write out results file
-        filter_ostream out(output_file);
+    if (dump_results) {
 
         for (unsigned i = 0;  i < data.users_to_test.size();  ++i) {
 
