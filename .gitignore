@@ -1,0 +1,5 @@
+.target.mk
+*~
+build
+download
+local.mk
