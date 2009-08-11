@@ -22,8 +22,6 @@
 using namespace ML;
 using namespace std;
 
-#if 0
-
 struct Siamese {
 
     Siamese()
@@ -31,20 +29,25 @@ struct Siamese {
     {
     }
 
-    class Half : public vector<ML::Perceptron::Layer> {
-        Half(int ninputs)
+    /// A siamese network is made up of two twins...
+    struct Twin : public vector<ML::Perceptron::Layer> {
+        Twin(int ninputs)
             : vector<ML::Perceptron::Layer>(3)
         {
         }
     };
 
+    /// The two twins
+    Twin user, repo;
+
+    /// Entry for the data
     struct Data_Entry {
         int user_id;
         int repo_id;
         int num_repos_for_user;
     };
 
-    void train(const Data & data)
+    void train(const Data & data, float learning_rate)
     {
         /* Randomize the training data */
         vector<Data_Entry> shuffled;
@@ -72,11 +75,10 @@ struct Siamese {
         for (unsigned i = 0;  i < shuffled.size();  ++i) {
             // Train both a positive and a negative example
 
-            int user_id = shuffled[i].first;
-            int repo_id = shuffled[i].second;
-
-            const User & user = data.users[user_id];
-            const Repo & repo = data.repos[repo_id];
+            //int user_id = shuffled[i].user_id;
+            //int repo_id = shuffled[i].repo_id;
+            //const User & user = data.users[user_id];
+            //const Repo & repo = data.repos[repo_id];
 
             // Get a fake user and repo ID for the negative example
             int fake_user_id;
@@ -87,10 +89,8 @@ struct Siamese {
             int fake_repo_id;
             do {
                 fake_repo_id = rand() % data.users.size();
-            } while (data.users[fake_user_id].invalid());
-
-                     || data.users[fake_user_id].watching.)
-            int fake_user_id =
+            } while (data.users[fake_repo_id].invalid()
+                     || data.users[fake_user_id].watching.count(fake_repo_id));
 
             train_example(true, shuffled[i].user_id, shuffled[i].repo_id, learning_rate);
             train_example(false, fake_user_id, fake_repo_id, learning_rate);
@@ -99,7 +99,8 @@ struct Siamese {
         }
     }
 
+    void train_example(bool correct, int user_id, int repo_id, float learning_rate)
+    {
+    }
 
 };
-
-#endif
