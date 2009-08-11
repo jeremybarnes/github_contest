@@ -10,6 +10,9 @@
 #define __github__ranker_h__
 
 #include "data.h"
+#include "utils/configuration.h"
+
+#include "boosting/feature_space.h"
 
 // Records a candidate for ranking
 struct Candidate {
@@ -48,10 +51,17 @@ struct Candidate_Generator {
 
     virtual ~Candidate_Generator();
 
+    virtual void configure(const ML::Configuration & config,
+                      const std::string & name);
+
+    virtual void init();
+
+    virtual boost::shared_ptr<const ML::Feature_Space>
+    feature_space() const;
+
     /// Generates a set of candidates to be ranked for the given user
     virtual std::vector<Candidate>
     candidates(const Data & data, int user_id) const;
-    
 };
 
 typedef std::vector<std::pair<int, float> > Ranked;
@@ -61,11 +71,32 @@ struct Ranker {
 
     virtual ~Ranker();
 
+    virtual void configure(const ML::Configuration & config,
+                           const std::string & name);
+
+
+    virtual void init(boost::shared_ptr<Candidate_Generator> generator);
+
+    virtual boost::shared_ptr<const ML::Feature_Space>
+    feature_space() const;
+
     virtual Ranked
     rank(const Data & data, int user_id,
          const std::vector<Candidate> & candidates) const;
+
 };
 
+
+// Factory methods
+
+boost::shared_ptr<Candidate_Generator>
+get_candidate_generator(const ML::Configuration & config,
+                        const std::string & name);
+
+boost::shared_ptr<Ranker>
+get_ranker(const ML::Configuration & config,
+           const std::string & name,
+           boost::shared_ptr<Candidate_Generator> generator);
 
 #endif /* __github__ranker_h__ */
 

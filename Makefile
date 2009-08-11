@@ -38,11 +38,9 @@ GITHUB_SOURCES := \
 	data.cc \
 	ranker.cc
 
-LIBBOOSTING_TOOLS_LINK :=       boosting
-
 $(eval $(call add_sources,exception_hook.cc))
 
-$(eval $(call program,github,utils ACE boost_program_options-mt boost_regex-mt boost_date_time-mt db arch,$(GITHUB_SOURCES),tools))
+$(eval $(call program,github,utils ACE boost_program_options-mt boost_regex-mt boost_date_time-mt db arch boosting,$(GITHUB_SOURCES),tools))
 
 
 

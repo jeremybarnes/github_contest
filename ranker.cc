@@ -11,12 +11,37 @@
 #include "utils/vector_utils.h"
 #include "arch/exception.h"
 
+#include "boosting/dense_features.h"
+
 
 using namespace std;
 using namespace ML;
 
-Candidate_Generator::~Candidate_Generator()
+Candidate_Generator::
+~Candidate_Generator()
 {
+}
+
+void
+Candidate_Generator::
+configure(const ML::Configuration & config,
+          const std::string & name)
+{
+}
+
+void
+Candidate_Generator::
+init()
+{
+}
+
+boost::shared_ptr<const ML::Feature_Space>
+Candidate_Generator::
+feature_space() const
+{
+    boost::shared_ptr<ML::Feature_Space> result;
+    result.reset(new ML::Dense_Feature_Space());
+    return result;
 }
 
 std::vector<Candidate>
@@ -216,6 +241,28 @@ Ranker::~Ranker()
 {
 }
 
+void
+Ranker::
+configure(const ML::Configuration & config,
+          const std::string & name)
+{
+}
+
+void
+Ranker::
+init(boost::shared_ptr<Candidate_Generator> generator)
+{
+}
+
+boost::shared_ptr<const ML::Feature_Space>
+Ranker::
+feature_space() const
+{
+    boost::shared_ptr<ML::Feature_Space> result;
+    result.reset(new ML::Dense_Feature_Space());
+    return result;
+}
+
 Ranked
 Ranker::
 rank(const Data & data, int user_id,
@@ -251,3 +298,23 @@ rank(const Data & data, int user_id,
     return result;
 }
 
+boost::shared_ptr<Candidate_Generator>
+get_candidate_generator(const Configuration & config,
+                        const std::string & name)
+{
+    boost::shared_ptr<Candidate_Generator> result;
+    result->configure(config, name);
+    result->init();
+    return result;
+}
+
+boost::shared_ptr<Ranker>
+get_ranker(const Configuration & config,
+           const std::string & name,
+           boost::shared_ptr<Candidate_Generator> generator)
+{
+    boost::shared_ptr<Ranker> result;
+    result->configure(config, name);
+    result->init(generator);
+    return result;
+}

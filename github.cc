@@ -25,6 +25,8 @@
 #include "boost/program_options/parsers.hpp"
 #include "boost/program_options/variables_map.hpp"
 
+#include "boosting/feature_space.h"
+
 
 using namespace std;
 using namespace ML;
@@ -131,19 +133,32 @@ int main(int argc, char ** argv)
     results.reserve(data.users_to_test.size());
     result_possible_choices.reserve(data.users_to_test.size());
 
-    Candidate_Generator generator;
-    Ranker ranker;
+    if (generator_name != "" && generator_name[0] == '@')
+        config.must_find(generator_name, string(generator_name, 1));
+
+    boost::shared_ptr<Candidate_Generator> generator
+        = get_candidate_generator(config, generator_name);
+
+    if (ranker_name != "" && ranker_name[0] == '@')
+        config.must_find(ranker_name, string(ranker_name, 1));
+
+    boost::shared_ptr<Ranker> ranker
+        = get_ranker(config, ranker_name, generator);
+
+    boost::shared_ptr<const ML::Feature_Space> ranker_fs;
 
     // Dump the feature vector for the merger file
     if (dump_merger_data) {
         // Get the feature space for the merger file
+        ranker_fs = ranker->feature_space();
+        
     }
 
     for (unsigned i = 0;  i < data.users_to_test.size();  ++i) {
 
         int user_id = data.users_to_test[i];
 
-        vector<Candidate> candidates = generator.candidates(data, user_id);
+        vector<Candidate> candidates = generator->candidates(data, user_id);
 
         if (dump_merger_data) {
         }
@@ -152,7 +167,7 @@ int main(int argc, char ** argv)
         for (unsigned j = 0;  j < candidates.size();  ++j)
             possible_choices.insert(candidates[j].repo_id);
 
-        Ranked ranked = ranker.rank(data, user_id, candidates);
+        Ranked ranked = ranker->rank(data, user_id, candidates);
 
         // Convert to other format
         sort_on_second_descending(ranked);
