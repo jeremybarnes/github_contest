@@ -1,0 +1,3 @@
+# -*- Awk -*-
+# Configuration entry for Jeremy's GitHub entry
+# Jeremy Barnes, 11 August 2009
