@@ -13,6 +13,7 @@
 #include "utils/configuration.h"
 
 #include "boosting/dense_features.h"
+#include "boosting/classifier.h"
 
 // Records a candidate for ranking
 struct Candidate {
@@ -104,8 +105,10 @@ struct Ranker {
              const Data & data) const;
 
     virtual Ranked
-    rank(const Data & data, int user_id,
-         const std::vector<Candidate> & candidates) const;
+    rank(int user_id,
+         const std::vector<Candidate> & candidates,
+         const Candidate_Data & candidate_data,
+         const Data & data) const;
 
     boost::shared_ptr<Candidate_Generator> generator;
 };
@@ -128,8 +131,16 @@ struct Classifier_Ranker : public Ranker {
              const Data & data) const;
 
     virtual Ranked
-    rank(const Data & data, int user_id,
-         const std::vector<Candidate> & candidates) const;
+    rank(int user_id,
+         const std::vector<Candidate> & candidates,
+         const Candidate_Data & candidate_data,
+         const Data & data) const;
+
+    std::string classifier_file;
+    ML::Classifier classifier;
+    boost::shared_ptr<const ML::Dense_Feature_Space> ranker_fs;
+    boost::shared_ptr<const ML::Dense_Feature_Space> classifier_fs;
+    ML::Dense_Feature_Space::Mapping mapping;
 };
 
 // Factory methods

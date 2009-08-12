@@ -26,11 +26,13 @@ data/ranker.cls: \
 		--ignore-var WT \
 		--ignore-var GROUP \
 		-G 2 -C 2 \
-		--output-file $@ \
+		--output-file $@~ \
 		$<
+	mv $@~ $@
 
 data/ranker-fv.txt.gz:
 	$(BIN)/github \
 		--dump-merger-data \
-		--output-file $@
+		--output-file $@~
+	mv $@~ $@
 

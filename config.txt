@@ -6,9 +6,10 @@ default_generator=generator
 default_ranker=ranker
 
 generator {
-    type=basic
+    type=default
 }
 
 ranker {
-    type=basic
+    type=classifier
+    classifier_file=data/ranker.cls
 }

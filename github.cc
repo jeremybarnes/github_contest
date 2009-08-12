@@ -168,6 +168,8 @@ int main(int argc, char ** argv)
 
         int user_id = data.users_to_test[i];
 
+        const User & user = data.users[user_id];
+
         vector<Candidate> candidates;
         boost::shared_ptr<Candidate_Data> candidate_data;
         boost::tie(candidates, candidate_data)
@@ -198,11 +200,20 @@ int main(int argc, char ** argv)
                 // Divide into two sets: those that predict a watched repo,
                 // and those that don't
 
-                set<int> incorrect = possible_choices;
+                set<int> incorrect;
+                std::set_difference(possible_choices.begin(),
+                                    possible_choices.end(),
+                                    user.watching.begin(),
+                                    user.watching.end(),
+                                    inserter(incorrect, incorrect.end()));
                 incorrect.erase(correct_repo_id);
 
                 set<int> correct;
-                correct.insert(correct_repo_id);
+                std::set_intersection(possible_choices.begin(),
+                                      possible_choices.end(),
+                                      user.watching.begin(),
+                                      user.watching.end(),
+                                      inserter(correct, correct.end()));
 
                 if (incorrect.size() > 20) {
 
@@ -212,6 +223,17 @@ int main(int argc, char ** argv)
                     incorrect.clear();
                     incorrect.insert(sample.begin(), sample.begin() + 20);
                 }
+
+                if (correct.size() > 20) {
+
+                    vector<int> sample(correct.begin(), correct.end());
+                    std::random_shuffle(sample.begin(), sample.end());
+                    
+                    correct.clear();
+                    correct.insert(sample.begin(), sample.begin() + 20);
+                }
+
+                correct.insert(correct_repo_id);
 
                 // Go through and dump those selected
                 for (unsigned j = 0;  j < candidates.size();  ++j) {
@@ -248,7 +270,8 @@ int main(int argc, char ** argv)
             out << endl;
         }
 
-        Ranked ranked = ranker->rank(data, user_id, candidates);
+        Ranked ranked = ranker->rank(user_id, candidates, *candidate_data,
+                                     data);
 
         // Convert to other format
         sort_on_second_descending(ranked);

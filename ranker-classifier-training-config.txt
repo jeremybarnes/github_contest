@@ -7,7 +7,7 @@ nn {
     arch=50
     verbosity=3
     max_iter=30
-    learning_rate=0.001
+    learning_rate=0.01
     batch_size=1
 }
 

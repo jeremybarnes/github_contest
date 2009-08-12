@@ -315,8 +315,10 @@ features(const Candidate & candidate,
 
 Ranked
 Ranker::
-rank(const Data & data, int user_id,
-     const std::vector<Candidate> & candidates) const
+rank(int user_id,
+     const std::vector<Candidate> & candidates,
+     const Candidate_Data & candidate_data,
+     const Data & data) const
 {
     Ranked result;
 
@@ -348,6 +350,95 @@ rank(const Data & data, int user_id,
     return result;
 }
 
+
+/*****************************************************************************/
+/* CLASSIFIER_RANKER                                                         */
+/*****************************************************************************/
+
+Classifier_Ranker::~Classifier_Ranker()
+{
+}
+
+void
+Classifier_Ranker::
+configure(const ML::Configuration & config_,
+          const std::string & name)
+{
+    Ranker::configure(config_, name);
+
+    Configuration config(config_, name, Configuration::PREFIX_APPEND);
+
+    cerr << "name = " << name << " config.prefix() = " << config.prefix()
+         << " config_.prefix() = " << config_.prefix() << endl;
+
+    config.require(classifier_file, "classifier_file");
+}
+
+void
+Classifier_Ranker::
+init(boost::shared_ptr<Candidate_Generator> generator)
+{
+    Ranker::init(generator);
+
+    classifier.load(classifier_file);
+
+    ranker_fs = feature_space();
+    classifier_fs = classifier.feature_space<ML::Dense_Feature_Space>();
+
+    ranker_fs->create_mapping(*classifier_fs, mapping);
+
+    vector<ML::Feature> classifier_features
+        = classifier.all_features();
+
+    // TODO: check for missing features
+    //for (unsigned i = 0;  i < classifier_features.size();  ++i) {
+    //}
+}
+
+boost::shared_ptr<const ML::Dense_Feature_Space>
+Classifier_Ranker::
+feature_space() const
+{
+    return generator->feature_space();
+}
+
+ML::distribution<float>
+Classifier_Ranker::
+features(const Candidate & candidate,
+         const Candidate_Data & candidate_data,
+         const Data & data) const
+{
+    return generator->features(candidate, candidate_data, data);
+}
+
+Ranked
+Classifier_Ranker::
+rank(int user_id,
+     const std::vector<Candidate> & candidates,
+     const Candidate_Data & candidate_data,
+     const Data & data) const
+{
+    Ranked result;
+
+    for (unsigned i = 0;  i < candidates.size();  ++i) {
+        const Candidate & c = candidates[i];
+
+        int repo_id = c.repo_id;
+
+        distribution<float> features
+            = this->features(c, candidate_data, data);
+      
+        boost::shared_ptr<Mutable_Feature_Set> encoded
+            = ranker_fs->encode(features, *classifier_fs, mapping);
+
+        float score = classifier.predict(1, *encoded);
+        result.push_back(make_pair(repo_id, score));
+    }
+
+    return result;
+}
+
+
 boost::shared_ptr<Candidate_Generator>
 get_candidate_generator(const Configuration & config,
                         const std::string & name)
@@ -360,13 +451,27 @@ get_candidate_generator(const Configuration & config,
 }
 
 boost::shared_ptr<Ranker>
-get_ranker(const Configuration & config,
+get_ranker(const Configuration & config_,
            const std::string & name,
            boost::shared_ptr<Candidate_Generator> generator)
 {
+    Configuration config(config_, name, Configuration::PREFIX_APPEND);
+
+    string type;
+    config.require(type, "type");
+
     boost::shared_ptr<Ranker> result;
-    result.reset(new Ranker());
-    result->configure(config, name);
+
+    if (type == "default") {
+        result.reset(new Ranker());
+    }
+    else if (type == "classifier") {
+        result.reset(new Classifier_Ranker());
+    }
+    else throw Exception("Ranker of type " + type + " doesn't exist");
+
+    result->configure(config_, name);
     result->init(generator);
+
     return result;
 }
