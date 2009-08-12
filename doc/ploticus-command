@@ -1,0 +1,1 @@
+ploticus -prefab heatmap data=data.txt x=1 y=2 -maxrows 500000 -maxvector 5000000 xbinsize=300 ybinsize=2000 -maxfields 5000000 title=user ID versus repo ID xlbl=user ID ylbl=repo ID -o user_repo.png -png
