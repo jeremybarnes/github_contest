@@ -21,6 +21,7 @@ bbt {
             type=decision_tree;
             max_depth=3;
             verbosity=0;
+            update_alg=gentle;
         }
         min_iter=5;
         max_iter=50;
@@ -28,6 +29,17 @@ bbt {
     num_bags=5;
 }
 
-default: nn {
+bdt {
+    type=bagging;
+    verbosity=3;
+    weak_learner {
+        type=decision_tree;
+        verbosity=0;
+        max_depth=6;
+    }
+    num_bags=20;
+}
+
+default: bbt {
 }
 
