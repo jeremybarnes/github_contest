@@ -52,6 +52,7 @@ feature_space() const
     result->add_feature("also_watched_rank", Feature_Info::REAL);
     result->add_feature("also_watched_percentile", Feature_Info::REAL);
     result->add_feature("num_also_watched", Feature_Info::REAL);
+    result->add_feature("repo_id", Feature_Info::REAL);
     result->add_feature("repo_rank", Feature_Info::REAL);
     result->add_feature("repo_watchers", Feature_Info::REAL);
     // also watched min repos
@@ -67,6 +68,7 @@ features(const Candidate & candidate,
          const Data & data) const
 {
     distribution<float> result;
+
     result.push_back(candidate.parent_of_watched);
     result.push_back(candidate.by_author_of_watched_repo);
     result.push_back(candidate.ancestor_of_watched);
@@ -76,8 +78,11 @@ features(const Candidate & candidate,
     result.push_back(candidate.also_watched_percentile);
     result.push_back(candidate.num_also_watched);
     result.push_back(candidate.repo_id);
-    result.push_back(candidate.repo_rank);
-    result.push_back(candidate.repo_watchers);
+
+    const Repo & repo = data.repos[candidate.repo_id];
+    result.push_back(repo.popularity_rank);
+    result.push_back(repo.watchers.size());
+
     return result;
 }
 
@@ -311,8 +316,7 @@ features(const Candidate & candidate,
 Ranked
 Ranker::
 rank(const Data & data, int user_id,
-     const std::vector<Candidate> & candidates,
-     const Data & data) const
+     const std::vector<Candidate> & candidates) const
 {
     Ranked result;
 

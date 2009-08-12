@@ -105,12 +105,32 @@ struct Ranker {
 
     virtual Ranked
     rank(const Data & data, int user_id,
-         const std::vector<Candidate> & candidates,
-         const Data & data) const;
+         const std::vector<Candidate> & candidates) const;
 
     boost::shared_ptr<Candidate_Generator> generator;
 };
 
+struct Classifier_Ranker : public Ranker {
+    virtual ~Classifier_Ranker();
+
+    virtual void configure(const ML::Configuration & config,
+                           const std::string & name);
+
+
+    virtual void init(boost::shared_ptr<Candidate_Generator> generator);
+
+    virtual boost::shared_ptr<const ML::Dense_Feature_Space>
+    feature_space() const;
+
+    virtual ML::distribution<float>
+    features(const Candidate & candidate,
+             const Candidate_Data & candidate_data,
+             const Data & data) const;
+
+    virtual Ranked
+    rank(const Data & data, int user_id,
+         const std::vector<Candidate> & candidates) const;
+};
 
 // Factory methods
 

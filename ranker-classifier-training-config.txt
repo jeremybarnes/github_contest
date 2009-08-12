@@ -1,0 +1,33 @@
+# -*- Awk -*-
+# ranker-classifier-training-config.txt
+# Jeremy Barnes, 11 August 2009
+
+nn {
+    type=perceptron
+    arch=50
+    verbosity=3
+    max_iter=30
+    learning_rate=0.001
+    batch_size=1
+}
+
+bbt {
+    type=bagging;
+    verbosity=3;
+    weak_learner {
+        type=boosting;
+        verbosity=3;
+        weak_learner {
+            type=decision_tree;
+            max_depth=3;
+            verbosity=0;
+        }
+        min_iter=5;
+        max_iter=50;
+    }
+    num_bags=5;
+}
+
+default: nn {
+}
+
