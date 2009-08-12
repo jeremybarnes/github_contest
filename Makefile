@@ -44,3 +44,4 @@ $(eval $(call program,github,utils ACE boost_program_options-mt boost_regex-mt b
 
 
 
+include loadbuild.mk
