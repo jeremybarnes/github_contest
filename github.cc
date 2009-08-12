@@ -25,8 +25,7 @@
 #include <boost/program_options/parsers.hpp>
 #include <boost/program_options/variables_map.hpp>
 #include <boost/progress.hpp>
-
-#include "boosting/feature_space.h"
+#include <boost/tuple/tuple.hpp>
 
 
 using namespace std;
@@ -148,13 +147,15 @@ int main(int argc, char ** argv)
     boost::shared_ptr<Ranker> ranker
         = get_ranker(config, ranker_name, generator);
 
-    boost::shared_ptr<const ML::Feature_Space> ranker_fs;
+    boost::shared_ptr<const ML::Dense_Feature_Space> ranker_fs;
 
     // Dump the feature vector for the merger file
     if (dump_merger_data) {
         // Get the feature space for the merger file
         ranker_fs = ranker->feature_space();
-        
+
+        // Put it in the header
+        out << "LABEL:k=BOOLEAN/o=BIASED WT:k=REAL/o=BIASED GROUP:k=REAL/o=GROUPING " << ranker_fs->print() << endl;
     }
 
     cerr << "processing " << data.users_to_test.size() << " users..."
@@ -167,14 +168,85 @@ int main(int argc, char ** argv)
 
         int user_id = data.users_to_test[i];
 
-        vector<Candidate> candidates = generator->candidates(data, user_id);
-
-        if (dump_merger_data) {
-        }
+        vector<Candidate> candidates;
+        boost::shared_ptr<Candidate_Data> candidate_data;
+        boost::tie(candidates, candidate_data)
+            = generator->candidates(data, user_id);
 
         set<int> possible_choices;
         for (unsigned j = 0;  j < candidates.size();  ++j)
             possible_choices.insert(candidates[j].repo_id);
+
+
+        if (dump_merger_data) {
+
+            // TODO: try to predict ALL repositories, not just the missing
+            // one.  This should give us more general data.  Should be done
+            // by leave-one-out kind of training.
+
+            int correct_repo_id = data.answers[i];
+
+            bool possible = possible_choices.count(correct_repo_id);
+
+            out << "# user_id " << user_id << " correct " << correct_repo_id
+                << " npossible " << possible_choices.size() << " possible "
+                << possible
+                << endl;
+
+            if (possible) {
+
+                // Divide into two sets: those that predict a watched repo,
+                // and those that don't
+
+                set<int> incorrect = possible_choices;
+                incorrect.erase(correct_repo_id);
+
+                set<int> correct;
+                correct.insert(correct_repo_id);
+
+                if (incorrect.size() > 20) {
+
+                    vector<int> sample(incorrect.begin(), incorrect.end());
+                    std::random_shuffle(sample.begin(), sample.end());
+                    
+                    incorrect.clear();
+                    incorrect.insert(sample.begin(), sample.begin() + 20);
+                }
+
+                // Go through and dump those selected
+                for (unsigned j = 0;  j < candidates.size();  ++j) {
+                    const Candidate & candidate = candidates[j];
+                    int repo_id = candidate.repo_id;
+
+                    // if it's one we don't dump then don't output it
+                    if (!correct.count(repo_id)
+                        && !incorrect.count(repo_id))
+                        continue;
+                    
+                    bool label = correct.count(repo_id);
+                    float weight = (label
+                                    ? 1.0f / correct.size()
+                                    : 1.0f / incorrect.size());
+                    
+                    int group = user_id;
+
+                    out << label << " " << weight << " " << group << " ";
+
+                    distribution<float> features
+                        = ranker->features(candidate, *candidate_data, data);
+                    boost::shared_ptr<Mutable_Feature_Set> encoded
+                        = ranker_fs->encode(features);
+                    out << ranker_fs->print(*encoded);
+                    
+                    // A comment so we know where this feature vector came from
+                    out << " # repo " << repo_id << " "
+                        << data.repos[repo_id].author << "/"
+                        << data.repos[repo_id].name << endl;
+                }
+            }
+            
+            out << endl;
+        }
 
         Ranked ranked = ranker->rank(data, user_id, candidates);
 

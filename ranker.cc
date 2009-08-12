@@ -35,32 +35,74 @@ init()
 {
 }
 
-boost::shared_ptr<const ML::Feature_Space>
+boost::shared_ptr<const ML::Dense_Feature_Space>
 Candidate_Generator::
 feature_space() const
 {
-    boost::shared_ptr<ML::Feature_Space> result;
+    boost::shared_ptr<ML::Dense_Feature_Space> result;
     result.reset(new ML::Dense_Feature_Space());
+
+    // repo id?
+    result->add_feature("parent_of_watched", Feature_Info::BOOLEAN);
+    result->add_feature("by_author_of_watched_repo", Feature_Info::BOOLEAN);
+    result->add_feature("ancestor_of_watched", Feature_Info::BOOLEAN);
+    result->add_feature("same_name", Feature_Info::BOOLEAN);
+    result->add_feature("also_watched_by_people_who_watched",
+                        Feature_Info::BOOLEAN);
+    result->add_feature("also_watched_rank", Feature_Info::REAL);
+    result->add_feature("also_watched_percentile", Feature_Info::REAL);
+    result->add_feature("num_also_watched", Feature_Info::REAL);
+    result->add_feature("repo_rank", Feature_Info::REAL);
+    result->add_feature("repo_watchers", Feature_Info::REAL);
+    // also watched min repos
+    // also watched average repos
+
     return result;
 }
 
-std::vector<Candidate>
+ML::distribution<float>
+Candidate_Generator::
+features(const Candidate & candidate,
+         const Candidate_Data & candidate_data,
+         const Data & data) const
+{
+    distribution<float> result;
+    result.push_back(candidate.parent_of_watched);
+    result.push_back(candidate.by_author_of_watched_repo);
+    result.push_back(candidate.ancestor_of_watched);
+    result.push_back(candidate.same_name);
+    result.push_back(candidate.also_watched_by_people_who_watched);
+    result.push_back(candidate.also_watched_rank);
+    result.push_back(candidate.also_watched_percentile);
+    result.push_back(candidate.num_also_watched);
+    result.push_back(candidate.repo_id);
+    result.push_back(candidate.repo_rank);
+    result.push_back(candidate.repo_watchers);
+    return result;
+}
+
+std::pair<std::vector<Candidate>,
+          boost::shared_ptr<Candidate_Data> >
 Candidate_Generator::
 candidates(const Data & data, int user_id) const
 {
     const User & user = data.users[user_id];
 
     vector<Candidate> candidates;
-    
+    boost::shared_ptr<Candidate_Data> data_ptr(new Candidate_Data());
+    Candidate_Data & candidate_data = *data_ptr;
+
     set<int> user_results;
     set<int> possible_choices;
     
     /* Like everyone else, see which parents and ancestors weren't
        watched */
-    set<int> parents_of_watched;
-    set<int> ancestors_of_watched;
-    set<int> authors_of_watched_repos;
-    set<int> repos_with_same_name;
+    set<int> & parents_of_watched = candidate_data.parents_of_watched;
+    set<int> & ancestors_of_watched = candidate_data.ancestors_of_watched;
+    set<int> & authors_of_watched_repos
+        = candidate_data.authors_of_watched_repos;
+    set<int> & repos_with_same_name
+        = candidate_data.repos_with_same_name;
     map<int, int> also_watched_by_people_who_watched;
     
     for (set<int>::const_iterator
@@ -80,13 +122,8 @@ candidates(const Data & data, int user_id) const
                                     watched.ancestors.end());
         
         // Find repos with the same name
-        
-        Data::Repo_Name_To_Repos::const_iterator found
-            = data.repo_name_to_repos.find(watched.name);
-        if (found == data.repo_name_to_repos.end())
-            throw Exception("repo name not in index");
-
-        const vector<int> & with_same_name = found->second;
+        const vector<int> & with_same_name
+            = data.name_to_repos(watched.name);
 
         repos_with_same_name.insert(with_same_name.begin(),
                                     with_same_name.end());
@@ -234,7 +271,7 @@ candidates(const Data & data, int user_id) const
         candidates.push_back(c);
     }
 
-    return candidates;
+    return make_pair(candidates, data_ptr);
 }
 
 Ranker::~Ranker()
@@ -252,21 +289,30 @@ void
 Ranker::
 init(boost::shared_ptr<Candidate_Generator> generator)
 {
+    this->generator = generator;
 }
 
-boost::shared_ptr<const ML::Feature_Space>
+boost::shared_ptr<const ML::Dense_Feature_Space>
 Ranker::
 feature_space() const
 {
-    boost::shared_ptr<ML::Feature_Space> result;
-    result.reset(new ML::Dense_Feature_Space());
-    return result;
+    return generator->feature_space();
+}
+
+ML::distribution<float>
+Ranker::
+features(const Candidate & candidate,
+         const Candidate_Data & candidate_data,
+         const Data & data) const
+{
+    return generator->features(candidate, candidate_data, data);
 }
 
 Ranked
 Ranker::
 rank(const Data & data, int user_id,
-     const std::vector<Candidate> & candidates) const
+     const std::vector<Candidate> & candidates,
+     const Data & data) const
 {
     Ranked result;
 

@@ -195,6 +195,18 @@ void Data::load()
 
 }
 
+const vector<int> &
+Data::
+name_to_repos(const std::string & name) const
+{
+    Repo_Name_To_Repos::const_iterator found
+        = repo_name_to_repos.find(name);
+    if (found == repo_name_to_repos.end())
+        throw Exception("repo name not in index");
+    
+    return found->second;
+}
+
 void
 Data::
 calc_popularity()

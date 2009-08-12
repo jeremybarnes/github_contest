@@ -12,7 +12,7 @@
 #include "data.h"
 #include "utils/configuration.h"
 
-#include "boosting/feature_space.h"
+#include "boosting/dense_features.h"
 
 // Records a candidate for ranking
 struct Candidate {
@@ -46,6 +46,18 @@ struct Candidate {
     int num_also_watched;
 };
 
+struct Candidate_Data {
+
+    std::set<int> parents_of_watched;
+    std::set<int> ancestors_of_watched;
+    std::set<int> authors_of_watched_repos;
+    std::set<int> repos_with_same_name;
+
+    virtual ~Candidate_Data()
+    {
+    }
+};
+
 // Base class for a candidate generator
 struct Candidate_Generator {
 
@@ -56,11 +68,17 @@ struct Candidate_Generator {
 
     virtual void init();
 
-    virtual boost::shared_ptr<const ML::Feature_Space>
+    virtual boost::shared_ptr<const ML::Dense_Feature_Space>
     feature_space() const;
 
+    virtual ML::distribution<float>
+    features(const Candidate & candidate,
+             const Candidate_Data & candidate_data,
+             const Data & data) const;
+
     /// Generates a set of candidates to be ranked for the given user
-    virtual std::vector<Candidate>
+    virtual std::pair<std::vector<Candidate>,
+                      boost::shared_ptr<Candidate_Data> >
     candidates(const Data & data, int user_id) const;
 };
 
@@ -77,13 +95,20 @@ struct Ranker {
 
     virtual void init(boost::shared_ptr<Candidate_Generator> generator);
 
-    virtual boost::shared_ptr<const ML::Feature_Space>
+    virtual boost::shared_ptr<const ML::Dense_Feature_Space>
     feature_space() const;
+
+    virtual ML::distribution<float>
+    features(const Candidate & candidate,
+             const Candidate_Data & candidate_data,
+             const Data & data) const;
 
     virtual Ranked
     rank(const Data & data, int user_id,
-         const std::vector<Candidate> & candidates) const;
+         const std::vector<Candidate> & candidates,
+         const Data & data) const;
 
+    boost::shared_ptr<Candidate_Generator> generator;
 };
 
 

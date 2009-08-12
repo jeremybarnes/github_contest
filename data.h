@@ -91,6 +91,7 @@ struct Data {
     typedef std::map<std::string, std::vector<int> > Repo_Name_To_Repos;
     Repo_Name_To_Repos repo_name_to_repos;
 
+    const std::vector<int> & name_to_repos(const std::string & name) const;
 
     std::vector<int> users_to_test;
 
