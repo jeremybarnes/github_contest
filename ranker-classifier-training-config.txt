@@ -46,6 +46,6 @@ dt {
     max_depth=8;
 }
 
-default: dt {
+default: bbt {
 }
 

@@ -40,6 +40,9 @@ int main(int argc, char ** argv)
     // Do we dump a results file?
     bool dump_results = false;
 
+    // Do we dump the predictions data?
+    bool dump_predictions = false;
+
     // Filename to dump output data to
     string output_file;
 
@@ -82,6 +85,8 @@ int main(int argc, char ** argv)
              "dump data to train a merger classifier")
             ("dump-results", value<bool>(&dump_results)->zero_tokens(),
              "dump ranked results in official submission format")
+            ("dump-predictions", value<bool>(&dump_predictions)->zero_tokens(),
+             "dump predictions for debugging")
             ("output-file,o",
              value<string>(&output_file),
              "dump output file to the given filename");
@@ -262,7 +267,7 @@ int main(int argc, char ** argv)
                     
                     // A comment so we know where this feature vector came from
                     out << " # repo " << repo_id << " "
-                        << data.repos[repo_id].author << "/"
+                        << data.authors[data.repos[repo_id].author].name << "/"
                         << data.repos[repo_id].name << endl;
                 }
             }
@@ -275,6 +280,35 @@ int main(int argc, char ** argv)
 
         // Convert to other format
         sort_on_second_descending(ranked);
+
+        if (dump_predictions) {
+            // verbosity...
+
+            int correct_repo_id = data.answers[i];
+
+            bool possible = possible_choices.count(correct_repo_id);
+
+            out << "user_id " << user_id << " correct " << correct_repo_id
+                << " npossible " << possible_choices.size() << " possible "
+                << possible
+                << endl;
+
+            for (unsigned j = 0;  j < ranked.size();  ++j) {
+                int repo_id = ranked[j].first;
+
+                if (j > 10 && correct_repo_id != repo_id) continue;
+                
+                out << format("%5d %8.6f %c %d", j, ranked[j].second,
+                              (correct_repo_id == repo_id ? '*' : ' '),
+                              (correct_repo_id == repo_id
+                               || user.watching.count(repo_id)))
+                    << " repo " << repo_id << " "
+                    << data.authors[data.repos[repo_id].author].name << "/"
+                    << data.repos[repo_id].name << endl;
+            }
+
+            out << endl;
+        }
 
         // Extract the best ones
         set<int> user_results;

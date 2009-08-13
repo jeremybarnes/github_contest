@@ -385,7 +385,7 @@ init(boost::shared_ptr<Candidate_Generator> generator)
     ranker_fs = feature_space();
     classifier_fs = classifier.feature_space<ML::Dense_Feature_Space>();
 
-    ranker_fs->create_mapping(*classifier_fs, mapping);
+    classifier_fs->create_mapping(*ranker_fs, mapping);
 
     vector<ML::Feature> classifier_features
         = classifier.all_features();
@@ -427,12 +427,30 @@ rank(int user_id,
 
         distribution<float> features
             = this->features(c, candidate_data, data);
-      
+
         boost::shared_ptr<Mutable_Feature_Set> encoded
-            = ranker_fs->encode(features, *classifier_fs, mapping);
+            = classifier_fs->encode(features, *ranker_fs, mapping);
+
+        //cerr << "features = " << features << endl;
+
+        //cerr << "features.size() = " << features.size() << endl;
+        //cerr << "encoded->size() = " << encoded->size() << endl;
+
+        //for (Mutable_Feature_Set::const_iterator it = encoded->begin();
+        //     it != encoded->end();  ++it) {
+        //    cerr << "feature " << it->first << " value "
+        //         << it->second << endl;
+        //}
+
 
         float score = classifier.predict(1, *encoded);
         result.push_back(make_pair(repo_id, score));
+
+        //cerr << "repo " << repo_id << " score " << score
+        //     << " features " << features << endl;
+
+        //cerr << "encoded print " << classifier_fs->print(*encoded)
+        //     << endl;
     }
 
     return result;
