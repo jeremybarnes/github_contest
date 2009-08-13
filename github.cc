@@ -276,12 +276,14 @@ int main(int argc, char ** argv)
         // Convert to other format
         sort_on_second_descending(ranked);
 
-        int nres = std::min<int>(10, ranked.size());
-
-        set<int> user_results(first_extractor(ranked.begin()),
-                              first_extractor(ranked.begin() + nres));
-
-        // Now generate the results
+        // Extract the best ones
+        set<int> user_results;
+        for (unsigned i = 0;  i < ranked.size() && user_results.size() < 10;
+             ++i) {
+            int repo_id = ranked[i].first;
+            if (user.watching.count(repo_id)) continue;  // already watched
+            user_results.insert(repo_id);
+        }
 
         results.push_back(user_results);
         result_possible_choices.push_back(possible_choices);

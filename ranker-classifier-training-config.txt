@@ -40,6 +40,12 @@ bdt {
     num_bags=20;
 }
 
-default: bbt {
+dt {
+    type=decision_tree;
+    verbosity=3;
+    max_depth=8;
+}
+
+default: dt {
 }
 
