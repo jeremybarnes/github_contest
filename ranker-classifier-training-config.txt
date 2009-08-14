@@ -51,6 +51,6 @@ glz {
     verbosity=3;
 }
 
-default: glz {
+default: bbdt {
 }
 
