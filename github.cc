@@ -61,6 +61,12 @@ int main(int argc, char ** argv)
     // Extra configuration options
     vector<string> extra_config_options;
 
+    // Number of users for fake data generation
+    int num_users = 4788;
+
+    // Random seed for fake data generation
+    int rseed = 0;
+
     {
         using namespace boost::program_options;
 
@@ -81,6 +87,10 @@ int main(int argc, char ** argv)
         control_options.add_options()
             ("fake-test,f", value<bool>(&fake_test)->zero_tokens(),
              "run a fake local test instead of generating real results")
+            ("num-users,n", value<int>(&num_users),
+             "number of users for fake test")
+            ("random-seed", value<int>(&rseed),
+             "random seed for fake data")
             ("dump-merger-data", value<bool>(&dump_merger_data)->zero_tokens(),
              "dump data to train a merger classifier")
             ("dump-results", value<bool>(&dump_results)->zero_tokens(),
@@ -130,7 +140,7 @@ int main(int argc, char ** argv)
     cerr << " done." << endl;
 
     if (fake_test || dump_merger_data)
-        data.setup_fake_test();
+        data.setup_fake_test(num_users, rseed);
 
     // Write out results file
     filter_ostream out(output_file);
