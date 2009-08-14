@@ -6,12 +6,12 @@ nn {
     type=perceptron
     arch=50
     verbosity=3
-    max_iter=30
+    max_iter=100
     learning_rate=0.01
     batch_size=1
 }
 
-bbt {
+bbdt {
     type=bagging;
     verbosity=3;
     weak_learner {
@@ -43,9 +43,9 @@ bdt {
 dt {
     type=decision_tree;
     verbosity=3;
-    max_depth=8;
+    max_depth=5;
 }
 
-default: bdt {
+default: nn {
 }
 

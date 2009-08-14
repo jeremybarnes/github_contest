@@ -61,29 +61,36 @@ feature_space() const
     return result;
 }
 
-ML::distribution<float>
+std::vector<ML::distribution<float> >
 Candidate_Generator::
-features(const Candidate & candidate,
+features(int user_id,
+         const std::vector<Candidate> & candidates,
          const Candidate_Data & candidate_data,
          const Data & data) const
 {
-    distribution<float> result;
 
-    result.push_back(candidate.parent_of_watched);
-    result.push_back(candidate.by_author_of_watched_repo);
-    result.push_back(candidate.ancestor_of_watched);
-    result.push_back(candidate.same_name);
-    result.push_back(candidate.also_watched_by_people_who_watched);
-    result.push_back(candidate.also_watched_rank);
-    result.push_back(candidate.also_watched_percentile);
-    result.push_back(candidate.num_also_watched);
-    result.push_back(candidate.repo_id);
+    vector<distribution<float> > results(candidates.size());
 
-    const Repo & repo = data.repos[candidate.repo_id];
-    result.push_back(repo.popularity_rank);
-    result.push_back(repo.watchers.size());
+    for (unsigned i = 0;  i < candidates.size();  ++i) {
+        const Candidate & candidate = candidates[i];
+        distribution<float> & result = results[i];
 
-    return result;
+        result.push_back(candidate.parent_of_watched);
+        result.push_back(candidate.by_author_of_watched_repo);
+        result.push_back(candidate.ancestor_of_watched);
+        result.push_back(candidate.same_name);
+        result.push_back(candidate.also_watched_by_people_who_watched);
+        result.push_back(candidate.also_watched_rank);
+        result.push_back(candidate.also_watched_percentile);
+        result.push_back(candidate.num_also_watched);
+        result.push_back(candidate.repo_id);
+        
+        const Repo & repo = data.repos[candidate.repo_id];
+        result.push_back(repo.popularity_rank);
+        result.push_back(repo.watchers.size());
+    }
+
+    return results;
 }
 
 std::pair<std::vector<Candidate>,
@@ -301,16 +308,46 @@ boost::shared_ptr<const ML::Dense_Feature_Space>
 Ranker::
 feature_space() const
 {
-    return generator->feature_space();
+    boost::shared_ptr<ML::Dense_Feature_Space> result;
+    result.reset(new ML::Dense_Feature_Space(*generator->feature_space()));
+
+    result->add_feature("heuristic_score", Feature_Info::REAL);
+    result->add_feature("heuristic_rank",  Feature_Info::REAL);
+    result->add_feature("heuristic_percentile", Feature_Info::REAL);
+
+    return result;
 }
 
-ML::distribution<float>
+std::vector<ML::distribution<float> >
 Ranker::
-features(const Candidate & candidate,
+features(int user_id,
+         const std::vector<Candidate> & candidates,
          const Candidate_Data & candidate_data,
          const Data & data) const
 {
-    return generator->features(candidate, candidate_data, data);
+    vector<distribution<float> > results
+        = generator->features(user_id, candidates, candidate_data, data);
+
+    Ranked heuristic(Ranker::rank(user_id, candidates, candidate_data, data));
+
+    Ranked heuristic_sorted = heuristic;
+
+    sort_on_second_descending(heuristic_sorted);
+
+    map<int, int> ranks;
+
+    for (unsigned i = 0;  i < heuristic_sorted.size();  ++i)
+        ranks[heuristic_sorted[i].first] = i;
+
+    for (unsigned i = 0;  i < candidates.size();  ++i) {
+        distribution<float> & result = results[i];
+
+        result.push_back(heuristic[i].second);
+        result.push_back(ranks[heuristic[i].first]);
+        result.push_back(1.0 * ranks[heuristic[i].first] / ranks.size());
+    }
+
+    return results;
 }
 
 Ranked
@@ -344,7 +381,7 @@ rank(int user_id,
         // Add in a popularity score
         score += popularity * 20;
 
-        result.push_back(make_pair(repo_id, score));
+        result.push_back(make_pair(i, score));
     }
 
     return result;
@@ -402,13 +439,14 @@ feature_space() const
     return generator->feature_space();
 }
 
-ML::distribution<float>
+std::vector<ML::distribution<float> >
 Classifier_Ranker::
-features(const Candidate & candidate,
+features(int user_id,
+         const std::vector<Candidate> & candidates,
          const Candidate_Data & candidate_data,
          const Data & data) const
 {
-    return generator->features(candidate, candidate_data, data);
+    return generator->features(user_id, candidates, candidate_data, data);
 }
 
 Ranked
@@ -420,16 +458,15 @@ rank(int user_id,
 {
     Ranked result;
 
+    vector<distribution<float> > features
+        = this->features(user_id, candidates, candidate_data, data);
+
+
     for (unsigned i = 0;  i < candidates.size();  ++i) {
-        const Candidate & c = candidates[i];
-
-        int repo_id = c.repo_id;
-
-        distribution<float> features
-            = this->features(c, candidate_data, data);
+        //int repo_id = c.repo_id;
 
         boost::shared_ptr<Mutable_Feature_Set> encoded
-            = classifier_fs->encode(features, *ranker_fs, mapping);
+            = classifier_fs->encode(features[i], *ranker_fs, mapping);
 
         //cerr << "features = " << features << endl;
 
@@ -444,7 +481,7 @@ rank(int user_id,
 
 
         float score = classifier.predict(1, *encoded);
-        result.push_back(make_pair(repo_id, score));
+        result.push_back(make_pair(i, score));
 
         //cerr << "repo " << repo_id << " score " << score
         //     << " features " << features << endl;

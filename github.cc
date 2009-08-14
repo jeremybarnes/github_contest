@@ -250,6 +250,11 @@ int main(int argc, char ** argv)
 
                 correct.insert(correct_repo_id);
 
+                // Generate features
+                vector<distribution<float> > features
+                    = ranker->features(user_id, candidates, *candidate_data,
+                                       data);
+
                 // Go through and dump those selected
                 for (unsigned j = 0;  j < candidates.size();  ++j) {
                     const Candidate & candidate = candidates[j];
@@ -269,10 +274,8 @@ int main(int argc, char ** argv)
 
                     out << label << " " << weight << " " << group << " ";
 
-                    distribution<float> features
-                        = ranker->features(candidate, *candidate_data, data);
                     boost::shared_ptr<Mutable_Feature_Set> encoded
-                        = ranker_fs->encode(features);
+                        = ranker_fs->encode(features[j]);
                     out << ranker_fs->print(*encoded);
                     
                     // A comment so we know where this feature vector came from
@@ -304,7 +307,8 @@ int main(int argc, char ** argv)
                 << endl;
 
             for (unsigned j = 0;  j < ranked.size();  ++j) {
-                int repo_id = ranked[j].first;
+                int index = ranked[j].first;
+                int repo_id = candidates[index].repo_id;
 
                 if (j > 10 && correct_repo_id != repo_id) continue;
                 
@@ -322,9 +326,11 @@ int main(int argc, char ** argv)
 
         // Extract the best ones
         set<int> user_results;
-        for (unsigned i = 0;  i < ranked.size() && user_results.size() < 10;
-             ++i) {
-            int repo_id = ranked[i].first;
+        for (unsigned j = 0;  j < ranked.size() && user_results.size() < 10;
+             ++j) {
+            int index = ranked[j].first;
+            int repo_id = candidates[index].repo_id;
+
             if (user.watching.count(repo_id)) continue;  // already watched
             user_results.insert(repo_id);
         }

@@ -27,6 +27,7 @@ data/ranker.cls: \
 		--ignore-var GROUP \
 		-G 2 -C 2 \
 		--output-file $@~ \
+		--no-eval-by-group \
 		$<
 	mv $@~ $@
 
