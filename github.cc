@@ -290,9 +290,7 @@ int main(int argc, char ** argv)
 
         Ranked ranked = ranker->rank(user_id, candidates, *candidate_data,
                                      data);
-
-        // Convert to other format
-        sort_on_second_descending(ranked);
+        ranked.sort();
 
         if (dump_predictions) {
             // verbosity...
@@ -307,16 +305,15 @@ int main(int argc, char ** argv)
                 << endl;
 
             for (unsigned j = 0;  j < ranked.size();  ++j) {
-                int index = ranked[j].first;
-                int repo_id = candidates[index].repo_id;
+                int repo_id = ranked[j].repo_id;
 
                 if (j > 10 && correct_repo_id != repo_id) continue;
                 
-                out << format("%5d %8.6f %c %d", j, ranked[j].second,
+                out << format("%5d %8.6f %c %d %6d ", j, ranked[j].score,
                               (correct_repo_id == repo_id ? '*' : ' '),
                               (correct_repo_id == repo_id
-                               || user.watching.count(repo_id)))
-                    << " repo " << repo_id << " "
+                               || user.watching.count(repo_id)),
+                              repo_id)
                     << data.authors[data.repos[repo_id].author].name << "/"
                     << data.repos[repo_id].name << endl;
             }
@@ -328,8 +325,7 @@ int main(int argc, char ** argv)
         set<int> user_results;
         for (unsigned j = 0;  j < ranked.size() && user_results.size() < 10;
              ++j) {
-            int index = ranked[j].first;
-            int repo_id = candidates[index].repo_id;
+            int repo_id = ranked[j].repo_id;
 
             if (user.watching.count(repo_id)) continue;  // already watched
             user_results.insert(repo_id);

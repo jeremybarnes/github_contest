@@ -8,7 +8,7 @@ nn {
     verbosity=3
     max_iter=100
     learning_rate=0.01
-    batch_size=1
+    batch_size=10
 }
 
 bbdt {

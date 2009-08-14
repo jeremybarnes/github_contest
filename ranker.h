@@ -84,7 +84,22 @@ struct Candidate_Generator {
     candidates(const Data & data, int user_id) const;
 };
 
-typedef std::vector<std::pair<int, float> > Ranked;
+struct Ranked_Entry {
+    Ranked_Entry()
+        : index(-1), repo_id(-1), score(0.0), min_rank(-1), max_rank(-1)
+    {
+    }
+
+    int index;
+    int repo_id;
+    float score;
+    int min_rank;
+    int max_rank;
+};
+
+struct Ranked : std::vector<Ranked_Entry> {
+    void sort();
+};
 
 /// Base class for a candidate ranker
 struct Ranker {
