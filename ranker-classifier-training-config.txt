@@ -46,6 +46,6 @@ dt {
     max_depth=5;
 }
 
-default: nn {
+default: bbdt {
 }
 
