@@ -15,6 +15,8 @@
 using namespace std;
 using namespace ML;
 
+enum { DENSITY_REPO_STEP = 200, DENSITY_USER_STEP=100 };
+
 Data::Data()
 {
 }
@@ -152,6 +154,30 @@ void Data::load()
         }
     }
 
+    int nlang = languages.size();
+
+    // Convert the repo's languages into a distribution
+    for (unsigned i = 0;  i < repos.size();  ++i) {
+        Repo & repo = repos[i];
+        if (repo.invalid()) continue;
+
+        repo.language_vec.clear();
+        repo.language_vec.resize(nlang);
+
+        for (Repo::LanguageMap::const_iterator
+                 it = repo.languages.begin(),
+                 end = repo.languages.end();
+             it != end;  ++it) {
+            repo.language_vec[it->first] = it->second;
+        }
+
+        if (repo.total_loc != 0) repo.language_vec /= repo.total_loc;
+
+        repo.language_2norm
+            = sqrt((repo.language_vec * repo.language_vec).total());
+        
+    }
+
     Parse_Context data_file("download/data.txt");
 
     users.resize(60000);
@@ -174,7 +200,11 @@ void Data::load()
         user_entry.watching.insert(repo_id);
     }
 
+    calc_languages();
+
     calc_popularity();
+
+    calc_density();
 
     users_to_test.reserve(5000);
 
@@ -209,6 +239,31 @@ name_to_repos(const std::string & name) const
 
 void
 Data::
+calc_languages()
+{
+    // Get the user's language preferences from his repos
+    for (unsigned i = 0;  i < users.size();  ++i) {
+        User & user = users[i];
+
+        user.language_vec.clear();
+        user.language_vec.resize(languages.size());
+
+        for (set<int>::const_iterator
+                 it = user.watching.begin(),
+                 end = user.watching.end();
+             it != end;  ++it) {
+            const distribution<float> & repo_lang
+                = repos[*it].language_vec;
+            user.language_vec += repo_lang / user.watching.size();
+        }
+
+        user.language_2norm
+            = sqrt((user.language_vec * user.language_vec).total());
+    }
+}
+
+void
+Data::
 calc_popularity()
 {
     num_watchers.clear();
@@ -232,6 +287,66 @@ calc_popularity()
 
         repos[num_watchers[i].first].popularity_rank = rank;
     }
+}
+
+void
+Data::
+calc_density()
+{
+    int nusers = users.size();
+    int nrepos = repos.size();
+
+    int susers = nusers / DENSITY_USER_STEP;
+    int srepos = nrepos / DENSITY_REPO_STEP;
+
+
+    // Size the matrices
+    density1.resize(boost::extents[susers + 2][srepos + 2]);
+    density2.resize(boost::extents[susers + 2][srepos + 2]);
+
+    // Clear counts
+    for (unsigned i = 0;  i < susers + 2;  ++i)
+        for (unsigned j = 0;  j < srepos + 2;  ++j)
+            density1[i][j] = density2[i][j] = 0;
+
+    unsigned max_count = 0;
+
+    for (unsigned i = 0;  i < users.size();  ++i) {
+        const User & user = users[i];
+        //if (user.invalid()) continue;
+
+        int user_id = i;
+
+        int xuser1 = user_id / DENSITY_USER_STEP;
+        int xuser2 = (user_id + DENSITY_USER_STEP / 2) / DENSITY_USER_STEP;
+
+        for (set<int>::const_iterator
+                 it = user.watching.begin(),
+                 end = user.watching.end();
+             it != end;  ++it) {
+            int repo_id = *it;
+            int yrepo1 = repo_id / DENSITY_REPO_STEP;
+            int yrepo2 = (repo_id + DENSITY_REPO_STEP / 2) / DENSITY_REPO_STEP;
+
+            max_count = max(max_count, density1[xuser1][yrepo1] += 1);
+            max_count = max(max_count, density2[xuser2][yrepo2] += 1);
+        }
+    }
+
+    cerr << "max_count = " << max_count << endl;
+}
+
+float
+Data::
+density(int user_id, int repo_id) const
+{
+    int xuser1 = user_id / DENSITY_USER_STEP;
+    int xuser2 = (user_id + DENSITY_USER_STEP / 2) / DENSITY_USER_STEP;
+    int yrepo1 = repo_id / DENSITY_REPO_STEP;
+    int yrepo2 = (repo_id + DENSITY_REPO_STEP / 2) / DENSITY_REPO_STEP;
+
+    return std::max(density1[xuser1][yrepo1], 
+                    density2[xuser2][yrepo2]);
 }
 
 void
@@ -275,6 +390,7 @@ setup_fake_test(int nusers, int seed)
          ++i) {
         int user_id = candidate_users[i];
         User & user = users[user_id];
+        user.id = user_id;
 
         // Select a repo to remove
         vector<int> all_watched(user.watching.begin(),
@@ -316,6 +432,7 @@ setup_fake_test(int nusers, int seed)
 
     // Re-calculate derived data structures
     calc_popularity();
+    calc_density();
 }
 
 set<int>

@@ -14,7 +14,10 @@
 #include <string>
 
 #include <boost/date_time/gregorian/gregorian.hpp>
+#include <boost/multi_array.hpp>
+#include "stats/distribution.h"
 
+using ML::Stats::distribution;
 
 struct Repo {
     Repo()
@@ -32,10 +35,15 @@ struct Repo {
     int depth;
     std::vector<int> ancestors;
     std::set<int> all_ancestors;
-    std::map<int, size_t> languages;
+
+    typedef std::map<int, size_t> LanguageMap;
+    LanguageMap languages;
+
     size_t total_loc;
     std::set<int> watchers;
     int popularity_rank;
+    distribution<float> language_vec;
+    float language_2norm;
 
     mutable std::map<int, int> repos_watched_by_watchers;
     mutable bool repos_watched_by_watchers_initialized;
@@ -60,6 +68,8 @@ struct User {
 
     int id;
     std::set<int> watching;
+    distribution<float> language_vec;
+    float language_2norm;
 
     /// Is there a watch missing from this user?  True for users being tested.
     /// In this case, we should be careful about using negative evidence.
@@ -88,6 +98,9 @@ struct Data {
 
     std::vector<std::pair<int, int> > num_watchers;
 
+    // Two density matrices offset by 1/2
+    boost::multi_array<unsigned, 2> density1, density2;
+
     typedef std::map<std::string, std::vector<int> > Repo_Name_To_Repos;
     Repo_Name_To_Repos repo_name_to_repos;
 
@@ -99,6 +112,12 @@ struct Data {
     std::vector<int> answers;
 
     void calc_popularity();
+
+    void calc_density();
+
+    void calc_languages();
+
+    float density(int user_id, int repo_id) const;
 
     std::vector<int>
     rank_repos_by_popularity(const std::set<int> & repos) const;

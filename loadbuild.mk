@@ -25,6 +25,8 @@ data/ranker.cls: \
 		--trainer-name default \
 		--ignore-var WT \
 		--ignore-var GROUP \
+		--ignore-var REAL_TEST \
+		--testing-filter 'REAL_TEST == 1' \
 		-G 2 -C 2 \
 		--output-file $@~ \
 		--no-eval-by-group \

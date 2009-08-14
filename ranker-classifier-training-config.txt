@@ -46,6 +46,11 @@ dt {
     max_depth=5;
 }
 
-default: bbdt {
+glz {
+    type=glz;
+    verbosity=3;
+}
+
+default: glz {
 }
 

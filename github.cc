@@ -49,6 +49,9 @@ int main(int argc, char ** argv)
     // Dump the data to train a merger classifier?
     bool dump_merger_data = false;
 
+    // Include all correct entries or only the removed one?
+    bool include_all_correct = false;
+
     // Configuration file to use
     string config_file = "config.txt";
 
@@ -97,6 +100,8 @@ int main(int argc, char ** argv)
              "dump ranked results in official submission format")
             ("dump-predictions", value<bool>(&dump_predictions)->zero_tokens(),
              "dump predictions for debugging")
+            ("include-all-correct", value<bool>(&include_all_correct),
+             "include all correct (1, default) or only excluded correct (0)?")
             ("output-file,o",
              value<string>(&output_file),
              "dump output file to the given filename");
@@ -170,7 +175,7 @@ int main(int argc, char ** argv)
         ranker_fs = ranker->feature_space();
 
         // Put it in the header
-        out << "LABEL:k=BOOLEAN/o=BIASED WT:k=REAL/o=BIASED GROUP:k=REAL/o=GROUPING " << ranker_fs->print() << endl;
+        out << "LABEL:k=BOOLEAN/o=BIASED WT:k=REAL/o=BIASED GROUP:k=REAL/o=GROUPING REAL_TEST:k=BOOLEAN/o=BIASED " << ranker_fs->print() << endl;
     }
 
     cerr << "processing " << data.users_to_test.size() << " users..."
@@ -223,13 +228,6 @@ int main(int argc, char ** argv)
                                     inserter(incorrect, incorrect.end()));
                 incorrect.erase(correct_repo_id);
 
-                set<int> correct;
-                std::set_intersection(possible_choices.begin(),
-                                      possible_choices.end(),
-                                      user.watching.begin(),
-                                      user.watching.end(),
-                                      inserter(correct, correct.end()));
-
                 if (incorrect.size() > 20) {
 
                     vector<int> sample(incorrect.begin(), incorrect.end());
@@ -239,13 +237,24 @@ int main(int argc, char ** argv)
                     incorrect.insert(sample.begin(), sample.begin() + 20);
                 }
 
-                if (correct.size() > 20) {
 
-                    vector<int> sample(correct.begin(), correct.end());
-                    std::random_shuffle(sample.begin(), sample.end());
+                set<int> correct;
+
+                if (include_all_correct) {
+                    std::set_intersection(possible_choices.begin(),
+                                          possible_choices.end(),
+                                          user.watching.begin(),
+                                          user.watching.end(),
+                                          inserter(correct, correct.end()));
                     
-                    correct.clear();
-                    correct.insert(sample.begin(), sample.begin() + 20);
+                    if (correct.size() > 20) {
+                        
+                        vector<int> sample(correct.begin(), correct.end());
+                        std::random_shuffle(sample.begin(), sample.end());
+                        
+                        correct.clear();
+                        correct.insert(sample.begin(), sample.begin() + 20);
+                    }
                 }
 
                 correct.insert(correct_repo_id);
@@ -272,7 +281,8 @@ int main(int argc, char ** argv)
                     
                     int group = user_id;
 
-                    out << label << " " << weight << " " << group << " ";
+                    out << label << " " << weight << " " << group << " "
+                        << (repo_id == correct_repo_id) << " ";
 
                     boost::shared_ptr<Mutable_Feature_Set> encoded
                         = ranker_fs->encode(features[j]);
@@ -287,6 +297,8 @@ int main(int argc, char ** argv)
             
             out << endl;
         }
+
+        if (dump_merger_data) continue;
 
         Ranked ranked = ranker->rank(user_id, candidates, *candidate_data,
                                      data);
@@ -334,6 +346,8 @@ int main(int argc, char ** argv)
         results.push_back(user_results);
         result_possible_choices.push_back(possible_choices);
     }
+
+    if (dump_merger_data) return(0);
 
     if (results.size() != data.users_to_test.size())
         throw Exception("wrong number of results");

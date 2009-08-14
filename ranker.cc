@@ -11,6 +11,7 @@
 #include "utils/vector_utils.h"
 #include "utils/less.h"
 #include "arch/exception.h"
+#include "math/xdiv.h"
 
 #include "boosting/dense_features.h"
 
@@ -360,6 +361,18 @@ feature_space() const
     result->add_feature("heuristic_rank",  Feature_Info::REAL);
     result->add_feature("heuristic_percentile", Feature_Info::REAL);
 
+    result->add_feature("density", Feature_Info::REAL);
+    result->add_feature("user_id", Feature_Info::REAL);
+    
+    result->add_feature("user_repo_id_ratio", Feature_Info::REAL);
+    
+    result->add_feature("user_watched_repos", Feature_Info::REAL);
+
+    result->add_feature("language_dprod", Feature_Info::REAL);
+    result->add_feature("language_cosine", Feature_Info::REAL);
+
+    result->add_feature("repo_lines_of_code", Feature_Info::REAL);
+    
     return result;
 }
 
@@ -370,19 +383,47 @@ features(int user_id,
          const Candidate_Data & candidate_data,
          const Data & data) const
 {
-    vector<distribution<float> > results
-        = generator->features(user_id, candidates, candidate_data, data);
-
+    vector<distribution<float> > results;
+    
+    results = (*generator).features(user_id, candidates, candidate_data, data);
+    
     Ranked heuristic
         = Ranker::rank(user_id, candidates, candidate_data, data);
     heuristic.sort();
 
+    const User & user = data.users[user_id];
+
     for (unsigned i = 0;  i < heuristic.size();  ++i) {
         distribution<float> & result = results[heuristic[i].index];
+
+        int repo_id = heuristic[i].repo_id;
+        const Repo & repo = data.repos[repo_id];
 
         result.push_back(heuristic[i].score);
         result.push_back((heuristic[i].min_rank + heuristic[i].max_rank) * 0.5);
         result.push_back(result.back() / heuristic.size());
+
+        result.push_back(data.density(user_id, repo_id));
+        result.push_back(user_id);
+        result.push_back(user_id * 1.0 / repo_id);
+
+        result.push_back(user.watching.size());
+
+        float dp = (repo.language_vec * user.language_vec).total();
+
+        result.push_back(dp);
+        result.push_back(xdiv(dp, repo.language_2norm * user.language_2norm));
+
+        if (!finite(result.back())) {
+            throw Exception("not finite dp");
+            cerr << "dp = " << dp << endl;
+            cerr << "r = " << repo.language_vec << endl;
+            cerr << "u = " << user.language_vec << endl;
+            cerr << "r2 = " << repo.language_2norm << endl;
+            cerr << "u2 = " << user.language_2norm << endl;
+        }
+
+        result.push_back(log(repo.total_loc + 1));
     }
 
     return results;
