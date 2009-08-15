@@ -59,6 +59,6 @@ glz {
 }
 
 # Copy the one that we want to the given key
-default: bbdt {
+default: glz {
 }
 

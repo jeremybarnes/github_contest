@@ -366,9 +366,13 @@ feature_space() const
 
     result->add_feature("repo_lines_of_code", Feature_Info::REAL);
 
-    result->add_feature("user_walk_prob", Feature_Info::REAL);
-    result->add_feature("repo_walk_prob", Feature_Info::REAL);
-    result->add_feature("user_repo_walk_prob", Feature_Info::REAL);
+    result->add_feature("user_prob", Feature_Info::REAL);
+    result->add_feature("user_prob_rank", Feature_Info::REAL);
+
+    result->add_feature("repo_prob", Feature_Info::REAL);
+    result->add_feature("repo_prob_rank", Feature_Info::REAL);
+
+    result->add_feature("user_repo_prob", Feature_Info::REAL);
     
     return result;
 }
@@ -422,9 +426,12 @@ features(int user_id,
 
         result.push_back(log(repo.total_loc + 1));
 
-        result.push_back(log(data.user_prob[user_id]));
-        result.push_back(log(data.repo_prob[repo_id]));
-        result.push_back(log(data.user_prob[user_id] + data.repo_prob[repo_id]));
+        result.push_back(user.user_prob);
+        result.push_back(user.user_prob_rank);
+        result.push_back(repo.repo_prob);
+        result.push_back(repo.repo_prob_rank);
+
+        result.push_back(user.user_prob * repo.repo_prob);
     }
 
     return results;

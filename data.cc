@@ -372,7 +372,8 @@ stochastic_random_walk()
         user_base[i] = 1.0;
     }
 
-    user_base.normalize();
+    double total_users = user_base.total();
+    user_base /= total_users;
 
     repo_base.resize(repos.size());
     for (unsigned i = 0;  i < repos.size();  ++i) {
@@ -380,12 +381,13 @@ stochastic_random_walk()
         repo_base[i] = 1.0;
     }
 
-    repo_base.normalize();
+    double total_repos = repo_base.total();
+    repo_base /= total_repos;
 
     /* Initial conditions: equally probable to be on any user */
     user_prob = user_base;
 
-    int niter = 10;
+    int niter = 50;
 
     for (int iter = 0;  iter < niter; ++iter) {
         cerr << "iter " << iter << endl;
@@ -394,7 +396,7 @@ stochastic_random_walk()
         // to go to each of the repos that (s)he watches.
 
         // Probability that they go to a random repo instead
-        double prob_random_repo = 0.05;
+        double prob_random_repo = 0.00;
 
         repo_prob = prob_random_repo * repo_base;
 
@@ -423,9 +425,9 @@ stochastic_random_walk()
         // TODO: exploit parent/child relationships between repos
 
         // Calculate the user probabilities.  Each repo has an even chance to
-        // to to each of the watchers.
+        // go to each of the watchers.
 
-        double prob_random_user = 0.05;
+        double prob_random_user = 0.25;
 
         user_prob = user_base * prob_random_user;
 
@@ -450,12 +452,68 @@ stochastic_random_walk()
 
         user_prob.normalize();
 
-        cerr << "repos: max " << repo_prob.max()
-             << " min: " << repo_prob.min()
+        cerr << "repos: max " << repo_prob.max() * total_repos
+             << " min: " << repo_prob.min() * total_repos
              << endl;
-        cerr << "users: max " << user_prob.max()
-             << " min: " << user_prob.min()
+        cerr << "users: max " << user_prob.max() * total_users
+             << " min: " << user_prob.min() * total_users
              << endl;
+    }
+
+    vector<pair<int, double> > repos_ranked;
+    for (unsigned i = 0;  i < repos.size();  ++i) {
+        if (repos[i].invalid()) continue;
+        repos_ranked.push_back(make_pair(i, repo_prob[i]));
+    }
+
+    sort_on_second_descending(repos_ranked);
+    
+    cerr << "top 10 repos: " << endl;
+    for (unsigned i = 0;  i < 100 && i < repos_ranked.size();  ++i) {
+        int repo_id = repos_ranked[i].first;
+        const Repo & repo = repos[repo_id];
+        cerr << format("%3d %5d %6zd %8.6f %6d %s/%s\n",
+                       i,
+                       repo.popularity_rank,
+                       repo.watchers.size(),
+                       repos_ranked[i].second * total_repos,
+                       repo_id,
+                       authors[repo.author].name.c_str(),
+                       repo.name.c_str());
+    }
+    cerr << endl;
+
+    for (unsigned i = 0;  i < repos_ranked.size();  ++i) {
+        Repo & repo = repos[i];
+        repo.repo_prob = repos_ranked[i].second * total_users;
+        repo.repo_prob_rank = i;
+        repo.repo_prob_percentile = 1.0 * i / repos_ranked.size();
+    }
+
+    vector<pair<int, double> > users_ranked;
+    for (unsigned i = 0;  i < users.size();  ++i) {
+        //if (users[i].invalid()) continue;
+        users_ranked.push_back(make_pair(i, user_prob[i]));
+    }
+    sort_on_second_descending(users_ranked);
+    
+    cerr << "top 10 users: " << endl;
+    for (unsigned i = 0;  i < 100 && i < users_ranked.size();  ++i) {
+        int user_id = users_ranked[i].first;
+        const User & user = users[user_id];
+        cerr << format("%3d %6zd %8.6f %6d\n",
+                       i,
+                       user.watching.size(),
+                       users_ranked[i].second * total_users,
+                       user_id);
+    }
+    cerr << endl;
+
+    for (unsigned i = 0;  i < users_ranked.size();  ++i) {
+        User & user = users[i];
+        user.user_prob = users_ranked[i].second * total_users;
+        user.user_prob_rank = i;
+        user.user_prob_percentile = 1.0 * i / users_ranked.size();
     }
 }
 

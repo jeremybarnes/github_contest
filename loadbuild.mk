@@ -45,6 +45,7 @@ data/ranker-fv.txt.gz:
 	$(BIN)/github \
 		--dump-merger-data \
 		--include-all-correct=0 \
+		--num-users=20000 \
 		--output-file $@~
 	mv $@~ $@
 

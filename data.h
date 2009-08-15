@@ -23,7 +23,7 @@ struct Repo {
     Repo()
         : id(-1), author(-1), parent(-1), depth(-1), total_loc(0),
           popularity_rank(-1),
-          repos_watched_by_watchers_initialized(false)
+          repo_prob(0.0), repo_prob_rank(-1), repo_prob_percentile(0.0)
     {
     }
 
@@ -46,8 +46,9 @@ struct Repo {
     distribution<float> language_vec;
     float language_2norm;
 
-    mutable std::map<int, int> repos_watched_by_watchers;
-    mutable bool repos_watched_by_watchers_initialized;
+    float repo_prob;
+    int repo_prob_rank;
+    float repo_prob_percentile;
 
     bool invalid() const { return id == -1; }
 };
@@ -63,7 +64,9 @@ struct Language {
 
 struct User {
     User()
-        : id(-1), incomplete(false)
+        : id(-1),
+          user_prob(0.0), user_prob_rank(-1), user_prob_percentile(0.0),
+          incomplete(false)
     {
     }
 
@@ -71,6 +74,10 @@ struct User {
     std::set<int> watching;
     distribution<float> language_vec;
     float language_2norm;
+
+    float user_prob;
+    int user_prob_rank;
+    float user_prob_percentile;
 
     /// Is there a watch missing from this user?  True for users being tested.
     /// In this case, we should be careful about using negative evidence.
