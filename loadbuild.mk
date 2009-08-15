@@ -33,6 +33,7 @@ data/ranker.cls: \
 		--ignore-var WT \
 		--ignore-var GROUP \
 		--ignore-var REAL_TEST \
+		--ignore-var '.*heuristic.*' \
 		--testing-filter 'REAL_TEST == 1' \
 		-G 2 -C 2 \
 		--output-file $@~ \
