@@ -18,6 +18,11 @@
 using namespace std;
 using namespace ML;
 
+
+/*****************************************************************************/
+/* CANDIDATE_GENERATOR                                                       */
+/*****************************************************************************/
+
 Candidate_Generator::
 ~Candidate_Generator()
 {
@@ -285,6 +290,7 @@ candidates(const Data & data, int user_id) const
 
     return make_pair(candidates, data_ptr);
 }
+
 
 /*****************************************************************************/
 /* RANKER                                                                    */
