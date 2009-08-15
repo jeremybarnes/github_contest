@@ -231,7 +231,7 @@ void Data::load()
         users[user_id].incomplete = true;
     }
 
-
+    stochastic_random_walk();
 }
 
 const vector<int> &
@@ -356,6 +356,107 @@ density(int user_id, int repo_id) const
 
     return std::max(density1[xuser1][yrepo1], 
                     density2[xuser2][yrepo2]);
+}
+
+void
+Data::
+stochastic_random_walk()
+{
+    /* Get the baseline probabilities */
+
+    distribution<double> repo_base, user_base;
+
+    user_base.resize(users.size());
+    for (unsigned i = 0;  i < users.size();  ++i) {
+        //if (users[i].invalid()) continue;
+        user_base[i] = 1.0;
+    }
+
+    user_base.normalize();
+
+    repo_base.resize(repos.size());
+    for (unsigned i = 0;  i < repos.size();  ++i) {
+        if (repos[i].invalid()) continue;
+        repo_base[i] = 1.0;
+    }
+
+    repo_base.normalize();
+
+    /* Initial conditions: equally probable to be on any user */
+    user_prob = user_base;
+
+    int niter = 10;
+
+    for (int iter = 0;  iter < niter; ++iter) {
+        cerr << "iter " << iter << endl;
+
+        // Calculate repo probabilities.  Each user has an equal probability
+        // to go to each of the repos that (s)he watches.
+
+        // Probability that they go to a random repo instead
+        double prob_random_repo = 0.05;
+
+        repo_prob = prob_random_repo * repo_base;
+
+        for (unsigned i = 0;  i < users.size();  ++i) {
+            const User & user = users[i];
+            //if (user.invalid()) continue;
+            if (user.watching.empty()) continue;
+
+            // Amount to add for each of the user's repos
+            double factor
+                = (1.0 - prob_random_repo) * user_prob[i]
+                / user.watching.size();
+            
+            for (set<int>::const_iterator
+                     it = user.watching.begin(),
+                     end = user.watching.end();
+                 it != end;  ++it) {
+                int repo_id = *it;
+                repo_prob[repo_id] += factor;
+            }
+        }
+
+        // Normalize in case of lost probability
+        repo_prob.normalize();
+
+        // TODO: exploit parent/child relationships between repos
+
+        // Calculate the user probabilities.  Each repo has an even chance to
+        // to to each of the watchers.
+
+        double prob_random_user = 0.05;
+
+        user_prob = user_base * prob_random_user;
+
+        for (unsigned i = 0;  i < repos.size();  ++i) {
+            const Repo & repo = repos[i];
+            if (repo.invalid()) continue;
+            if (repo.watchers.empty()) continue;
+
+            // Amount to add for each of the repo's users
+            double factor
+                = (1.0 - prob_random_user) * repo_prob[i]
+                / repo.watchers.size();
+            
+            for (set<int>::const_iterator
+                     it = repo.watchers.begin(),
+                     end = repo.watchers.end();
+                 it != end;  ++it) {
+                int user_id = *it;
+                user_prob[user_id] += factor;
+            }
+        }
+
+        user_prob.normalize();
+
+        cerr << "repos: max " << repo_prob.max()
+             << " min: " << repo_prob.min()
+             << endl;
+        cerr << "users: max " << user_prob.max()
+             << " min: " << user_prob.min()
+             << endl;
+    }
 }
 
 void

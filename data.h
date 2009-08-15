@@ -124,7 +124,13 @@ struct Data {
     rank_repos_by_popularity(const std::set<int> & repos) const;
 
     std::set<int> get_most_popular_repos(int n = 10) const;
-    
+
+    /* Data for the stochastic random walk simulation */
+    distribution<double> repo_prob;
+    distribution<double> user_prob;
+
+    /* Perform the stochastic random walk */
+    void stochastic_random_walk();
 
     /* Fake testing */
 
