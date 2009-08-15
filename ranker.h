@@ -26,6 +26,7 @@ struct Candidate {
           same_name(false),
           also_watched_by_people_who_watched(false),
           top_ten(false),
+          child_of_watched(false),
           also_watched_rank(-1),
           also_watched_percentile(-1.0f),
           num_also_watched(0)
@@ -41,6 +42,7 @@ struct Candidate {
     bool same_name;
     bool also_watched_by_people_who_watched;
     bool top_ten;
+    bool child_of_watched;
 
     int also_watched_rank;
     float also_watched_percentile;
@@ -51,6 +53,7 @@ struct Candidate_Data {
 
     std::set<int> parents_of_watched;
     std::set<int> ancestors_of_watched;
+    std::set<int> children_of_watched;
     std::set<int> authors_of_watched_repos;
     std::set<int> repos_with_same_name;
 

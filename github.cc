@@ -151,7 +151,7 @@ int main(int argc, char ** argv)
     filter_ostream out(output_file);
 
     vector<set<int> > results;
-    vector<set<int> > result_possible_choices;
+    vector<vector<int> > result_possible_choices;
     results.reserve(data.users_to_test.size());
     result_possible_choices.reserve(data.users_to_test.size());
 
@@ -344,7 +344,8 @@ int main(int argc, char ** argv)
         }
 
         results.push_back(user_results);
-        result_possible_choices.push_back(possible_choices);
+        result_possible_choices.push_back(vector<int>(possible_choices.begin(),
+                                                      possible_choices.end()));
     }
 
     if (dump_merger_data) return(0);
@@ -370,19 +371,24 @@ int main(int argc, char ** argv)
             if (results[i].size() > 10)
                 throw Exception("invalid result");
             correct += results[i].count(data.answers[i]);
-            in_set += result_possible_choices[i].count(data.answers[i]);
+            
+            bool possible
+                = std::binary_search(result_possible_choices[i].begin(),
+                                     result_possible_choices[i].end(),
+                                     data.answers[i]);
+            in_set += possible;
             if (result_possible_choices[i].size() < 10) {
                 ++not_enough;
                 total_not_enough += result_possible_choices[i].size();
 
                 not_enough_correct += results[i].count(data.answers[i]);
-                not_enough_in_set += result_possible_choices[i].count(data.answers[i]);
+                not_enough_in_set += possible;
             }
             else {
                 ++is_enough;
                 total_is_enough += result_possible_choices[i].size();
                 is_enough_correct += results[i].count(data.answers[i]);
-                is_enough_in_set += result_possible_choices[i].count(data.answers[i]);
+                is_enough_in_set += possible;
             }
         }
 

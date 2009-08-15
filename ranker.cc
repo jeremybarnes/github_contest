@@ -12,8 +12,11 @@
 #include "utils/less.h"
 #include "arch/exception.h"
 #include "math/xdiv.h"
+#include "stats/distribution_simd.h"
+#include <backward/hash_map>
 
 #include "boosting/dense_features.h"
+
 
 using namespace std;
 using namespace ML;
@@ -120,7 +123,9 @@ candidates(const Data & data, int user_id) const
         = candidate_data.authors_of_watched_repos;
     set<int> & repos_with_same_name
         = candidate_data.repos_with_same_name;
-    map<int, int> also_watched_by_people_who_watched;
+    hash_map<int, int> also_watched_by_people_who_watched;
+    //set<int> & children_of_watched_repos
+    //    = candidate_data.children_of_watched_repos;
     
     for (set<int>::const_iterator
              it = user.watching.begin(),
@@ -132,11 +137,12 @@ candidates(const Data & data, int user_id) const
         if (watched.author != -1)
             authors_of_watched_repos.insert(watched.author);
         
-        if (watched.parent == -1) continue;
+        if (watched.parent != -1) {
         
-        parents_of_watched.insert(watched.parent);
-        ancestors_of_watched.insert(watched.ancestors.begin(),
-                                    watched.ancestors.end());
+            parents_of_watched.insert(watched.parent);
+            ancestors_of_watched.insert(watched.ancestors.begin(),
+                                        watched.ancestors.end());
+        }
         
         // Find repos with the same name
         const vector<int> & with_same_name

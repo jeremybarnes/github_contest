@@ -35,6 +35,7 @@ struct Repo {
     int depth;
     std::vector<int> ancestors;
     std::set<int> all_ancestors;
+    std::set<int> children;
 
     typedef std::map<int, size_t> LanguageMap;
     LanguageMap languages;

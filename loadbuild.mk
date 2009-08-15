@@ -4,13 +4,20 @@
 
 JML_BIN := jml/../build/$(ARCH)/bin
 
-loadbuild: results.txt
+loadbuild: results.txt #fake-results.txt
 
 results.txt: data/ranker.cls
 	$(BIN)/github \
 		--dump-results \
 		--output-file $@~
 	mv $@~ $@
+
+fake-results.txt: data/ranker.cls
+	$(BIN)/github \
+		--fake-test \
+		--output-file $@~
+	mv $@~ $@
+	tail -n20 $@
 
 data/ranker.cls: \
 		data/ranker-fv.txt.gz \
@@ -36,7 +43,7 @@ data/ranker.cls: \
 data/ranker-fv.txt.gz:
 	$(BIN)/github \
 		--dump-merger-data \
-		--include-all-correct=1 \
+		--include-all-correct=0 \
 		--output-file $@~
 	mv $@~ $@
 

@@ -11,6 +11,7 @@
 #include "utils/string_functions.h"
 #include "utils/vector_utils.h"
 #include "utils/pair_utils.h"
+#include "stats/distribution_simd.h"
 
 using namespace std;
 using namespace ML;
