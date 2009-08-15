@@ -36,7 +36,7 @@ data/ranker.cls: \
 data/ranker-fv.txt.gz:
 	$(BIN)/github \
 		--dump-merger-data \
-		--include-all-correct=0 \
+		--include-all-correct=1 \
 		--output-file $@~
 	mv $@~ $@
 
