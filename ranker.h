@@ -56,6 +56,7 @@ struct Candidate_Data {
     std::set<int> children_of_watched;
     std::set<int> authors_of_watched_repos;
     std::set<int> repos_with_same_name;
+    std::set<int> children_of_watched_repos;
 
     virtual ~Candidate_Data()
     {

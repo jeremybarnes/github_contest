@@ -76,13 +76,19 @@ void Data::load()
     }
 
 
-    languages.reserve(1000);
+    // Children.  Only direct ones for the moment.
+    for (unsigned i = 0;  i < repos.size();  ++i) {
+        Repo & repo = repos[i];
+        if (repo.id == -1) continue;  // invalid repo
+        if (repo.parent == -1) continue;  // no parent
+        repos[repo.parent].children.insert(i);
+    }
 
     /* Expand all parents */
     bool need_another = true;
-    int depth;
+    int depth = 0;
 
-    for (depth = 0;  need_another;  ++depth) {
+    for (;  need_another;  ++depth) {
         need_another = false;
         for (unsigned i = 0;  i < repos.size();  ++i) {
             Repo & repo = repos[i];
@@ -119,6 +125,8 @@ void Data::load()
 
 
     Parse_Context lang_file("download/lang.txt");
+
+    languages.reserve(1000);
 
     while (lang_file) {
         int repo_id = lang_file.expect_int();
