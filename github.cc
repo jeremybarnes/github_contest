@@ -394,29 +394,29 @@ int main(int argc, char ** argv)
 
         cerr << " done." << endl;
 
-        cerr << format("fake test results: \n"
-                       "     total:      real: %4zd/%4zd = %6.2f%%  "
-                       "poss: %4zd/%4zd = %6.2f%%\n",
-                       correct, results.size(),
-                       100.0 * correct / results.size(),
-                       in_set, results.size(),
-                       100.0 * in_set / results.size())
-             << format("     enough:     real: %4zd/%4zd = %6.2f%%  "
-                       "poss: %4zd/%4zd = %6.2f%%  avg num: %5.1f\n",
-                       is_enough_correct, is_enough,
-                       100.0 * is_enough_correct / is_enough,
-                       is_enough_in_set, is_enough,
-                       100.0 * is_enough_in_set / is_enough,
-                       total_is_enough * 1.0 / is_enough)
-             << format("     not enough: real: %4zd/%4zd = %6.2f%%  "
-                       "poss: %4zd/%4zd = %6.2f%%  avg num: %5.1f\n",
-                       not_enough_correct, not_enough,
-                       100.0 * not_enough_correct / not_enough,
-                       not_enough_in_set, not_enough,
-                       100.0 * not_enough_in_set / not_enough,
-                       total_not_enough * 1.0 / not_enough)
-             << endl;
-
+        out << format("fake test results: \n"
+                      "     total:      real: %4zd/%4zd = %6.2f%%  "
+                      "poss: %4zd/%4zd = %6.2f%%\n",
+                      correct, results.size(),
+                      100.0 * correct / results.size(),
+                      in_set, results.size(),
+                      100.0 * in_set / results.size())
+            << format("     enough:     real: %4zd/%4zd = %6.2f%%  "
+                      "poss: %4zd/%4zd = %6.2f%%  avg num: %5.1f\n",
+                      is_enough_correct, is_enough,
+                      100.0 * is_enough_correct / is_enough,
+                      is_enough_in_set, is_enough,
+                      100.0 * is_enough_in_set / is_enough,
+                      total_is_enough * 1.0 / is_enough)
+            << format("     not enough: real: %4zd/%4zd = %6.2f%%  "
+                      "poss: %4zd/%4zd = %6.2f%%  avg num: %5.1f\n",
+                      not_enough_correct, not_enough,
+                      100.0 * not_enough_correct / not_enough,
+                      not_enough_in_set, not_enough,
+                      100.0 * not_enough_in_set / not_enough,
+                      total_not_enough * 1.0 / not_enough)
+            << endl;
+        
         // don't write results
     }
 
