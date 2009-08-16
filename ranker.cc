@@ -152,27 +152,11 @@ candidates(const Data & data, int user_id) const
         // Find repos with the same name
         const vector<int> & with_same_name
             = data.name_to_repos(watched.name);
-
-        repos_with_same_name.insert(with_same_name.begin(),
-                                    with_same_name.end());
-        repos_with_same_name.erase(watched_id);
+        for (unsigned j = 0;  j < with_same_name.size();  ++j)
+            if (with_same_name[j] != watched_id)
+                repos_with_same_name.insert(with_same_name[j]);
     }
 
-    // Make them exclusive
-    for (IdSet::const_iterator
-             it = parents_of_watched.begin(),
-             end = parents_of_watched.end();
-         it != end;  ++it)
-        ancestors_of_watched.erase(*it);
-    
-    for (IdSet::const_iterator
-             it = user.watching.begin(),
-             end = user.watching.end();
-             it != end;  ++it) {
-        parents_of_watched.erase(*it);
-        ancestors_of_watched.erase(*it);
-    }
-    
     // Find all other repos by authors of watched repos
     IdSet repos_by_watched_authors;
     for (IdSet::const_iterator

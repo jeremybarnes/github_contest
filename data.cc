@@ -387,10 +387,10 @@ stochastic_random_walk()
     /* Initial conditions: equally probable to be on any user */
     user_prob = user_base;
 
-    int niter = 50;
+    int niter = 20;
 
     for (int iter = 0;  iter < niter; ++iter) {
-        cerr << "iter " << iter << endl;
+        //cerr << "iter " << iter << endl;
 
         // Calculate repo probabilities.  Each user has an equal probability
         // to go to each of the repos that (s)he watches.
@@ -452,12 +452,14 @@ stochastic_random_walk()
 
         user_prob.normalize();
 
+#if 0
         cerr << "repos: max " << repo_prob.max() * total_repos
              << " min: " << repo_prob.min() * total_repos
              << endl;
         cerr << "users: max " << user_prob.max() * total_users
              << " min: " << user_prob.min() * total_users
              << endl;
+#endif
     }
 
     vector<pair<int, double> > repos_ranked;
@@ -468,7 +470,8 @@ stochastic_random_walk()
 
     sort_on_second_descending(repos_ranked);
     
-    cerr << "top 10 repos: " << endl;
+#if 0
+    cerr << "top 100 repos: " << endl;
     for (unsigned i = 0;  i < 100 && i < repos_ranked.size();  ++i) {
         int repo_id = repos_ranked[i].first;
         const Repo & repo = repos[repo_id];
@@ -482,6 +485,7 @@ stochastic_random_walk()
                        repo.name.c_str());
     }
     cerr << endl;
+#endif
 
     for (unsigned i = 0;  i < repos_ranked.size();  ++i) {
         Repo & repo = repos[i];
@@ -496,8 +500,9 @@ stochastic_random_walk()
         users_ranked.push_back(make_pair(i, user_prob[i]));
     }
     sort_on_second_descending(users_ranked);
-    
-    cerr << "top 10 users: " << endl;
+
+#if 0    
+    cerr << "top 100 users: " << endl;
     for (unsigned i = 0;  i < 100 && i < users_ranked.size();  ++i) {
         int user_id = users_ranked[i].first;
         const User & user = users[user_id];
@@ -508,6 +513,7 @@ stochastic_random_walk()
                        user_id);
     }
     cerr << endl;
+#endif
 
     for (unsigned i = 0;  i < users_ranked.size();  ++i) {
         User & user = users[i];
