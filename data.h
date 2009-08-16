@@ -16,8 +16,104 @@
 #include <boost/date_time/gregorian/gregorian.hpp>
 #include <boost/multi_array.hpp>
 #include "stats/distribution.h"
+#include "utils/vector_utils.h"
 
 using ML::Stats::distribution;
+
+// Sorted vector of integer IDs
+class IdSet {
+
+    // Note: not thread safe
+    typedef std::vector<int> Vals;
+    mutable Vals vals;
+    mutable int sorted;  // 1 = yes, 0 = no, -1 = in progress
+
+    void sort() const
+    {
+        ML::make_vector_set(vals);
+        sorted = true;
+    }
+
+public:
+
+    IdSet()
+        : sorted(true)
+    {
+    }
+
+    void insert(int id)
+    {
+        vals.push_back(id);
+        if (sorted && (vals.empty() || vals.back() < id)) return;
+        sorted = false;
+    }
+
+    typedef __gnu_cxx::__normal_iterator<Vals::const_iterator, const IdSet>
+        const_iterator;
+
+    typedef Vals::pointer pointer;
+
+    const_iterator begin() const
+    {
+        if (!sorted) sort();
+        return const_iterator(vals.begin());
+    }
+    
+    const_iterator end() const
+    {
+        if (!sorted) sort();
+        return const_iterator(vals.end());
+    }
+
+    bool count(int id) const
+    {
+        if (!sorted) sort();
+        return std::binary_search(vals.begin(), vals.end(), id);
+    }
+    
+    void erase(int id) const
+    {
+        if (!sorted) sort();
+        Vals::iterator it
+            = std::lower_bound(vals.begin(), vals.end(), id);
+        if (it != vals.end() && *it == id)
+            vals.erase(it);
+    }
+
+    template<class Iterator>
+    void insert(Iterator first, Iterator last)
+    {
+        //if (std::is_sorted(first, last)) {
+        //    insert_sorted(first, last);
+        //    return;
+        //}
+        vals.insert(vals.end(), first, last);
+        sorted = false;
+    }
+
+    template<class Iterator>
+    void insert_sorted(Iterator first, Iterator last)
+    {
+        // TODO: could do a merge here...
+        vals.insert(vals.end(), first, last);
+        sorted = false;
+    }
+
+    void insert(const_iterator first, const_iterator last)
+    {
+        insert_sorted(first, last);
+    }
+
+    void insert(std::set<int>::const_iterator first,
+                std::set<int>::const_iterator last)
+    {
+        insert_sorted(first, last);
+    }
+
+    size_t size() const { return vals.size(); }
+    bool empty() const { return vals.empty(); }
+};
+
 
 struct Repo {
     Repo()
@@ -33,6 +129,7 @@ struct Repo {
     boost::gregorian::date date;
     int parent;
     int depth;
+
     std::vector<int> ancestors;
     std::set<int> all_ancestors;
     std::set<int> children;
@@ -41,7 +138,7 @@ struct Repo {
     LanguageMap languages;
 
     size_t total_loc;
-    std::set<int> watchers;
+    IdSet watchers;
     int popularity_rank;
     distribution<float> language_vec;
     float language_2norm;
@@ -71,7 +168,7 @@ struct User {
     }
 
     int id;
-    std::set<int> watching;
+    IdSet watching;
     distribution<float> language_vec;
     float language_2norm;
 

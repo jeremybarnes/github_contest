@@ -18,6 +18,7 @@
 #include "utils/vector_utils.h"
 #include "utils/filter_streams.h"
 #include "utils/configuration.h"
+#include "arch/timers.h"
 
 #include <boost/program_options/cmdline.hpp>
 #include <boost/program_options/options_description.hpp>
@@ -184,6 +185,8 @@ int main(int argc, char ** argv)
     boost::progress_display progress(data.users_to_test.size(),
                                      cerr);
 
+    Timer timer;
+
     for (unsigned i = 0;  i < data.users_to_test.size();  ++i, ++progress) {
 
         int user_id = data.users_to_test[i];
@@ -347,6 +350,8 @@ int main(int argc, char ** argv)
         result_possible_choices.push_back(vector<int>(possible_choices.begin(),
                                                       possible_choices.end()));
     }
+
+    cerr << "elapsed: " << timer.elapsed() << endl;
 
     if (dump_merger_data) return(0);
 

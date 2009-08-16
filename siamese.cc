@@ -56,7 +56,7 @@ struct Siamese {
             const Repo & repo = data.repos[i];
             if (repo.id == -1) continue;
 
-            for (set<int>::const_iterator
+            for (IdSet::const_iterator
                      it = repo.watchers.begin(),
                      end = repo.watchers.end();
                  it != end;  ++it) {

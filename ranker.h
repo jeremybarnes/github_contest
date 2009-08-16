@@ -51,12 +51,12 @@ struct Candidate {
 
 struct Candidate_Data {
 
-    std::set<int> parents_of_watched;
-    std::set<int> ancestors_of_watched;
-    std::set<int> children_of_watched;
-    std::set<int> authors_of_watched_repos;
-    std::set<int> repos_with_same_name;
-    std::set<int> children_of_watched_repos;
+    IdSet parents_of_watched;
+    IdSet ancestors_of_watched;
+    IdSet children_of_watched;
+    IdSet authors_of_watched_repos;
+    IdSet repos_with_same_name;
+    IdSet children_of_watched_repos;
 
     virtual ~Candidate_Data()
     {

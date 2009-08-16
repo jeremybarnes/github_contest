@@ -115,22 +115,21 @@ candidates(const Data & data, int user_id) const
     boost::shared_ptr<Candidate_Data> data_ptr(new Candidate_Data());
     Candidate_Data & candidate_data = *data_ptr;
 
-    set<int> user_results;
-    set<int> possible_choices;
+    IdSet possible_choices;
     
     /* Like everyone else, see which parents and ancestors weren't
        watched */
-    set<int> & parents_of_watched = candidate_data.parents_of_watched;
-    set<int> & ancestors_of_watched = candidate_data.ancestors_of_watched;
-    set<int> & authors_of_watched_repos
+    IdSet & parents_of_watched = candidate_data.parents_of_watched;
+    IdSet & ancestors_of_watched = candidate_data.ancestors_of_watched;
+    IdSet & authors_of_watched_repos
         = candidate_data.authors_of_watched_repos;
-    set<int> & repos_with_same_name
+    IdSet & repos_with_same_name
         = candidate_data.repos_with_same_name;
     hash_map<int, int> also_watched_by_people_who_watched;
-    set<int> & children_of_watched_repos
+    IdSet & children_of_watched_repos
         = candidate_data.children_of_watched_repos;
     
-    for (set<int>::const_iterator
+    for (IdSet::const_iterator
              it = user.watching.begin(),
              end = user.watching.end();
          it != end;  ++it) {
@@ -160,13 +159,13 @@ candidates(const Data & data, int user_id) const
     }
 
     // Make them exclusive
-    for (set<int>::const_iterator
+    for (IdSet::const_iterator
              it = parents_of_watched.begin(),
              end = parents_of_watched.end();
          it != end;  ++it)
         ancestors_of_watched.erase(*it);
     
-    for (set<int>::const_iterator
+    for (IdSet::const_iterator
              it = user.watching.begin(),
              end = user.watching.end();
              it != end;  ++it) {
@@ -175,8 +174,8 @@ candidates(const Data & data, int user_id) const
     }
     
     // Find all other repos by authors of watched repos
-    set<int> repos_by_watched_authors;
-    for (set<int>::const_iterator
+    IdSet repos_by_watched_authors;
+    for (IdSet::const_iterator
              it = authors_of_watched_repos.begin(),
              end = authors_of_watched_repos.end();
          it != end;  ++it)
@@ -195,7 +194,7 @@ candidates(const Data & data, int user_id) const
     possible_choices.insert(children_of_watched_repos.begin(),
                             children_of_watched_repos.end());
 
-    for (set<int>::const_iterator
+    for (IdSet::const_iterator
              it = user.watching.begin(),
              end = user.watching.end();
          it != end && possible_choices.size() < 100;  ++it) {
@@ -204,7 +203,7 @@ candidates(const Data & data, int user_id) const
         const Repo & watched = data.repos[watched_id];
         
         // Find those also watched by those that watched this one
-        for (set<int>::const_iterator
+        for (IdSet::const_iterator
                  jt = watched.watchers.begin(),
                  jend = watched.watchers.end();
              jt != jend;  ++jt) {
@@ -213,7 +212,7 @@ candidates(const Data & data, int user_id) const
             
             const User & watcher = data.users[watcher_id];
             
-            for (set<int>::const_iterator
+            for (IdSet::const_iterator
                      kt = watcher.watching.begin(),
                      kend = watcher.watching.end();
                  kt != kend;  ++kt) {
@@ -243,7 +242,7 @@ candidates(const Data & data, int user_id) const
 
     candidates.reserve(possible_choices.size());
 
-    for (set<int>::const_iterator
+    for (IdSet::const_iterator
              it = possible_choices.begin(),
              end = possible_choices.end();
          it != end;  ++it) {

@@ -257,7 +257,7 @@ calc_languages()
         user.language_vec.clear();
         user.language_vec.resize(languages.size());
 
-        for (set<int>::const_iterator
+        for (IdSet::const_iterator
                  it = user.watching.begin(),
                  end = user.watching.end();
              it != end;  ++it) {
@@ -329,7 +329,7 @@ calc_density()
         int xuser1 = user_id / DENSITY_USER_STEP;
         int xuser2 = (user_id + DENSITY_USER_STEP / 2) / DENSITY_USER_STEP;
 
-        for (set<int>::const_iterator
+        for (IdSet::const_iterator
                  it = user.watching.begin(),
                  end = user.watching.end();
              it != end;  ++it) {
@@ -410,7 +410,7 @@ stochastic_random_walk()
                 = (1.0 - prob_random_repo) * user_prob[i]
                 / user.watching.size();
             
-            for (set<int>::const_iterator
+            for (IdSet::const_iterator
                      it = user.watching.begin(),
                      end = user.watching.end();
                  it != end;  ++it) {
@@ -441,7 +441,7 @@ stochastic_random_walk()
                 = (1.0 - prob_random_user) * repo_prob[i]
                 / repo.watchers.size();
             
-            for (set<int>::const_iterator
+            for (IdSet::const_iterator
                      it = repo.watchers.begin(),
                      end = repo.watchers.end();
                  it != end;  ++it) {
