@@ -1,9 +1,6 @@
 loading data...max_count = 604
  done.
 max_count = 601
-num_valid_repos = 120867
-num_valid_users = 56519
-num_valid_repos = 120867
 running SVD
 SOLVING THE [A^TA] EIGENPROBLEM
 NO. OF ROWS               = 120867
@@ -19,125 +16,8 @@ KAPPA                     =  1.00E-06
 NUMBER OF LANCZOS STEPS   =    185
 RITZ VALUES STABILIZED    =     54
 SINGULAR VALUES FOUND     =     50
-SVD elapsed: elapsed: [11.54s cpu, 26096.4386 mticks, 11.54s wall]
-num_valid_repos = 120867
-highest values: { 119.917 58.8753 50.4381 42.8159 41.3009 38.9421 36.7722 35.884 35.3735 34.8285 33.8275 33.3133 32.8944 31.477 31.0179 30.7199 30.2006 29.4442 29.2025 28.9235 28.586 28.403 28.2799 28.15 27.9356 27.4701 27.1807 26.8508 26.7255 26.5229 26.2935 26.2167 26.095 25.8745 25.6603 25.5482 25.4617 25.2691 25.1191 25.0294 24.8133 24.4736 24.442 24.3358 24.244 24.0803 23.9729 23.8331 23.7419 23.7074 }
-result->Ut->rows = 50
-result->Ut->cols = 120867
-result->Vt->rows = 50
-result->Vt->cols = 56519
-factor 0 value 119.917
-       0      0   3595 0.291557     17 rails/rails
-       1      1   1905 0.203714    302 technoweenie/restful-authentication
-       2      2   1595 0.190353    654 mislav/will_paginate
-       3      4   1426 0.177946    616 binarylogic/authlogic
-       4      5   1349 0.165783     58 thoughtbot/paperclip
-       5      6   1155 0.135333      8 aslakhellesoy/cucumber
-       6      8   1091 0.133177     84 dchelimsky/rspec
-       7      3   1540 0.119228     76 joshuaclayton/blueprint-css
-       8     14    852 0.118478    518 brynary/webrat
-       9      9    987 0.118080     29 technoweenie/attachment_fu
-      10     15    779 0.112485    542 javan/whenever
-      11     10    977 0.111596    650 fudgestudios/bort
-      12     24    669 0.102829     15 tobi/delayed_job
-      13     13    858 0.102509    564 chriseppstein/compass
-      14     18    733 0.096064   1102 dchelimsky/rspec-rails
-      15     17    740 0.094168    354 jamis/capistrano
-      16     28    627 0.091503    101 thoughtbot/factory_girl
-      17     27    627 0.090364    289 thoughtbot/shoulda
-      18     34    553 0.088319     61 nkallen/cache-money
-      19     29    624 0.088050      6 rubyist/aasm
-
-factor 1 value 58.8753
-       0      0   3595 0.605870     17 rails/rails
-       1      1   1905 0.266591    302 technoweenie/restful-authentication
-       2      2   1595 0.200630    654 mislav/will_paginate
-       3      8   1091 0.144867     84 dchelimsky/rspec
-       4      9    987 0.126065     29 technoweenie/attachment_fu
-       5      7   1091 0.118497    866 madrobby/scriptaculous
-       6     18    733 0.114099   1102 dchelimsky/rspec-rails
-       7      5   1349 0.105556     58 thoughtbot/paperclip
-       8     17    740 0.081688    354 jamis/capistrano
-       9     25    637 0.071103    361 sstephenson/prototype
-      10     21    711 0.059749    138 drnic/ruby-on-rails-tmbundle
-      11     22    711 0.048318    301 FooBarWidget/passenger
-      12     23    695 0.046694    736 nex3/haml
-      13      3   1540 0.045172     76 joshuaclayton/blueprint-css
-      14     10    977 0.037960    650 fudgestudios/bort
-      15      4   1426 0.035685    616 binarylogic/authlogic
-      16     30    612 0.033442    899 wycats/merb-core
-      17      6   1155 0.026347      8 aslakhellesoy/cucumber
-      18     67    411 0.025111    239 rails/exception_notification
-      19     71    402 0.021724    273 activescaffold/active_scaffold
-
-factor 2 value 50.4381
-       0      0   3595 0.450606     17 rails/rails
-       1     30    612 0.133378    899 wycats/merb-core
-       2     55    463 0.098424    947 evanphx/rubinius
-       3     32    577 0.091089    245 ezmobius/nanite
-       4     86    328 0.089353     48 wycats/merb-more
-       5     93    314 0.089273   1187 wycats/merb-plugins
-       6     51    469 0.088395   1119 wycats/merb
-       7     58    448 0.088246   1382 mojombo/grit
-       8     45    490 0.083924     65 bmizerany/sinatra
-       9     12    869 0.082423     70 Caged/gitnub
-      10     33    561 0.076877    327 sinatra/sinatra
-      11     91    316 0.075809   2162 sam/dm-core
-      12     79    368 0.074769    931 why/potion
-      13     89    321 0.073853    119 chneukirchen/rack
-      14     20    727 0.068675    508 mojombo/jekyll
-      15     99    300 0.065567    131 macournoyer/thin
-      16     19    730 0.063416    226 pieter/gitx
-      17     68    406 0.059327   1410 jchris/couchrest
-      18    111    279 0.059262   1126 defunkt/rip
-      19     64    416 0.059129   1023 defunkt/github-gem
-
-factor 3 value 42.8159
-       0      0   3595 0.477015     17 rails/rails
-       1     63    425 0.059337    486 pluginaweek/state_machine
-       2     50    471 0.059289   1196 justinfrench/formtastic
-       3     37    539 0.058754    861 binarylogic/searchlogic
-       4     24    669 0.056828     15 tobi/delayed_job
-       5     15    779 0.056082    542 javan/whenever
-       6    129    256 0.053958   3101 newsdesk/translate
-       7     34    553 0.053823     61 nkallen/cache-money
-       8    126    258 0.051413   1511 methodmissing/scrooge
-       9    107    289 0.045541   1403 dsboulder/query_reviewer
-      10    218    179 0.044475   4904 semanticart/is_paranoid
-      11    110    284 0.041996    114 carlosbrando/remarkable
-      12    238    168 0.039466    268 augustl/live-validations
-      13     73    394 0.039433    483 giraffesoft/resource_controller
-      14     60    434 0.039019    409 browsermedia/browsercms
-      15    320    138 0.038215    642 adzap/validates_timeliness
-      16    148    231 0.037346   1578 maccman/acts_as_recommendable
-      17    342    133 0.036230   1624 shuber/sortable
-      18     69    404 0.035927    356 jeremymcanally/rails-templates
-      19     47    483 0.035595    554 thoughtbot/clearance
-
-factor 4 value 41.3009
-       0      3   1540 0.405280     76 joshuaclayton/blueprint-css
-       1      0   3595 0.288833     17 rails/rails
-       2     11    942 0.187002     81 joehewitt/three20
-       3     13    858 0.123736    564 chriseppstein/compass
-       4     10    977 0.114684    650 fudgestudios/bort
-       5     31    588 0.090122    238 pilu/web-app-theme
-       6     36    541 0.088072    698 sorccu/cufon
-       7     43    494 0.085172    262 sintaxi/phonegap
-       8     19    730 0.080567    226 pieter/gitx
-       9     92    315 0.075482    168 robhudson/django-debug-toolbar
-      10     16    761 0.075455    224 insoshi/insoshi
-      11    115    273 0.065519    719 pinax/pinax
-      12     53    464 0.065437    358 37signals/wysihat
-      13     65    415 0.057044     40 stubbornella/oocss
-      14     44    490 0.056862     62 railsdog/spree
-      15     49    475 0.056688   2139 jeresig/sizzle
-      16     90    316 0.053432     45 svenfuchs/adva_cms
-      17     56    461 0.053394    500 280north/cappuccino
-      18     60    434 0.051644    409 browsermedia/browsercms
-      19     95    309 0.050773    780 yfactorial/objectiveresource
-
+SVD elapsed: elapsed: [11.83s cpu, 27314.2702 mticks, 12.08s wall]
 done repos
-done filling in
 name = ranker config.prefix() = ranker config_.prefix() = 
 Buffer Input init
 first char = 1
@@ -146,9 +26,9 @@ processing 4788 users...
 0%   10   20   30   40   50   60   70   80   90   100%
 |----|----|----|----|----|----|----|----|----|----|
 ***************************************************
-elapsed: elapsed: [573.24s cpu, 1337314.7198 mticks, 591.47s wall]
+elapsed: elapsed: [567.83s cpu, 1294303.2665 mticks, 572.45s wall]
 done
 
 calculating test result... done.
-588.04user 0.74system 10:07.05elapsed 96%CPU (0avgtext+0avgdata 0maxresident)k
-0inputs+8outputs (0major+100717minor)pagefaults 0swaps
+582.98user 0.54system 9:48.44elapsed 99%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+8outputs (0major+99289minor)pagefaults 0swaps

@@ -365,7 +365,11 @@ feature_space() const
     result->add_feature("repo_parent_watchers", Feature_Info::REAL);
 
     result->add_feature("user_repo_singular_dp", Feature_Info::REAL);
-    result->add_feature("user_repo_singular_cosine", Feature_Info::REAL);
+    result->add_feature("user_repo_singular_unscaled_dp", Feature_Info::REAL);
+    result->add_feature("user_repo_singular_unscaled_dp_max",
+                        Feature_Info::REAL);
+    result->add_feature("user_repo_singular_unscaled_dp_max_norm",
+                        Feature_Info::REAL);
     
     return result;
 }
@@ -442,16 +446,12 @@ features(int user_id,
         dp = (repo.singular_vec * data.singular_values * user.singular_vec).total();
 
         result.push_back(dp);
-        result.push_back(xdiv(dp, repo.singular_2norm * user.singular_2norm));
 
-        if (!finite(result.back())) {
-            throw Exception("not finite dp");
-            cerr << "dp = " << dp << endl;
-            cerr << "r = " << repo.singular_vec << endl;
-            cerr << "u = " << user.singular_vec << endl;
-            cerr << "r2 = " << repo.singular_2norm << endl;
-            cerr << "u2 = " << user.singular_2norm << endl;
-        }
+        distribution<float> dpvec = (repo.singular_vec * user.singular_vec);
+
+        result.push_back(dpvec.total());
+        result.push_back(dpvec.max());
+        result.push_back(dpvec.max() / dpvec.total());
     }
 
     return results;
