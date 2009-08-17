@@ -147,6 +147,9 @@ struct Repo {
     int repo_prob_rank;
     float repo_prob_percentile;
 
+    distribution<float> singular_vec;
+    float singular_2norm;
+
     bool invalid() const { return id == -1; }
 };
 
@@ -175,6 +178,9 @@ struct User {
     float user_prob;
     int user_prob_rank;
     float user_prob_percentile;
+
+    distribution<float> singular_vec;
+    float singular_2norm;
 
     /// Is there a watch missing from this user?  True for users being tested.
     /// In this case, we should be careful about using negative evidence.
@@ -244,6 +250,8 @@ struct Data {
 
     /** Score the fake test */
     void score_fake_test(const std::vector<std::set<int> > & results) const;
+
+    distribution<float> singular_values;
 
 private:
     template<class Iterator>

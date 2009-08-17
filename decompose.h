@@ -14,7 +14,7 @@
 struct Decomposition {
     svdrec result;
 
-    void decompose(const Data & data);
+    void decompose(Data & data);
 };
 
 #endif /* __github__decompose_h__ */
