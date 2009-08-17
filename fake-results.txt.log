@@ -1,0 +1,17 @@
+loading data...max_count = 604
+ done.
+max_count = 601
+name = ranker config.prefix() = ranker config_.prefix() = 
+Buffer Input init
+first char = 1
+processing 4788 users...
+
+0%   10   20   30   40   50   60   70   80   90   100%
+|----|----|----|----|----|----|----|----|----|----|
+***************************************************
+elapsed: elapsed: [529.14s cpu, 1217073.8506 mticks, 538.29s wall]
+done
+
+calculating test result... done.
+532.24user 0.52system 9:01.99elapsed 98%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+8outputs (0major+50596minor)pagefaults 0swaps

@@ -356,6 +356,13 @@ feature_space() const
     result->add_feature("repo_prob_rank", Feature_Info::REAL);
 
     result->add_feature("user_repo_prob", Feature_Info::REAL);
+
+    result->add_feature("repo_has_parent", Feature_Info::REAL);
+    result->add_feature("repo_num_children", Feature_Info::REAL);
+    result->add_feature("repo_num_ancestors", Feature_Info::REAL);
+    result->add_feature("repo_num_siblings", Feature_Info::REAL);
+
+    result->add_feature("repo_parent_watchers", Feature_Info::REAL);
     
     return result;
 }
@@ -415,6 +422,19 @@ features(int user_id,
         result.push_back(repo.repo_prob_rank);
 
         result.push_back(user.user_prob * repo.repo_prob);
+
+        result.push_back(repo.parent != -1);
+        result.push_back(repo.children.size());
+        result.push_back(repo.ancestors.size());
+
+        if (repo.parent == -1) {
+            result.push_back(0);
+            result.push_back(-1);
+        }
+        else {
+            result.push_back(data.repos[repo.parent].children.size());
+            result.push_back(data.repos[repo.parent].watchers.size());
+        }
     }
 
     return results;

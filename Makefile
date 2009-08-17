@@ -40,8 +40,8 @@ GITHUB_SOURCES := \
 
 $(eval $(call add_sources,exception_hook.cc))
 
-$(eval $(call program,github,utils ACE boost_program_options-mt boost_regex-mt boost_date_time-mt db arch boosting,$(GITHUB_SOURCES),tools))
+$(eval $(call program,github,utils ACE boost_program_options-mt boost_regex-mt boost_date_time-mt db arch boosting svdlibc,$(GITHUB_SOURCES),tools))
 
-
+$(eval $(call include_sub_makes,svdlibc))
 
 include loadbuild.mk

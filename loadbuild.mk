@@ -7,22 +7,27 @@ JML_BIN := jml/../build/$(ARCH)/bin
 loadbuild: results.txt fake-results.txt
 
 results.txt: data/ranker.cls
+	/usr/bin/time \
 	$(BIN)/github \
 		--dump-results \
-		--output-file $@~
+		--output-file $@~ \
+	2>&1 | tee $@.log
 	mv $@~ $@
 
 fake-results.txt: data/ranker.cls
+	/usr/bin/time \
 	$(BIN)/github \
 		--fake-test \
 		--random-seed 2 \
-		--output-file $@~
+		--output-file $@~ \
+	2>&1 | tee $@.log
 	mv $@~ $@
 	tail -n20 $@
 
 data/ranker.cls: \
 		data/ranker-fv.txt.gz \
 		ranker-classifier-training-config.txt
+	/usr/bin/time \
 	$(JML_BIN)/classifier_training_tool \
 		--configuration-file ranker-classifier-training-config.txt \
 		--group-feature GROUP \
@@ -38,14 +43,17 @@ data/ranker.cls: \
 		-G 2 -C 2 \
 		--output-file $@~ \
 		--no-eval-by-group \
-		$<
+		$< \
+	2>&1 | tee $@.log
 	mv $@~ $@
 
 data/ranker-fv.txt.gz:
+	/usr/bin/time \
 	$(BIN)/github \
 		--dump-merger-data \
 		--include-all-correct=0 \
 		--num-users=20000 \
-		--output-file $@~
+		--output-file $@~ \
+	2>&1 | tee $@.log
 	mv $@~ $@
 
