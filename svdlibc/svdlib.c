@@ -163,7 +163,7 @@ SMat svdTransposeS(SMat S) {
 
 /**************************** Input/Output ***********************************/
 
-void svdWriteDenseArray(double *a, int n, char *filename, char binary) {
+void svdWriteDenseArray(double *a, int n, const char *filename, char binary) {
   int i;
   FILE *file = svd_writeFile(filename, FALSE);
   if (!file) 
@@ -180,7 +180,7 @@ void svdWriteDenseArray(double *a, int n, char *filename, char binary) {
   svd_closeFile(file);
 }
 
-double *svdLoadDenseArray(char *filename, int *np, char binary) {
+double *svdLoadDenseArray(const char *filename, int *np, char binary) {
   int i, n;
   double *a;
   int nfound;
@@ -452,7 +452,7 @@ static void svdWriteDenseBinaryFile(DMat D, FILE *file) {
 }
 
 
-SMat svdLoadSparseMatrix(char *filename, int format) {
+SMat svdLoadSparseMatrix(const char *filename, int format) {
   SMat S = NULL;
   DMat D = NULL;
   FILE *file = svd_fatalReadFile(filename);
@@ -482,7 +482,7 @@ SMat svdLoadSparseMatrix(char *filename, int format) {
   return S;
 }
 
-DMat svdLoadDenseMatrix(char *filename, int format) {
+DMat svdLoadDenseMatrix(const char *filename, int format) {
   SMat S = NULL;
   DMat D = NULL;
   FILE *file = svd_fatalReadFile(filename);
@@ -512,7 +512,7 @@ DMat svdLoadDenseMatrix(char *filename, int format) {
   return D;
 }
 
-void svdWriteSparseMatrix(SMat S, char *filename, int format) {
+void svdWriteSparseMatrix(SMat S, const char *filename, int format) {
   DMat D = NULL;
   FILE *file = svd_writeFile(filename, FALSE);
   if (!file) {
@@ -543,7 +543,7 @@ void svdWriteSparseMatrix(SMat S, char *filename, int format) {
   if (D) svdFreeDMat(D);
 }
 
-void svdWriteDenseMatrix(DMat D, char *filename, int format) {
+void svdWriteDenseMatrix(DMat D, const char *filename, int format) {
   SMat S = NULL;
   FILE *file = svd_writeFile(filename, FALSE);
   if (!file) {

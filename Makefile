@@ -36,7 +36,8 @@ GITHUB_SOURCES := \
 	siamese.cc \
 	exception_hook.cc \
 	data.cc \
-	ranker.cc
+	ranker.cc \
+	decompose.cc
 
 $(eval $(call add_sources,exception_hook.cc))
 

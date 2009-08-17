@@ -7,6 +7,7 @@
 
 #include "data.h"
 #include "ranker.h"
+#include "decompose.h"
 
 #include <fstream>
 #include <iterator>
@@ -147,6 +148,9 @@ int main(int argc, char ** argv)
 
     if (fake_test || dump_merger_data)
         data.setup_fake_test(num_users, rseed);
+
+    Decomposition decomposition;
+    decomposition.decompose(data);
 
     // Write out results file
     filter_ostream out(output_file);
