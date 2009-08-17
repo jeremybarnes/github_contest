@@ -1,8 +1,5 @@
 loading data...max_count = 604
  done.
-num_valid_repos = 120867
-num_valid_users = 56519
-num_valid_repos = 120867
 running SVD
 SOLVING THE [A^TA] EIGENPROBLEM
 NO. OF ROWS               = 120867
@@ -18,125 +15,8 @@ KAPPA                     =  1.00E-06
 NUMBER OF LANCZOS STEPS   =    185
 RITZ VALUES STABILIZED    =     55
 SINGULAR VALUES FOUND     =     50
-SVD elapsed: elapsed: [11.35s cpu, 26929.0570 mticks, 11.91s wall]
-num_valid_repos = 120867
-highest values: { 120.272 59.3145 50.723 43.097 41.5194 39.1112 36.9745 36.0839 35.7186 35.0548 34.0692 33.5893 33.0144 31.6814 31.1237 30.8712 30.3263 29.5261 29.2839 29.0168 28.6914 28.5053 28.4092 28.3001 28.0451 27.5766 27.309 26.9569 26.8295 26.6135 26.3937 26.3126 26.2108 25.9734 25.7846 25.6207 25.5399 25.3665 25.2297 25.1282 24.8975 24.6271 24.5513 24.4086 24.3533 24.1746 24.1256 24.0499 23.9239 23.8032 }
-result->Ut->rows = 50
-result->Ut->cols = 120867
-result->Vt->rows = 50
-result->Vt->cols = 56519
-factor 0 value 120.272
-       0      0   3675 0.293903     17 rails/rails
-       1      1   1929 0.204424    302 technoweenie/restful-authentication
-       2      2   1611 0.190908    654 mislav/will_paginate
-       3      4   1438 0.178285    616 binarylogic/authlogic
-       4      5   1362 0.166511     58 thoughtbot/paperclip
-       5      6   1159 0.135032      8 aslakhellesoy/cucumber
-       6      8   1100 0.133543     84 dchelimsky/rspec
-       7      3   1565 0.119195     76 joshuaclayton/blueprint-css
-       8      9   1006 0.119013     29 technoweenie/attachment_fu
-       9     14    858 0.118295    518 brynary/webrat
-      10     16    781 0.112382    542 javan/whenever
-      11     10    990 0.111628    650 fudgestudios/bort
-      12     24    673 0.102470     15 tobi/delayed_job
-      13     13    864 0.102208    564 chriseppstein/compass
-      14     19    737 0.096217   1102 dchelimsky/rspec-rails
-      15     17    746 0.094661    354 jamis/capistrano
-      16     27    633 0.091848    101 thoughtbot/factory_girl
-      17     26    634 0.090308    289 thoughtbot/shoulda
-      18     35    558 0.088193     61 nkallen/cache-money
-      19     21    721 0.088153    138 drnic/ruby-on-rails-tmbundle
-
-factor 1 value 59.3145
-       0      0   3675 0.617048     17 rails/rails
-       1      1   1929 0.262374    302 technoweenie/restful-authentication
-       2      2   1611 0.196105    654 mislav/will_paginate
-       3      8   1100 0.142854     84 dchelimsky/rspec
-       4      9   1006 0.124496     29 technoweenie/attachment_fu
-       5      7   1136 0.119194    866 madrobby/scriptaculous
-       6     19    737 0.112085   1102 dchelimsky/rspec-rails
-       7      5   1362 0.100114     58 thoughtbot/paperclip
-       8     17    746 0.081389    354 jamis/capistrano
-       9     25    649 0.071410    361 sstephenson/prototype
-      10     21    721 0.058452    138 drnic/ruby-on-rails-tmbundle
-      11     22    718 0.047821    301 FooBarWidget/passenger
-      12     23    701 0.045690    736 nex3/haml
-      13      3   1565 0.042959     76 joshuaclayton/blueprint-css
-      14     10    990 0.035892    650 fudgestudios/bort
-      15     30    623 0.034628    899 wycats/merb-core
-      16      4   1438 0.031989    616 binarylogic/authlogic
-      17      6   1159 0.024091      8 aslakhellesoy/cucumber
-      18     67    413 0.023612    239 rails/exception_notification
-      19     70    409 0.020841    273 activescaffold/active_scaffold
-
-factor 2 value 50.723
-       0      0   3675 0.448604     17 rails/rails
-       1     30    623 0.132317    899 wycats/merb-core
-       2     56    469 0.097894    947 evanphx/rubinius
-       3     32    580 0.091651    245 ezmobius/nanite
-       4     85    333 0.088998     48 wycats/merb-more
-       5     93    317 0.088432   1187 wycats/merb-plugins
-       6     50    476 0.087585   1119 wycats/merb
-       7     58    451 0.087344   1382 mojombo/grit
-       8     46    492 0.083434     65 bmizerany/sinatra
-       9     12    884 0.080810     70 Caged/gitnub
-      10     34    571 0.076428    327 sinatra/sinatra
-      11     92    318 0.075483   2162 sam/dm-core
-      12     78    372 0.074495    931 why/potion
-      13     89    324 0.074171    119 chneukirchen/rack
-      14     20    732 0.068546    508 mojombo/jekyll
-      15     99    304 0.065518    131 macournoyer/thin
-      16     18    745 0.062828    226 pieter/gitx
-      17    113    281 0.060312   1126 defunkt/rip
-      18     68    411 0.059361   1410 jchris/couchrest
-      19    167    214 0.059292    875 sam/dm-more
-
-factor 3 value 43.097
-       0      0   3675 0.468917     17 rails/rails
-       1     51    474 0.060961   1196 justinfrench/formtastic
-       2     39    544 0.060555    861 binarylogic/searchlogic
-       3     63    426 0.059792    486 pluginaweek/state_machine
-       4     16    781 0.057553    542 javan/whenever
-       5     24    673 0.057305     15 tobi/delayed_job
-       6    127    261 0.054111   3101 newsdesk/translate
-       7     35    558 0.053961     61 nkallen/cache-money
-       8    130    258 0.051512   1511 methodmissing/scrooge
-       9    109    292 0.046022   1403 dsboulder/query_reviewer
-      10    221    180 0.044786   4904 semanticart/is_paranoid
-      11    110    286 0.041996    114 carlosbrando/remarkable
-      12     73    395 0.040035    483 giraffesoft/resource_controller
-      13    242    169 0.039932    268 augustl/live-validations
-      14     61    438 0.039618    409 browsermedia/browsercms
-      15    319    141 0.038266    642 adzap/validates_timeliness
-      16    148    233 0.038064   1578 maccman/acts_as_recommendable
-      17    343    135 0.036473   1624 shuber/sortable
-      18     71    407 0.036328    356 jeremymcanally/rails-templates
-      19     48    485 0.036083    554 thoughtbot/clearance
-
-factor 4 value 41.5194
-       0      3   1565 0.415693     76 joshuaclayton/blueprint-css
-       1      0   3675 0.280850     17 rails/rails
-       2     11    964 0.186697     81 joehewitt/three20
-       3     13    864 0.125400    564 chriseppstein/compass
-       4     10    990 0.115812    650 fudgestudios/bort
-       5     31    590 0.089487    238 pilu/web-app-theme
-       6     36    549 0.089169    698 sorccu/cufon
-       7     42    501 0.084871    262 sintaxi/phonegap
-       8     18    745 0.080215    226 pieter/gitx
-       9     15    790 0.076700    224 insoshi/insoshi
-      10     90    320 0.075014    168 robhudson/django-debug-toolbar
-      11    111    284 0.066357    719 pinax/pinax
-      12     54    470 0.065808    358 37signals/wysihat
-      13     64    422 0.057790     40 stubbornella/oocss
-      14     44    494 0.057312     62 railsdog/spree
-      15     49    482 0.056525   2139 jeresig/sizzle
-      16     53    472 0.053761    500 280north/cappuccino
-      17     91    320 0.052896     45 svenfuchs/adva_cms
-      18     61    438 0.052282    409 browsermedia/browsercms
-      19     95    313 0.049804    780 yfactorial/objectiveresource
-
+SVD elapsed: elapsed: [5.63s cpu, 12749.5538 mticks, 5.64s wall]
 done repos
-done filling in
 name = ranker config.prefix() = ranker config_.prefix() = 
 Buffer Input init
 first char = 1
@@ -144,22 +24,10 @@ processing 4788 users...
 
 0%   10   20   30   40   50   60   70   80   90   100%
 |----|----|----|----|----|----|----|----|----|----|
-**********************************
------------------ Exception thrown ------------------------
-type:   ML::Exception
-what:   distribution: operation between different sized distributions
-stack:
-   0: 0x0000000042389d ML::Stats::wrong_sizes_exception() + 0x5d in build/x86_64/bin/github + 0x2389d
-   1: 0x00000000424d01 ML::Stats::distribution<float, std::vector<float, std::allocator<float> > > ML::Stats::operator*<float, float, std::vector<float, std::allocator<float> >, std::vector<float, std::allocator<float> > >(ML::Stats::distribution<float, std::vector<float, std::allocator<float> > > const&, ML::Stats::distribution<float, std::vector<float, std::allocator<float> > > const&) + 0x31 in build/x86_64/bin/github + 0x24d01
-   2: 0x0000000042e5dd  in build/x86_64/bin/github + 0x2e5dd
-   3: 0x0000000042f2f9  in build/x86_64/bin/github + 0x2f2f9
-   4: 0x0000000042c593  in build/x86_64/bin/github + 0x2c593
-   5: 0x0000000040eb58 main + 0x1628 in build/x86_64/bin/github + 0xeb58
-   6: 0x002b614c65b5a6 __libc_start_main + 0xe6 in /lib/libc.so.6 + 0x1e5a6
-   7: 0x0000000040d3d9  in build/x86_64/bin/github + 0xd3d9
+***************************************************
+elapsed: elapsed: [650.15s cpu, 1470240.8766 mticks, 650.26s wall]
+done
 
-terminate called after throwing an instance of 'ML::Exception'
-  what():  distribution: operation between different sized distributions
-Command terminated by signal 6
-603.51user 0.74system 10:21.31elapsed 97%CPU (0avgtext+0avgdata 0maxresident)k
-0inputs+0outputs (0major+100660minor)pagefaults 0swaps
+dumping results...done.
+658.80user 0.40system 10:59.33elapsed 99%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+512outputs (0major+99798minor)pagefaults 0swaps
