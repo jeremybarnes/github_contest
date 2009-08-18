@@ -65,6 +65,8 @@ feature_space() const
     result->add_feature("repo_rank", Feature_Info::REAL);
     result->add_feature("repo_watchers", Feature_Info::REAL);
     result->add_feature("child_of_watched", Feature_Info::BOOLEAN);
+    result->add_feature("watched_by_cluster_user", Feature_Info::REAL);
+    result->add_feature("in_cluster_repo", Feature_Info::REAL);
     // also watched min repos
     // also watched average repos
 
@@ -99,6 +101,8 @@ features(int user_id,
         result.push_back(repo.watchers.size());
 
         result.push_back(candidate.child_of_watched);
+        result.push_back(candidate.watched_by_cluster_user);
+        result.push_back(candidate.in_cluster_repo);
     }
 
     return results;
@@ -159,7 +163,7 @@ candidates(const Data & data, int user_id) const
 
     // Find repos watched by other users in the same cluster
     hash_map<int, int> watched_by_cluster_user;
-    IdSet in_cluster;
+    IdSet in_cluster_user;
 
     int clusterno = user.kmeans_cluster;
     if (clusterno != -1) {
@@ -167,6 +171,8 @@ candidates(const Data & data, int user_id) const
         for (unsigned i = 0;  i < cluster.members.size();  ++i) {
             int user_id = cluster.members[i];
             const User & user = data.users[user_id];
+            
+            if (user.invalid()) continue;
 
             for (IdSet::const_iterator
                      it = user.watching.begin(),
@@ -188,9 +194,60 @@ candidates(const Data & data, int user_id) const
 
         sort_on_second_descending(ranked);
         
-        for (unsigned i = 0;  i < 3000 && i < ranked.size();  ++i)
-            in_cluster.insert(ranked[i].first);
+        for (unsigned i = 0;  i < 200 && i < ranked.size();  ++i)
+            in_cluster_user.insert(ranked[i].first);
     }
+
+    IdSet in_cluster_repo;
+
+    for (IdSet::const_iterator
+             it = user.watching.begin(),
+             end = user.watching.end();
+         it != end;  ++it) {
+        int repo_id = *it;
+        const Repo & repo = data.repos[repo_id];
+        int cluster_id = repo.kmeans_cluster;
+
+        if (cluster_id == -1) continue;
+
+        IdSet repo_ids;
+
+        const Cluster & cluster = data.repo_clusters[cluster_id];
+        for (unsigned i = 0;  i < cluster.top_members.size() && i < 100;  ++i) {
+            int repo_id = cluster.top_members[i];
+            if (data.repos[repo_id].invalid()) continue;
+            repo_ids.insert(repo_id);
+        }
+
+        // Rank by popularity
+        vector<pair<int, int> > ranked;
+        for (IdSet::const_iterator
+                 it = repo_ids.begin(),
+                 end = repo_ids.end();
+             it != end;  ++it) {
+            ranked.push_back(make_pair(*it, data.repos[*it].repo_prob));
+        }
+
+        sort_on_second_descending(ranked);
+
+        for (unsigned i = 0;  i < 100 && i < ranked.size();  ++i)
+            in_cluster_repo.insert(ranked[i].first);
+    }
+
+    vector<pair<int, int> > ranked2;
+    for (IdSet::const_iterator
+             it = in_cluster_repo.begin(),
+             end = in_cluster_repo.end();
+         it != end;  ++it) {
+        ranked2.push_back(make_pair(*it, data.repos[*it].repo_prob));
+    }
+
+    sort_on_second_descending(ranked2);
+
+    in_cluster_repo.clear();
+
+    for (unsigned i = 0;  i < 200 && i < ranked2.size();  ++i)
+        in_cluster_repo.insert(ranked2[i].first);
 
     // Find all other repos by authors of watched repos
     IdSet repos_by_watched_authors;
@@ -212,10 +269,13 @@ candidates(const Data & data, int user_id) const
                             repos_with_same_name.end());
     possible_choices.insert(children_of_watched_repos.begin(),
                             children_of_watched_repos.end());
-    possible_choices.insert(in_cluster.begin(),
-                            in_cluster.end());
 
+    possible_choices.insert(in_cluster_user.begin(),
+                            in_cluster_user.end());
+    possible_choices.insert(in_cluster_repo.begin(),
+                            in_cluster_repo.end());
 
+#if 0
     for (IdSet::const_iterator
              it = user.watching.begin(),
              end = user.watching.end();
@@ -251,11 +311,14 @@ candidates(const Data & data, int user_id) const
     vector<pair<int, int> > also_watched_ranked(also_watched_by_people_who_watched.begin(),
                                                 also_watched_by_people_who_watched.end());
     sort_on_second_descending(also_watched_ranked);
+#endif
 
     map<int, int> awranks;
+#if 0
     for (unsigned i = 0;  i < also_watched_ranked.size();  ++i) {
         awranks[also_watched_ranked[i].first] = i;
     }
+#endif
 
     set<int> top_twenty
         = data.get_most_popular_repos(20);
@@ -277,7 +340,9 @@ candidates(const Data & data, int user_id) const
         c.ancestor_of_watched = ancestors_of_watched.count(repo_id);
         c.same_name = repos_with_same_name.count(repo_id);
         c.child_of_watched = children_of_watched_repos.count(repo_id);
-        
+        c.watched_by_cluster_user = watched_by_cluster_user[repo_id];
+        c.in_cluster_repo = in_cluster_repo.count(repo_id);
+  
         if (also_watched_by_people_who_watched.count(repo_id)) {
             c.also_watched_by_people_who_watched = true;
             c.num_also_watched
@@ -408,6 +473,7 @@ feature_space() const
                         Feature_Info::REAL);
     result->add_feature("user_repo_singular_unscaled_dp_max_norm",
                         Feature_Info::REAL);
+    result->add_feature("user_repo_centroid_repo_cosine", Feature_Info::REAL);
     
     return result;
 }
@@ -481,7 +547,8 @@ features(int user_id,
             result.push_back(data.repos[repo.parent].watchers.size());
         }
 
-        dp = (repo.singular_vec * data.singular_values).dotprod(user.singular_vec);
+        dp = (repo.singular_vec * data.singular_values)
+             .dotprod(user.singular_vec);
 
         result.push_back(dp);
 
@@ -490,6 +557,13 @@ features(int user_id,
         result.push_back(dpvec.total());
         result.push_back(dpvec.max());
         result.push_back(dpvec.max() / dpvec.total());
+
+        dp = -1.0;
+        if (user.repo_centroid.size() && repo.singular_vec.size())
+            dp = repo.singular_vec.dotprod(user.repo_centroid)
+                / repo.singular_2norm;
+
+        result.push_back(dp);
     }
 
     return results;

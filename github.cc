@@ -177,7 +177,7 @@ int main(int argc, char ** argv)
     }
     else if (cluster_repos) {
         decomposition.kmeans_repos(data);
-        decomposition.save_kmeans_users(out, data);
+        decomposition.save_kmeans_repos(out, data);
         return 0;
     }
     else {

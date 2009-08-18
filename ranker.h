@@ -27,6 +27,8 @@ struct Candidate {
           also_watched_by_people_who_watched(false),
           top_ten(false),
           child_of_watched(false),
+          watched_by_cluster_user(0),
+          in_cluster_repo(0),
           also_watched_rank(-1),
           also_watched_percentile(-1.0f),
           num_also_watched(0)
@@ -43,6 +45,8 @@ struct Candidate {
     bool also_watched_by_people_who_watched;
     bool top_ten;
     bool child_of_watched;
+    int  watched_by_cluster_user;
+    bool in_cluster_repo; 
 
     int also_watched_rank;
     float also_watched_percentile;

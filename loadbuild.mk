@@ -7,7 +7,7 @@ JML_BIN := jml/../build/$(ARCH)/bin
 loadbuild: results.txt fake-results.txt
 
 results.txt: data/ranker.cls
-	set -o pipefail
+	set -o pipefail && \
 	/usr/bin/time \
 	$(BIN)/github \
 		--dump-results \
@@ -16,7 +16,7 @@ results.txt: data/ranker.cls
 	mv $@~ $@
 
 fake-results.txt: data/ranker.cls
-	set -o pipefail
+	set -o pipefail && \
 	/usr/bin/time \
 	$(BIN)/github \
 		--fake-test \
@@ -29,7 +29,7 @@ fake-results.txt: data/ranker.cls
 data/ranker.cls: \
 		data/ranker-fv.txt.gz \
 		ranker-classifier-training-config.txt
-	set -o pipefail
+	set -o pipefail && \
 	/usr/bin/time \
 	$(JML_BIN)/classifier_training_tool \
 		--configuration-file ranker-classifier-training-config.txt \
@@ -51,7 +51,7 @@ data/ranker.cls: \
 	mv $@~ $@
 
 data/ranker-fv.txt.gz: data/kmeans_users.txt data/kmeans_repos.txt
-	set -o pipefail
+	set -o pipefail && \
 	/usr/bin/time \
 	$(BIN)/github \
 		--dump-merger-data \
@@ -65,7 +65,7 @@ data/ranker-fv.txt.gz: data/kmeans_users.txt data/kmeans_repos.txt
 # the 
 
 data/kmeans_users.txt:
-	set -o pipefail
+	set -o pipefail && \
 	/usr/bin/time \
 	$(BIN)/github \
 		--cluster-users \
@@ -76,7 +76,7 @@ data/kmeans_users.txt:
 	mv $@~ $@
 
 data/kmeans_repos.txt:
-	set -o pipefail
+	set -o pipefail && \
 	/usr/bin/time \
 	$(BIN)/github \
 		--cluster-repos \

@@ -1,4 +1,6 @@
 loading data...max_count = 604
+users_with_n_repos: { 2 23400 10369 4070 2750 1918 1576 1197 1025 828 708 583 545 531 444 392 336 295 275 5277 }
+incomplete_users_with_n_repos: { 2 1347 553 367 264 226 191 147 122 125 96 93 91 68 66 53 55 39 34 849 }
  done.
 running SVD
 SOLVING THE [A^TA] EIGENPROBLEM
@@ -15,7 +17,7 @@ KAPPA                     =  1.00E-06
 NUMBER OF LANCZOS STEPS   =    185
 RITZ VALUES STABILIZED    =     55
 SINGULAR VALUES FOUND     =     50
-SVD elapsed: elapsed: [12.32s cpu, 28656.7129 mticks, 12.67s wall]
+SVD elapsed: elapsed: [11.64s cpu, 26689.4456 mticks, 11.80s wall]
 done repos
 name = ranker config.prefix() = ranker config_.prefix() = 
 Buffer Input init
@@ -25,9 +27,9 @@ processing 4788 users...
 0%   10   20   30   40   50   60   70   80   90   100%
 |----|----|----|----|----|----|----|----|----|----|
 ***************************************************
-elapsed: elapsed: [1065.53s cpu, 2446275.4249 mticks, 1081.94s wall]
+elapsed: elapsed: [983.43s cpu, 2268143.2336 mticks, 1003.16s wall]
 done
 
 dumping results...done.
-1081.07user 0.63system 18:18.57elapsed 98%CPU (0avgtext+0avgdata 0maxresident)k
-0inputs+512outputs (0major+101862minor)pagefaults 0swaps
+998.15user 1.11system 16:59.39elapsed 98%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+504outputs (0major+105137minor)pagefaults 0swaps

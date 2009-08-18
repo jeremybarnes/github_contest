@@ -80,6 +80,12 @@ public:
             vals.erase(it);
     }
 
+    void clear() const
+    {
+        vals.clear();
+        sorted = true;
+    }
+
     template<class Iterator>
     void insert(Iterator first, Iterator last)
     {
@@ -186,6 +192,8 @@ struct User {
     distribution<float> singular_vec;
     float singular_2norm;
 
+    distribution<float> repo_centroid;
+
     // Cluster number to which user belongs
     int kmeans_cluster;
 
@@ -204,6 +212,7 @@ struct Author {
 
 struct Cluster {
     std::vector<int> members;
+    std::vector<int> top_members;
     distribution<double> centroid;
 };
 
@@ -267,6 +276,8 @@ struct Data {
 
     std::vector<Cluster> user_clusters;
     std::vector<Cluster> repo_clusters;
+
+    void frequency_stats();
 
 private:
     template<class Iterator>

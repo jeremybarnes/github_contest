@@ -11,6 +11,8 @@
 #include "arch/simd_vector.h"
 #include "stats/distribution_simd.h"
 #include "utils/parse_context.h"
+#include "utils/pair_utils.h"
+
 
 using namespace std;
 using namespace ML;
@@ -150,6 +152,7 @@ decompose(Data & data)
         User & user = data.users[i];
         distribution<float> & user_vec = user.singular_vec;
         user_vec.resize(nvalues);
+        user.repo_centroid.resize(nvalues);
 
         if (user.watching.empty()) continue;
         
@@ -161,6 +164,18 @@ decompose(Data & data)
             user_vec[j] = result->Vt->value[j][index];
 
         user.singular_2norm = user_vec.two_norm();
+
+        distribution<double> centroid(nvalues);
+
+        for (IdSet::const_iterator
+                 it = user.watching.begin(),
+                 end = user.watching.end();
+             it != end;  ++it) {
+            centroid += data.repos[*it].singular_vec;
+        }
+        centroid /= centroid.two_norm();
+
+        user.repo_centroid = centroid;
     }
 
     // Free up memory (TODO: put into guards...)
@@ -439,9 +454,23 @@ load_kmeans_users(const std::string & filename, Data & data)
             += data.users[user_id].singular_vec;
     }
 
-    for (unsigned i = 0;  i < data.user_clusters.size();  ++i)
-        data.user_clusters[i].centroid
-            /= data.user_clusters[i].centroid.two_norm();
+    for (unsigned i = 0;  i < data.user_clusters.size();  ++i) {
+        // Normalize the centroid vector
+        Cluster & cluster = data.user_clusters[i];
+        cluster.centroid /= cluster.centroid.two_norm();
+
+        // Rank the members and store
+        vector<pair<int, float> > ranked;
+        ranked.reserve(cluster.members.size());
+        for (unsigned j = 0;  j < cluster.members.size();  ++j)
+            ranked.push_back(make_pair(cluster.members[j],
+                                       data.users[cluster.members[j]].user_prob));
+        sort_on_second_descending(ranked);
+
+        cluster.top_members.insert(cluster.top_members.end(),
+                                   first_extractor(ranked.begin()),
+                                   first_extractor(ranked.end()));
+    }
 }
 
 void
@@ -474,7 +503,21 @@ load_kmeans_repos(const std::string & filename, Data & data)
             += data.repos[repo_id].singular_vec;
     }
 
-    for (unsigned i = 0;  i < data.repo_clusters.size();  ++i)
-        data.repo_clusters[i].centroid
-            /= data.repo_clusters[i].centroid.two_norm();
+    for (unsigned i = 0;  i < data.repo_clusters.size();  ++i) {
+        // Normalize the centroid vector
+        Cluster & cluster = data.repo_clusters[i];
+        cluster.centroid /= cluster.centroid.two_norm();
+
+        // Rank the members and store
+        vector<pair<int, float> > ranked;
+        ranked.reserve(cluster.members.size());
+        for (unsigned j = 0;  j < cluster.members.size();  ++j)
+            ranked.push_back(make_pair(cluster.members[j],
+                                       data.repos[cluster.members[j]].repo_prob));
+        sort_on_second_descending(ranked);
+
+        cluster.top_members.insert(cluster.top_members.end(),
+                                   first_extractor(ranked.begin()),
+                                   first_extractor(ranked.end()));
+    }
 }

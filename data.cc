@@ -13,6 +13,8 @@
 #include "utils/pair_utils.h"
 #include "stats/distribution_simd.h"
 
+#include <boost/assign/list_of.hpp>
+
 using namespace std;
 using namespace ML;
 
@@ -206,6 +208,7 @@ void Data::load()
 
         repo_entry.watchers.insert(user_id);
         user_entry.watching.insert(repo_id);
+        user_entry.id = user_id;
     }
 
     calc_languages();
@@ -228,9 +231,93 @@ void Data::load()
 
         users_to_test.push_back(user_id);
         users[user_id].incomplete = true;
+        users[user_id].id = user_id;
     }
 
     stochastic_random_walk();
+
+    frequency_stats();
+}
+
+struct FreqStats {
+    distribution<int> buckets;
+    distribution<int> counts;
+
+    FreqStats()
+    {
+        buckets = boost::assign::list_of<int>(0)(1)(2)(3)(4)(5)(6)(7)(8)(9)(10)(12)(14)(16)(20)(40)(60)(100)(200)(500)(1000);
+        counts.resize(buckets.size());
+    }
+
+    void add(int val, int count = 1)
+    {
+        unsigned i;
+        for (i = 0;  i < buckets.size() && buckets[i] < val;  ++i) ;
+        counts[i] += count;
+    }
+
+    void print(std::ostream & out) const
+    {
+        int total = counts.total();
+        
+        if (total == 0) return;
+
+        int max = counts.max();
+        for (unsigned i = 0;  i < buckets.size();  ++i) {
+            out << format(" %4d %6d %6.3f%% %s\n",
+                          buckets[i], counts[i], 100.0 * counts[i] / total,
+                          string(50.0 * counts[i] / max, '*').c_str());
+        }
+    }
+};
+
+void
+Data::
+frequency_stats()
+{
+    set<int> test_users(users_to_test.begin(),
+                        users_to_test.end());
+
+    FreqStats users_with_n_repos;
+    FreqStats incomplete_users_with_n_repos;
+    FreqStats tested_users_with_n_repos;
+
+    for (unsigned i = 0;  i < users.size();  ++i) {
+        if (users[i].invalid()) continue;
+        int nrepos = users[i].watching.size();
+        users_with_n_repos.add(nrepos, 1);
+
+        if (users[i].incomplete)
+            incomplete_users_with_n_repos.add(nrepos, 1);
+
+        if (test_users.count(i))
+            tested_users_with_n_repos.add(nrepos, 1);
+    }
+
+    
+    cerr << "users with n repos: " << endl;
+    users_with_n_repos.print(cerr);
+    cerr << endl;
+
+    cerr << "incomplete users with n repos: " << endl;
+    incomplete_users_with_n_repos.print(cerr);
+    cerr << endl;
+
+    cerr << "tested users with n repos: " << endl;
+    tested_users_with_n_repos.print(cerr);
+    cerr << endl;
+
+    FreqStats repos_with_n_watchers;
+
+    for (unsigned i = 0;  i < repos.size();  ++i) {
+        if (repos[i].invalid()) continue;
+        int nwatchers = repos[i].watchers.size();
+        repos_with_n_watchers.add(nwatchers, 1);
+    }
+
+    cerr << "repos with n watchers: " << endl;
+    repos_with_n_watchers.print(cerr);
+    cerr << endl;
 }
 
 const vector<int> &
@@ -605,6 +692,8 @@ setup_fake_test(int nusers, int seed)
     // Re-calculate derived data structures
     calc_popularity();
     calc_density();
+
+    frequency_stats();
 }
 
 set<int>

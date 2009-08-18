@@ -1,4 +1,6 @@
 loading data...max_count = 604
+users_with_n_repos: { 2 23400 10369 4070 2750 1918 1576 1197 1025 828 708 583 545 531 444 392 336 295 275 5277 }
+incomplete_users_with_n_repos: { 2 1347 553 367 264 226 191 147 122 125 96 93 91 68 66 53 55 39 34 849 }
  done.
 max_count = 601
 running SVD
@@ -16,7 +18,7 @@ KAPPA                     =  1.00E-06
 NUMBER OF LANCZOS STEPS   =    185
 RITZ VALUES STABILIZED    =     54
 SINGULAR VALUES FOUND     =     50
-SVD elapsed: elapsed: [12.17s cpu, 28766.2349 mticks, 12.72s wall]
+SVD elapsed: elapsed: [11.79s cpu, 27499.7371 mticks, 12.16s wall]
 done repos
 name = ranker config.prefix() = ranker config_.prefix() = 
 Buffer Input init
@@ -26,9 +28,9 @@ processing 4788 users...
 0%   10   20   30   40   50   60   70   80   90   100%
 |----|----|----|----|----|----|----|----|----|----|
 ***************************************************
-elapsed: elapsed: [966.35s cpu, 2230604.9522 mticks, 986.56s wall]
+elapsed: elapsed: [863.20s cpu, 1999005.3900 mticks, 884.12s wall]
 done
 
 calculating test result... done.
-981.10user 1.31system 16:43.44elapsed 97%CPU (0avgtext+0avgdata 0maxresident)k
-0inputs+8outputs (0major+101378minor)pagefaults 0swaps
+878.11user 0.97system 15:00.41elapsed 97%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+8outputs (0major+104665minor)pagefaults 0swaps
