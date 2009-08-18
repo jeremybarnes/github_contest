@@ -78,6 +78,9 @@ int main(int argc, char ** argv)
     // Cluster repos?
     bool cluster_repos = false;
 
+    // Calculate only possible/impossible (not ranking)
+    bool possible_only = false;
+
     {
         using namespace boost::program_options;
 
@@ -110,6 +113,8 @@ int main(int argc, char ** argv)
              "dump predictions for debugging")
             ("include-all-correct", value<bool>(&include_all_correct),
              "include all correct (1, default) or only excluded correct (0)?")
+            ("possible-only", value<bool>(&possible_only),
+             "only calculate metrics for possible/impossible (no ranking)")
             ("cluster-repos", value<bool>(&cluster_repos)->zero_tokens(),
              "cluster repositories, writing a cluster map")
             ("cluster-users", value<bool>(&cluster_users)->zero_tokens(),
@@ -330,7 +335,13 @@ int main(int argc, char ** argv)
             out << endl;
         }
 
-        if (dump_merger_data) continue;
+        if (dump_merger_data || possible_only) {
+            results.push_back(set<int>());
+            result_possible_choices.push_back
+                (vector<int>(possible_choices.begin(),
+                             possible_choices.end()));
+            continue;
+        }
 
         Ranked ranked = ranker->rank(user_id, candidates, *candidate_data,
                                      data);

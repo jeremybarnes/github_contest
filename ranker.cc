@@ -157,6 +157,41 @@ candidates(const Data & data, int user_id) const
                 repos_with_same_name.insert(with_same_name[j]);
     }
 
+    // Find repos watched by other users in the same cluster
+    hash_map<int, int> watched_by_cluster_user;
+    IdSet in_cluster;
+
+    int clusterno = user.kmeans_cluster;
+    if (clusterno != -1) {
+        const Cluster & cluster = data.user_clusters[clusterno];
+        for (unsigned i = 0;  i < cluster.members.size();  ++i) {
+            int user_id = cluster.members[i];
+            const User & user = data.users[user_id];
+
+            for (IdSet::const_iterator
+                     it = user.watching.begin(),
+                     end = user.watching.end();
+                 it != end;  ++it) {
+                watched_by_cluster_user[*it] += 1;
+            }
+        }
+
+        vector<pair<int, int> > ranked;
+
+        for (hash_map<int, int>::const_iterator
+                 it = watched_by_cluster_user.begin(),
+                 end = watched_by_cluster_user.end();
+             it != end;  ++it) {
+            if (it->second > 1)
+                ranked.push_back(*it);
+        }
+
+        sort_on_second_descending(ranked);
+        
+        for (unsigned i = 0;  i < 3000 && i < ranked.size();  ++i)
+            in_cluster.insert(ranked[i].first);
+    }
+
     // Find all other repos by authors of watched repos
     IdSet repos_by_watched_authors;
     for (IdSet::const_iterator
@@ -177,6 +212,9 @@ candidates(const Data & data, int user_id) const
                             repos_with_same_name.end());
     possible_choices.insert(children_of_watched_repos.begin(),
                             children_of_watched_repos.end());
+    possible_choices.insert(in_cluster.begin(),
+                            in_cluster.end());
+
 
     for (IdSet::const_iterator
              it = user.watching.begin(),

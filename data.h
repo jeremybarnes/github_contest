@@ -202,6 +202,11 @@ struct Author {
     std::set<int> repositories;
 };
 
+struct Cluster {
+    std::vector<int> members;
+    distribution<double> centroid;
+};
+
 struct Data {
     Data();
 
@@ -259,6 +264,9 @@ struct Data {
     void score_fake_test(const std::vector<std::set<int> > & results) const;
 
     distribution<float> singular_values;
+
+    std::vector<Cluster> user_clusters;
+    std::vector<Cluster> repo_clusters;
 
 private:
     template<class Iterator>

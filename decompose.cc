@@ -170,11 +170,6 @@ decompose(Data & data)
     svdFreeSVDRec(result);
 }
 
-struct Cluster {
-    vector<int> members;
-    distribution<double> mean;
-};
-
 struct RepoDataAccess {
     RepoDataAccess(const Data & data)
         : data(data)
@@ -234,19 +229,19 @@ void calc_kmeans(vector<Cluster> & clusters,
         // Calculate means
         for (unsigned i = 0;  i < clusters.size();  ++i) {
             Cluster & cluster = clusters[i];
-            cluster.mean.resize(nd);
-            std::fill(cluster.mean.begin(), cluster.mean.end(), 0.0);
+            cluster.centroid.resize(nd);
+            std::fill(cluster.centroid.begin(), cluster.centroid.end(), 0.0);
 
             double k = 1.0 / cluster.members.size();
             
             for (unsigned j = 0;  j < cluster.members.size();  ++j) {
                 const Object & object = access.object(cluster.members[j]);
-                SIMD::vec_add(&cluster.mean[0], k, //k / object.singular_2norm,
-                              &object.singular_vec[0], &cluster.mean[0], nd);
+                SIMD::vec_add(&cluster.centroid[0], k, //k / object.singular_2norm,
+                              &object.singular_vec[0], &cluster.centroid[0], nd);
             }
 
             // Normalize
-            cluster.mean /= cluster.mean.two_norm();
+            cluster.centroid /= cluster.centroid.two_norm();
 
             //cerr << "cluster " << i << " had " << cluster.members.size()
             //     << " members" << endl;
@@ -267,7 +262,7 @@ void calc_kmeans(vector<Cluster> & clusters,
 
             for (unsigned j = 0;  j < nclusters;  ++j) {
                 float score
-                    = clusters[j].mean.dotprod(object.singular_vec);
+                    = clusters[j].centroid.dotprod(object.singular_vec);
 
                 if (score > best_score) {
                     best_score = score;
@@ -340,6 +335,9 @@ kmeans_repos(Data & data)
         cerr << endl;
     }
 #endif
+
+    for (unsigned i = 0;  i < repo_in_cluster.size();  ++i)
+        data.repos[i].kmeans_cluster = repo_in_cluster[i];
 }
 
 struct UserDataAccess {
@@ -385,6 +383,9 @@ kmeans_users(Data & data)
 
     UserDataAccess user_access(data);
     calc_kmeans(user_clusters, user_in_cluster, nclusters, user_access);
+
+    for (unsigned i = 0;  i < user_in_cluster.size();  ++i)
+        data.users[i].kmeans_cluster = user_in_cluster[i];
 }
 
 void
@@ -413,6 +414,9 @@ load_kmeans_users(const std::string & filename, Data & data)
 {
     Parse_Context context(filename);
 
+    data.user_clusters.clear();
+    data.user_clusters.reserve(200);
+
     while (context) {
         int user_id = context.expect_int();
         context.expect_literal(':');
@@ -420,10 +424,24 @@ load_kmeans_users(const std::string & filename, Data & data)
         if (user_id < 0 || user_id >= data.users.size())
             context.exception("invalid user ID");
         
-        data.users[user_id].kmeans_cluster = context.expect_int();
-
+        int cluster = context.expect_int();
         context.expect_eol();
+
+        data.users[user_id].kmeans_cluster = cluster;
+
+        if (cluster == -1) continue;
+
+        if (cluster >= data.user_clusters.size())
+            data.user_clusters.resize(cluster + 1);
+        data.user_clusters[cluster].members.push_back(user_id);
+        data.user_clusters[cluster].centroid.resize(data.singular_values.size());
+        data.user_clusters[cluster].centroid
+            += data.users[user_id].singular_vec;
     }
+
+    for (unsigned i = 0;  i < data.user_clusters.size();  ++i)
+        data.user_clusters[i].centroid
+            /= data.user_clusters[i].centroid.two_norm();
 }
 
 void
@@ -432,15 +450,31 @@ load_kmeans_repos(const std::string & filename, Data & data)
 {
     Parse_Context context(filename);
 
+    data.repo_clusters.clear();
+    data.repo_clusters.reserve(200);
+
     while (context) {
         int repo_id = context.expect_int();
         context.expect_literal(':');
         
-        if (repo_id < 0 || repo_id >= data.users.size())
+        if (repo_id < 0 || repo_id >= data.repos.size())
             context.exception("invalid repo ID");
-
-        data.repos[repo_id].kmeans_cluster = context.expect_int();
         
+        int cluster = context.expect_int();
         context.expect_eol();
+
+        data.repos[repo_id].kmeans_cluster = cluster;
+        if (cluster == -1) continue;
+
+        if (cluster >= data.repo_clusters.size())
+            data.repo_clusters.resize(cluster + 1);
+        data.repo_clusters[cluster].members.push_back(repo_id);
+        data.repo_clusters[cluster].centroid.resize(data.singular_values.size());
+        data.repo_clusters[cluster].centroid
+            += data.repos[repo_id].singular_vec;
     }
+
+    for (unsigned i = 0;  i < data.repo_clusters.size();  ++i)
+        data.repo_clusters[i].centroid
+            /= data.repo_clusters[i].centroid.two_norm();
 }
