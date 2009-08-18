@@ -72,6 +72,12 @@ int main(int argc, char ** argv)
     // Random seed for fake data generation
     int rseed = 0;
 
+    // Cluster users?
+    bool cluster_users = false;
+
+    // Cluster repos?
+    bool cluster_repos = false;
+
     {
         using namespace boost::program_options;
 
@@ -104,6 +110,10 @@ int main(int argc, char ** argv)
              "dump predictions for debugging")
             ("include-all-correct", value<bool>(&include_all_correct),
              "include all correct (1, default) or only excluded correct (0)?")
+            ("cluster-repos", value<bool>(&cluster_repos)->zero_tokens(),
+             "cluster repositories, writing a cluster map")
+            ("cluster-users", value<bool>(&cluster_users)->zero_tokens(),
+             "cluster users, writing a cluster map")
             ("output-file,o",
              value<string>(&output_file),
              "dump output file to the given filename");
@@ -152,8 +162,23 @@ int main(int argc, char ** argv)
     Decomposition decomposition;
     decomposition.decompose(data);
 
-    // Write out results file
+    // results file
     filter_ostream out(output_file);
+
+    if (cluster_users) {
+        decomposition.kmeans_users(data);
+        decomposition.save_kmeans_users(out, data);
+        return 0;
+    }
+    else if (cluster_repos) {
+        decomposition.kmeans_repos(data);
+        decomposition.save_kmeans_users(out, data);
+        return 0;
+    }
+    else {
+        decomposition.load_kmeans_users("data/kmeans_users.txt", data);
+        decomposition.load_kmeans_repos("data/kmeans_repos.txt", data);
+    }
 
     vector<set<int> > results;
     vector<vector<int> > result_possible_choices;

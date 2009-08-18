@@ -407,7 +407,7 @@ features(int user_id,
 
         result.push_back(user.watching.size());
 
-        float dp = (repo.language_vec * user.language_vec).total();
+        float dp = repo.language_vec.dotprod(user.language_vec);
 
         result.push_back(dp);
         result.push_back(xdiv(dp, repo.language_2norm * user.language_2norm));
@@ -443,7 +443,7 @@ features(int user_id,
             result.push_back(data.repos[repo.parent].watchers.size());
         }
 
-        dp = (repo.singular_vec * data.singular_values * user.singular_vec).total();
+        dp = (repo.singular_vec * data.singular_values).dotprod(user.singular_vec);
 
         result.push_back(dp);
 

@@ -119,7 +119,8 @@ struct Repo {
     Repo()
         : id(-1), author(-1), parent(-1), depth(-1), total_loc(0),
           popularity_rank(-1),
-          repo_prob(0.0), repo_prob_rank(-1), repo_prob_percentile(0.0)
+          repo_prob(0.0), repo_prob_rank(-1), repo_prob_percentile(0.0),
+          kmeans_cluster(-1)
     {
     }
 
@@ -150,6 +151,8 @@ struct Repo {
     distribution<float> singular_vec;
     float singular_2norm;
 
+    int kmeans_cluster;
+
     bool invalid() const { return id == -1; }
 };
 
@@ -166,6 +169,7 @@ struct User {
     User()
         : id(-1),
           user_prob(0.0), user_prob_rank(-1), user_prob_percentile(0.0),
+          kmeans_cluster(-1),
           incomplete(false)
     {
     }
@@ -181,6 +185,9 @@ struct User {
 
     distribution<float> singular_vec;
     float singular_2norm;
+
+    // Cluster number to which user belongs
+    int kmeans_cluster;
 
     /// Is there a watch missing from this user?  True for users being tested.
     /// In this case, we should be careful about using negative evidence.

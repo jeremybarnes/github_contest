@@ -182,8 +182,7 @@ void Data::load()
 
         if (repo.total_loc != 0) repo.language_vec /= repo.total_loc;
 
-        repo.language_2norm
-            = sqrt((repo.language_vec * repo.language_vec).total());
+        repo.language_2norm = repo.language_vec.two_norm();
         
     }
 
@@ -266,8 +265,7 @@ calc_languages()
             user.language_vec += repo_lang / user.watching.size();
         }
 
-        user.language_2norm
-            = sqrt((user.language_vec * user.language_vec).total());
+        user.language_2norm = user.language_vec.two_norm();
     }
 }
 

@@ -8,13 +8,24 @@
 #ifndef __github__decompose_h__
 #define __github__decompose_h__
 
-#include "svdlibc/svdlib.h"
 #include "data.h"
 
 struct Decomposition {
-    svdrec result;
 
+    // Perform a SVD on the adjacency matrix
     void decompose(Data & data);
+
+    // Perform a k-means clustering based upon embedded representation
+    void kmeans_repos(Data & data);
+
+    // Ditto for the users
+    void kmeans_users(Data & data);
+
+    void save_kmeans_users(std::ostream & stream, const Data & data);
+    void save_kmeans_repos(std::ostream & stream, const Data & data);
+
+    void load_kmeans_users(const std::string & filename, Data & data);
+    void load_kmeans_repos(const std::string & filename, Data & data);
 };
 
 #endif /* __github__decompose_h__ */

@@ -5,8 +5,12 @@
 */
 
 #include "decompose.h"
+#include "svdlibc/svdlib.h"
 #include "arch/timers.h"
 #include "utils/vector_utils.h"
+#include "arch/simd_vector.h"
+#include "stats/distribution_simd.h"
+#include "utils/parse_context.h"
 
 using namespace std;
 using namespace ML;
@@ -137,7 +141,7 @@ decompose(Data & data)
         for (unsigned j = 0;  j < nvalues;  ++j)
             repo_vec.at(j) = result->Ut->value[j][index];
 
-        repo.singular_2norm = sqrt((repo_vec * repo_vec).total());
+        repo.singular_2norm = repo_vec.two_norm();
     }
 
     cerr << "done repos" << endl;
@@ -156,7 +160,7 @@ decompose(Data & data)
         for (unsigned j = 0;  j < nvalues;  ++j)
             user_vec[j] = result->Vt->value[j][index];
 
-        user.singular_2norm = sqrt((user_vec * user_vec).total());
+        user.singular_2norm = user_vec.two_norm();
     }
 
     // Free up memory (TODO: put into guards...)
@@ -164,4 +168,279 @@ decompose(Data & data)
     delete[] matrix.rowind;
     delete[] matrix.value;
     svdFreeSVDRec(result);
+}
+
+struct Cluster {
+    vector<int> members;
+    distribution<double> mean;
+};
+
+struct RepoDataAccess {
+    RepoDataAccess(const Data & data)
+        : data(data)
+    {
+    }
+    
+    const Data & data;
+
+    int nobjects() const
+    {
+        return data.repos.size();
+    }
+
+    bool invalid(int object) const
+    {
+        return data.repos[object].watchers.empty();
+    }
+
+    typedef Repo Object;
+    const Repo & object(int object)
+    {
+        return data.repos[object];
+    }
+
+    int nd() const
+    {
+        return data.singular_values.size();
+    }
+
+    string what() const { return "repo"; }
+};
+
+template<class DataAccess>
+void calc_kmeans(vector<Cluster> & clusters,
+                 vector<int> & in_cluster,
+                 int nclusters,
+                 DataAccess & access)
+{
+    int nd = access.nd();
+
+    typedef typename DataAccess::Object Object;
+
+    clusters.resize(nclusters);
+    in_cluster.resize(access.nobjects(), -1);
+
+    // Random initialization
+    for (unsigned i = 0;  i < access.nobjects();  ++i) {
+        if (access.invalid(i)) continue;
+        int cluster = rand() % nclusters;
+        clusters[cluster].members.push_back(i);
+        in_cluster[i] = cluster;
+    }
+
+    int changes = -1;
+
+    for (int iter = 0;  iter < 100 && changes != 0;  ++iter) {
+        // Calculate means
+        for (unsigned i = 0;  i < clusters.size();  ++i) {
+            Cluster & cluster = clusters[i];
+            cluster.mean.resize(nd);
+            std::fill(cluster.mean.begin(), cluster.mean.end(), 0.0);
+
+            double k = 1.0 / cluster.members.size();
+            
+            for (unsigned j = 0;  j < cluster.members.size();  ++j) {
+                const Object & object = access.object(cluster.members[j]);
+                SIMD::vec_add(&cluster.mean[0], k, //k / object.singular_2norm,
+                              &object.singular_vec[0], &cluster.mean[0], nd);
+            }
+
+            // Normalize
+            cluster.mean /= cluster.mean.two_norm();
+
+            //cerr << "cluster " << i << " had " << cluster.members.size()
+            //     << " members" << endl;
+
+            cluster.members.clear();
+        }
+
+        // How many have changed cluster?  Used to know when the cluster
+        // contents are stable
+        changes = 0;
+
+        for (unsigned i = 0;  i < access.nobjects();  ++i) {
+            const Object & object = access.object(i);
+
+            // Take the dot product with each cluster
+            int best_cluster = -1;
+            float best_score = -INFINITY;
+
+            for (unsigned j = 0;  j < nclusters;  ++j) {
+                float score
+                    = clusters[j].mean.dotprod(object.singular_vec);
+
+                if (score > best_score) {
+                    best_score = score;
+                    best_cluster = j;
+                }
+            }
+            
+            if (best_cluster != in_cluster[i]) ++changes;
+
+            in_cluster[i] = best_cluster;
+            clusters[best_cluster].members.push_back(i);
+        }
+
+        cerr << "clustering iter " << iter << " for " << access.what()
+             << ": " << changes << " changes" << endl;
+    }
+}
+
+// Perform a k-means clustering of repos and users
+void
+Decomposition::
+kmeans_repos(Data & data)
+{
+    int nclusters = 200;
+    
+    vector<Cluster> repo_clusters;
+    vector<int> repo_in_cluster;
+
+    RepoDataAccess repo_access(data);
+    calc_kmeans(repo_clusters, repo_in_cluster, nclusters, repo_access);
+
+#if 0
+    int all_to_check[] = { 17, 356, 62 };
+
+    for (unsigned x = 0;  x < sizeof(all_to_check) / sizeof(all_to_check[0]);  ++x) {
+        // Check what is similar to rails
+        int to_check = all_to_check[x];
+        const Repo & repo1 = data.repos[to_check];
+        
+        vector<pair<int, float> > similarities;
+        
+        for (unsigned i = 0;  i < data.repos.size();  ++i) {
+            const Repo & repo2 = data.repos[i];
+            if (repo2.invalid()) continue;
+            
+            float sim
+                = repo1.singular_vec.dotprod(repo2.singular_vec)
+                / (repo1.singular_2norm * repo2.singular_2norm);
+            
+            similarities.push_back(make_pair(i, sim));
+        }
+        
+        sort_on_second_descending(similarities);
+        
+        cerr << "most similar to " << 
+            data.authors[repo1.author].name << "/" << repo1.name << endl;
+        
+        for (unsigned j = 0;  j < 20;  ++j) {
+            int repo_id = similarities[j].first;
+            const Repo & repo = data.repos[repo_id];
+            cerr << format("     %3d %6d %6zd %8.6f %6d %s/%s\n",
+                           j,
+                           repo.popularity_rank,
+                           repo.watchers.size(),
+                           similarities[j].second,
+                           repo_id,
+                           data.authors[repo.author].name.c_str(),
+                           repo.name.c_str());
+        }
+        cerr << endl;
+    }
+#endif
+}
+
+struct UserDataAccess {
+    UserDataAccess(const Data & data)
+        : data(data)
+    {
+    }
+    
+    const Data & data;
+
+    int nobjects() const
+    {
+        return data.users.size();
+    }
+
+    bool invalid(int object) const
+    {
+        return data.users[object].watching.empty();
+    }
+
+    typedef User Object;
+    const User & object(int object)
+    {
+        return data.users[object];
+    }
+
+    int nd() const
+    {
+        return data.singular_values.size();
+    }
+
+    string what() const { return "user"; }
+};
+
+void
+Decomposition::
+kmeans_users(Data & data)
+{
+    int nclusters = 200;
+    
+    vector<Cluster> user_clusters;
+    vector<int> user_in_cluster;
+
+    UserDataAccess user_access(data);
+    calc_kmeans(user_clusters, user_in_cluster, nclusters, user_access);
+}
+
+void
+Decomposition::
+save_kmeans_users(std::ostream & stream, const Data & data)
+{
+    for (unsigned i = 0;  i < data.users.size();  ++i) {
+        const User & user = data.users[i];
+        stream << i << ":" << user.kmeans_cluster << "\n";
+    }
+}
+
+void
+Decomposition::
+save_kmeans_repos(std::ostream & stream, const Data & data)
+{
+    for (unsigned i = 0;  i < data.repos.size();  ++i) {
+        const Repo & repo = data.repos[i];
+        stream << i << ":" << repo.kmeans_cluster << "\n";
+    }
+}
+
+void
+Decomposition::
+load_kmeans_users(const std::string & filename, Data & data)
+{
+    Parse_Context context(filename);
+
+    while (context) {
+        int user_id = context.expect_int();
+        context.expect_literal(':');
+        
+        if (user_id < 0 || user_id >= data.users.size())
+            context.exception("invalid user ID");
+        
+        data.users[user_id].kmeans_cluster = context.expect_int();
+
+        context.expect_eol();
+    }
+}
+
+void
+Decomposition::
+load_kmeans_repos(const std::string & filename, Data & data)
+{
+    Parse_Context context(filename);
+
+    while (context) {
+        int repo_id = context.expect_int();
+        context.expect_literal(':');
+        
+        if (repo_id < 0 || repo_id >= data.users.size())
+            context.exception("invalid repo ID");
+
+        data.repos[repo_id].kmeans_cluster = context.expect_int();
+        
+        context.expect_eol();
+    }
 }
