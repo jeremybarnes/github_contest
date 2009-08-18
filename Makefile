@@ -14,7 +14,7 @@ JML_TOP := jml
 
 include $(JML_TOP)/arch/$(ARCH).mk
 
-CXXFLAGS += -Ijml
+CXXFLAGS += -Ijml -Wno-deprecated
 CXXLINKFLAGS += -Ljml/../build/$(ARCH)/bin -Wl,--rpath,jml/../build/$(ARCH)/bin
 
 ifeq ($(MAKECMDGOALS),failed)
@@ -31,17 +31,20 @@ endif
 
 
 
-GITHUB_SOURCES := \
-	github.cc \
+LIBGITHUB_SOURCES := \
 	siamese.cc \
-	exception_hook.cc \
 	data.cc \
 	ranker.cc \
 	decompose.cc
 
+LIBGITHUB_LINK := \
+	utils ACE boost_date_time-mt db arch boosting svdlibc
+
+$(eval $(call library,github,$(LIBGITHUB_SOURCES),$(LIBGITHUB_LINK)))
+
 $(eval $(call add_sources,exception_hook.cc))
 
-$(eval $(call program,github,utils ACE boost_program_options-mt boost_regex-mt boost_date_time-mt db arch boosting svdlibc,$(GITHUB_SOURCES),tools))
+$(eval $(call program,github,github utils ACE boost_program_options-mt db arch boosting svdlibc,github.cc exception_hook.cc,tools))
 
 $(eval $(call include_sub_makes,svdlibc))
 

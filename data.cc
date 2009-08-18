@@ -13,6 +13,16 @@
 #include "utils/pair_utils.h"
 #include "stats/distribution_simd.h"
 
+
+#include "utils/pair_utils.h"
+#include "utils/vector_utils.h"
+#include "utils/less.h"
+#include "arch/exception.h"
+#include "math/xdiv.h"
+#include "stats/distribution_simd.h"
+
+
+#include <backward/hash_map>
 #include <boost/assign/list_of.hpp>
 
 using namespace std;
@@ -217,6 +227,8 @@ void Data::load()
 
     calc_density();
 
+    calc_author_stats();
+
     users_to_test.reserve(5000);
 
     Parse_Context test_file("download/test.txt");
@@ -320,7 +332,7 @@ frequency_stats()
     cerr << endl;
 }
 
-const vector<int> &
+const Data::Name_Info &
 Data::
 name_to_repos(const std::string & name) const
 {
@@ -610,9 +622,121 @@ stochastic_random_walk()
 
 void
 Data::
+calc_author_stats()
+{
+    // NOTE: this isn't part of a real recommendation engine; it uses
+    // characteristics of the provided GitHub dataset to infer a
+    // correspondence between users and authors.
+
+    for (unsigned i = 0;  i < authors.size();  ++i)
+        authors[i].num_watchers = 0;
+    
+    for (unsigned i = 0;  i < repos.size();  ++i) {
+        if (repos[i].invalid()) continue;
+        authors[repos[i].author].num_watchers += repos[i].watchers.size();
+    }
+
+    int valid_users = 0, inferred_users = 0, multiple_users = 0;
+
+    for (unsigned i = 0;  i < users.size();  ++i) {
+        User & user = users[i];
+        user.inferred_author = -1;
+        if (users[i].invalid()) continue;
+
+        ++valid_users;
+
+        hash_map<int, int> inferred_authors;
+
+        for (IdSet::const_iterator
+                 it = user.watching.begin(),
+                 end = user.watching.end();
+             it != end;  ++it) {
+            const Repo & repo = repos[*it];
+            if (repo.watchers.size() == 1)
+                inferred_authors[*it] += 1;
+        }
+
+        if (inferred_authors.empty()) continue;
+
+        if (inferred_authors.size() == 1) {
+            ++inferred_users;
+            user.inferred_author = inferred_authors.begin()->first;
+        }
+        else {
+            ++multiple_users;
+        }
+    }
+
+    for (Repo_Name_To_Repos::iterator
+             it = repo_name_to_repos.begin(),
+             end = repo_name_to_repos.end();
+         it != end;  ++it) {
+        it->second.num_watchers = 0;
+        for (Name_Info::const_iterator
+                 jt = it->second.begin(),
+                 end = it->second.end();
+             jt != end;  ++jt)
+            it->second.num_watchers += repos[*jt].watchers.size();
+    }
+
+    cerr << "user inferring: valid " << valid_users << " inferred " << inferred_users << " multiple " << multiple_users << endl;
+}
+
+void
+Data::
 setup_fake_test(int nusers, int seed)
 {
     srand(seed);
+
+#if 0
+    // First, we put all watches in a list
+    vector<pair<int, int> > all_watches;
+    all_watches.reserve(500000);
+
+    for (unsigned i = 0;  i < users.size();  ++i) {
+        const User & user = users[i];
+        if (user.incomplete) continue;
+        
+        for (IdSet::const_iterator
+                 it = user.watching.begin(),
+                 end = user.watching.end();
+             it != end;  ++it) {
+            const Repo & repo = repos[*it];
+
+            // Don't allow it to lose all watchers
+            if (repo.watchers.size() == 1)
+                continue;
+            
+            all_watches.push_back(make_pair(i, *it));
+        }
+    }
+    
+    std::random_shuffle(all_watches.begin(), all_watches.end());
+
+    set<int> test_users;
+    vector<pair<int, int> > accum;
+    
+    for (unsigned i = 0;  i < all_watches.size() && test_users.size() < nusers;
+         ++i) {
+        int user_id = all_watches[i].first;
+
+        // Don't take more than one out from a user
+        if (test_users.count(user_id)) continue;
+        
+        User & user = users[user_id];
+
+        int repo_id = all_watches[i].second;
+
+        Repo & repo = repos[repo_id];
+        
+        repo.watchers.erase(user_id);
+        user.watching.erase(repo_id);
+        user.incomplete = true;
+
+        accum.push_back(make_pair(user_id, repo_id));
+        test_users.insert(user_id);
+    }
+#else
 
     /* Problems:
        1.  We shouldn't allow a repo to lose all of its watchers.  Currently,
@@ -674,6 +798,7 @@ setup_fake_test(int nusers, int seed)
             break;
         }
     }
+#endif
 
     // Put them in user number order, in case that helps something...
 
@@ -692,7 +817,7 @@ setup_fake_test(int nusers, int seed)
     // Re-calculate derived data structures
     calc_popularity();
     calc_density();
-
+    calc_author_stats();
     frequency_stats();
 }
 

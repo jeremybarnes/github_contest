@@ -201,13 +201,20 @@ struct User {
     /// In this case, we should be careful about using negative evidence.
     bool incomplete;
 
+    /// If we can infer the author (due to them being the only one to
+    /// watch a repo), we put it here
+    int inferred_author;
+
     bool invalid() const { return id == -1; }
 };
 
 struct Author {
+    Author() : num_watchers(0) {}
+
     int id;
     std::string name;
     std::set<int> repositories;
+    size_t num_watchers;
 };
 
 struct Cluster {
@@ -233,10 +240,15 @@ struct Data {
     // Two density matrices offset by 1/2
     boost::multi_array<unsigned, 2> density1, density2;
 
-    typedef std::map<std::string, std::vector<int> > Repo_Name_To_Repos;
+    struct Name_Info : public std::vector<int> {
+        Name_Info() : num_watchers(0) {}
+        size_t num_watchers;
+    };
+
+    typedef std::map<std::string, Name_Info> Repo_Name_To_Repos;
     Repo_Name_To_Repos repo_name_to_repos;
 
-    const std::vector<int> & name_to_repos(const std::string & name) const;
+    const Name_Info & name_to_repos(const std::string & name) const;
 
     std::vector<int> users_to_test;
 
@@ -248,6 +260,8 @@ struct Data {
     void calc_density();
 
     void calc_languages();
+
+    void calc_author_stats();
 
     float density(int user_id, int repo_id) const;
 

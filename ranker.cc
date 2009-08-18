@@ -474,6 +474,15 @@ feature_space() const
     result->add_feature("user_repo_singular_unscaled_dp_max_norm",
                         Feature_Info::REAL);
     result->add_feature("user_repo_centroid_repo_cosine", Feature_Info::REAL);
+
+    result->add_feature("repo_name_contains_user", Feature_Info::BOOLEAN);
+    result->add_feature("user_name_contains_repo", Feature_Info::BOOLEAN);
+    result->add_feature("repos_authored_by", Feature_Info::REAL);
+    result->add_feature("author_has_watchers", Feature_Info::REAL);
+    result->add_feature("num_repos_with_same_name", Feature_Info::REAL);
+    result->add_feature("num_watchers_of_repos_with_same_name", Feature_Info::REAL);
+
+    result->add_feature("user_name_inferred", Feature_Info::BOOLEAN);
     
     return result;
 }
@@ -564,6 +573,18 @@ features(int user_id,
                 / repo.singular_2norm;
 
         result.push_back(dp);
+
+        const string & author_name = data.authors[repo.author].name;
+
+        const Data::Name_Info & name_info = data.name_to_repos(repo.name);
+
+        result.push_back(author_name.find(repo.name) != string::npos);
+        result.push_back(repo.name.find(author_name) != string::npos);
+        result.push_back(data.authors[repo.author].repositories.size());
+        result.push_back(data.authors[repo.author].num_watchers);
+        result.push_back(name_info.size());
+        result.push_back(name_info.num_watchers);
+        result.push_back(repo.author == user.inferred_author);
     }
 
     return results;
