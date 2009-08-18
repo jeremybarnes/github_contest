@@ -203,7 +203,7 @@ struct User {
 
     /// If we can infer the author (due to them being the only one to
     /// watch a repo), we put it here
-    int inferred_author;
+    IdSet inferred_authors;
 
     bool invalid() const { return id == -1; }
 };

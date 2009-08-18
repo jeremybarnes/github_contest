@@ -258,7 +258,7 @@ struct FreqStats {
     FreqStats()
     {
         buckets = boost::assign::list_of<int>(0)(1)(2)(3)(4)(5)(6)(7)(8)(9)(10)(12)(14)(16)(20)(40)(60)(100)(200)(500)(1000);
-        counts.resize(buckets.size());
+        counts.resize(buckets.size() + 1);
     }
 
     void add(int val, int count = 1)
@@ -275,9 +275,18 @@ struct FreqStats {
         if (total == 0) return;
 
         int max = counts.max();
-        for (unsigned i = 0;  i < buckets.size();  ++i) {
-            out << format(" %4d %6d %6.3f%% %s\n",
-                          buckets[i], counts[i], 100.0 * counts[i] / total,
+        for (unsigned i = 0;  i <= buckets.size();  ++i) {
+            string range;
+            if (i == 0) range = "0";
+            else if (i == buckets.size())
+                range = format("%d-", buckets[i - 1] + 1);
+            else if (buckets[i - 1] + 1 == buckets[i]) {
+                range = format("%d", buckets[i]);
+            }
+            else range = format("%d-%d", buckets[i - 1] + 1, buckets[i]);
+
+            out << format(" %10s %6d %6.3f%% %s\n",
+                          range.c_str(), counts[i], 100.0 * counts[i] / total,
                           string(50.0 * counts[i] / max, '*').c_str());
         }
     }
@@ -633,14 +642,16 @@ calc_author_stats()
     
     for (unsigned i = 0;  i < repos.size();  ++i) {
         if (repos[i].invalid()) continue;
+        if (repos[i].author == -1) continue;
         authors[repos[i].author].num_watchers += repos[i].watchers.size();
     }
 
-    int valid_users = 0, inferred_users = 0, multiple_users = 0;
+    int valid_users = 0, inferred_users = 0, multiple_users = 0,
+        total_multiple = 0;
 
     for (unsigned i = 0;  i < users.size();  ++i) {
         User & user = users[i];
-        user.inferred_author = -1;
+        user.inferred_authors.clear();
         if (users[i].invalid()) continue;
 
         ++valid_users;
@@ -660,10 +671,16 @@ calc_author_stats()
 
         if (inferred_authors.size() == 1) {
             ++inferred_users;
-            user.inferred_author = inferred_authors.begin()->first;
+            user.inferred_authors.insert(inferred_authors.begin()->first);
         }
         else {
             ++multiple_users;
+            total_multiple += inferred_authors.size();
+            for (hash_map<int, int>::const_iterator
+                     it = inferred_authors.begin(),
+                     end = inferred_authors.end();
+                 it != end;  ++it)
+                user.inferred_authors.insert(it->first);
         }
     }
 
@@ -678,8 +695,11 @@ calc_author_stats()
              jt != end;  ++jt)
             it->second.num_watchers += repos[*jt].watchers.size();
     }
-
-    cerr << "user inferring: valid " << valid_users << " inferred " << inferred_users << " multiple " << multiple_users << endl;
+    
+    cerr << "user inferring: valid " << valid_users
+         << " inferred " << inferred_users
+         << " multiple " << multiple_users
+         << " average " << (1.0 * total_multiple / multiple_users) << endl;
 }
 
 void
