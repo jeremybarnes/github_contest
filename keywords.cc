@@ -19,6 +19,20 @@ struct Vocab_Entry {
 struct Name : std::vector<int> {
 };
 
+std::vector<std::string> uncamelcase(const std::string & str)
+{
+    int num_lower = 0, num_upper = 0;
+    for (unsigned i = 0;  i < str.size();  ++i) {
+        if (islower(str[i])) ++num_lower;
+        if (isupper(str[i])) ++num_upper;
+    }
+
+    if (num_upper == 0) return str;
+
+    // Break on each lower-to-upper transition
+    
+}
+
 std::vector<std::string> tokenize(const std::string & str)
 {
     std::string word;
@@ -81,6 +95,8 @@ void analyze_keywords(const Data & data)
         vector<string> tokens = tokenize(name);
 
         // Add each token to the vocabulary
-        for (
+        for (unsigned i = 0;  i < tokens.size();  ++i) {
+            hash_map<string, int>::const_iterator it
+                = vocab_map.find(
     }
 }

@@ -38,6 +38,8 @@ data/ranker1.cls: \
 		--validation-split 20 \
 		--testing-split 10 \
 		--randomize-order \
+		--probabilize-mode=2 \
+		--probabilize-weighted=1 \
 		--trainer-name phase1 \
 		--ignore-var WT \
 		--ignore-var GROUP \
@@ -62,6 +64,8 @@ data/ranker2.cls: \
 		--validation-split 20 \
 		--testing-split 10 \
 		--randomize-order \
+		--probabilize-mode=2 \
+		--probabilize-weighted=1 \
 		--trainer-name default \
 		--ignore-var WT \
 		--ignore-var GROUP \
