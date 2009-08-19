@@ -229,6 +229,8 @@ void Data::load()
 
     calc_author_stats();
 
+    calc_cooccurrences();
+
     users_to_test.reserve(5000);
 
     Parse_Context test_file("download/test.txt");
@@ -315,7 +317,7 @@ frequency_stats()
             tested_users_with_n_repos.add(nrepos, 1);
     }
 
-    
+#if 0    
     cerr << "users with n repos: " << endl;
     users_with_n_repos.print(cerr);
     cerr << endl;
@@ -323,6 +325,7 @@ frequency_stats()
     cerr << "incomplete users with n repos: " << endl;
     incomplete_users_with_n_repos.print(cerr);
     cerr << endl;
+#endif
 
     cerr << "tested users with n repos: " << endl;
     tested_users_with_n_repos.print(cerr);
@@ -336,9 +339,11 @@ frequency_stats()
         repos_with_n_watchers.add(nwatchers, 1);
     }
 
+#if 0
     cerr << "repos with n watchers: " << endl;
     repos_with_n_watchers.print(cerr);
     cerr << endl;
+#endif
 }
 
 const Data::Name_Info &
@@ -449,6 +454,144 @@ calc_density()
     }
 
     cerr << "max_count = " << max_count << endl;
+}
+
+void
+Cooccurrences::
+finish()
+{
+    std::sort(begin(), end());
+
+    int unique = 0, last = -1;
+
+    for (const_iterator it = this->begin(), end = this->end();
+         it != end;  ++it) {
+        if (it->with != last) {
+            ++unique;
+            last = it->with;
+        }
+    }
+
+    // Create a new object so that the excess memory for duplicates will be
+    // returned to the system
+    Cooccurrences new_me;
+    new_me.reserve(unique);
+
+    for (const_iterator it = this->begin(), end = this->end();
+         it != end; /* no inc */) {
+        int key = it->with;
+
+        double accum = 0.0;
+
+        for (; it != end && it->with == key;  ++it)
+            accum += it->score;
+
+        new_me.add(key, accum);
+    }
+
+    if (new_me.size() != unique) {
+        cerr << "size() = " << size() << endl;
+        cerr << "unique = " << unique << endl;
+        cerr << "new_me.size() = " << new_me.size() << endl;
+        cerr << "input " << endl;
+        for (const_iterator it = this->begin(), end = this->end();
+             it != end;  ++it)
+            cerr << "  " << it->with << "  " << it->score << endl;
+        cerr << endl;
+        cerr << "output" << endl;
+        for (const_iterator it = new_me.begin(), end = new_me.end();
+             it != end;  ++it)
+            cerr << "  " << it->with << "  " << it->score << endl;
+        
+        throw Exception("logic error in cooccurrences");
+    }
+
+    swap(new_me);
+}
+
+void
+Cooccurrences::
+add(int with, float weight)
+{
+    push_back(Cooc_Entry(with, weight));
+}
+
+void
+Data::
+calc_cooccurrences()
+{
+    // For each, find those that cooccur within the same set of predictions
+    // Ignore those users that have too many predictions or those repos that
+    // have too many watchers
+    for (unsigned i = 0;  i < repos.size();  ++i) {
+        const Repo & repo = repos[i];
+        if (repo.invalid()) continue;
+        if (repo.watchers.empty()) continue;
+
+        // More than 20 means 1/400th or less of a point for each of 400 or
+        // more, which uses lots of memory and doesn't make much difference.
+        // So we simply skip these ones.
+        if (repo.watchers.size() > 20) continue;
+
+        // Weight it so that we give out a total of one point for each repo
+        double wt = 1.0 / (repo.watchers.size() * repo.watchers.size());
+
+        for (IdSet::const_iterator
+                 it = repo.watchers.begin(),
+                 end = repo.watchers.end();
+             it != end;  ++it) {
+            int user_id1 = *it;
+            for (IdSet::const_iterator
+                     jt = boost::next(it);
+                 jt != end;  ++jt) {
+                int user_id2 = *jt;
+                
+                users[user_id1].cooc.add(user_id2, wt);
+                users[user_id2].cooc.add(user_id1, wt);
+            }
+        }
+    }
+
+    // Finish all of the cooccurrence sets
+    for (unsigned i = 0;  i < users.size();  ++i)
+        users[i].cooc.finish();
+
+    // For each, find those that cooccur within the same set of predictions
+    // Ignore those repos that have too many predictions or those users that
+    // have too many watchers
+    for (unsigned i = 0;  i < users.size();  ++i) {
+        const User & user = users[i];
+        if (user.invalid()) continue;
+        if (user.watching.empty()) continue;
+
+        // More than 20 means 1/400th or less of a point for each of 400 or
+        // more, which uses lots of memory and doesn't make much difference.
+        // So we simply skip these ones.
+        if (user.watching.size() > 20) continue;
+
+        // Weight it so that we give out a total of one point for each user
+        double wt = 1.0 / (user.watching.size() * user.watching.size());
+
+        for (IdSet::const_iterator
+                 it = user.watching.begin(),
+                 end = user.watching.end();
+             it != end;  ++it) {
+            int repo_id1 = *it;
+            for (IdSet::const_iterator
+                     jt = boost::next(it);
+                 jt != end;  ++jt) {
+                int repo_id2 = *jt;
+                
+                repos[repo_id1].cooc.add(repo_id2, wt);
+                repos[repo_id2].cooc.add(repo_id1, wt);
+            }
+        }
+    }
+
+    // Finish all of the cooccurrence sets
+    for (unsigned i = 0;  i < repos.size();  ++i)
+        repos[i].cooc.finish();
+
 }
 
 float
@@ -838,6 +981,7 @@ setup_fake_test(int nusers, int seed)
     calc_popularity();
     calc_density();
     calc_author_stats();
+    calc_cooccurrences();
     frequency_stats();
 }
 

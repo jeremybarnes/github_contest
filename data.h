@@ -121,6 +121,37 @@ public:
 };
 
 
+struct Cooc_Entry {
+    Cooc_Entry(int with = -1, float score = 0.0)
+        : with(with), score(score)
+    {
+    }
+
+    int with;     ///< What does it cooccur with?
+    float score;  ///< Cooccurrence score
+
+    bool operator < (const Cooc_Entry & other) const
+    {
+        return with < other.with;
+    }
+};
+
+struct Cooccurrences
+    : public std::vector<Cooc_Entry> {
+
+    void add(int with, float weight);
+
+    void finish();
+
+    // Find the score with the other one
+    float operator [] (int other) const
+    {
+        const_iterator it = std::lower_bound(begin(), end(), other);
+        if (it == end() || it->with != other) return 0.0;
+        return it->score;
+    }
+};
+
 struct Repo {
     Repo()
         : id(-1), author(-1), parent(-1), depth(-1), total_loc(0),
@@ -158,6 +189,9 @@ struct Repo {
     float singular_2norm;
 
     int kmeans_cluster;
+
+    // What does this cooccur with?
+    Cooccurrences cooc;
 
     bool invalid() const { return id == -1; }
 };
@@ -204,6 +238,9 @@ struct User {
     /// If we can infer the author (due to them being the only one to
     /// watch a repo), we put it here
     IdSet inferred_authors;
+
+    /// What other users does this user cooccur with?
+    Cooccurrences cooc;
 
     bool invalid() const { return id == -1; }
 };
@@ -262,6 +299,8 @@ struct Data {
     void calc_languages();
 
     void calc_author_stats();
+
+    void calc_cooccurrences();
 
     float density(int user_id, int repo_id) const;
 

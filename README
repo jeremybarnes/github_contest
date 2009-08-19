@@ -1,4 +1,37 @@
+NOTE: UNDER CONSTRUCTION
+
+This is Jeremy Barnes's Github recommendation engine.
+
 For the moment, there's nothing much to see here...
+
+System Architecture
+===================
+
+The system architecture for prediction is as follows:
+
+1.  We generate a set of candidate predictions, based upon the following things:
+    - parents of watched repositories
+    - ancestors (ie, grandparents or older) of watched repositories
+    - repos by authors of watched repositories
+    - repos with the same name (but a different author) as the watched repositories
+    - children of watched repositories
+    - repos that are in the same cluster as a watched repo (see below)
+    - repos of users that are in the same cluster as the user we are predicting (see below)
+    - the twenty most watched repositories
+
+    Note that we try to reduce the number of possibilities added from each step, as it is expensive to process each of the candidate predictions later on.  On average, we end up with about 600 candidate predictions for each step.
+
+2.  We run each candidate prediction through a classifier, which predicts the probability that the candidate is correct.  The training of the classifier and the features that are used are described below.
+
+3.  We filter out predictions for already watched repos, sort by the score, and take the 10 top predictions.
+
+Algorithms
+==========
+
+The following algorithms are used:
+- a SVD in order to map each user and repo onto a low dimensional representation;
+- k-means clustering in order to 
+
 
 Currently, I use a heuristic with the following features:
 * First, add the parent repositories of repositories that the user is already watching, in order of popularity
@@ -11,6 +44,7 @@ By "order of popularity", I mean in order of the number of users that are watchi
 Thanks to:
 * Daniel Haran's code and README for the idea of using parent repositories;
 * asciiarmor's code (thanks for publishing it) for the basic features necessary to get to reasonable performance
+* xlvector's code for the idea of clustering by cooccurrences (now why didn't I think of that!)
 
 Future things that I will try:
 * Use a classifier instead of a heuristic to rank the set of potential repositories (this will help us where the user has a lot of watched repositories);
