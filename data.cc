@@ -520,6 +520,10 @@ void
 Data::
 calc_cooccurrences()
 {
+    // Clear all of the cooccurrence sets
+    for (unsigned i = 0;  i < users.size();  ++i)
+        users[i].cooc.clear();
+
     // For each, find those that cooccur within the same set of predictions
     // Ignore those users that have too many predictions or those repos that
     // have too many watchers
@@ -555,6 +559,10 @@ calc_cooccurrences()
     // Finish all of the cooccurrence sets
     for (unsigned i = 0;  i < users.size();  ++i)
         users[i].cooc.finish();
+
+    // Clear all of the cooccurrence sets
+    for (unsigned i = 0;  i < repos.size();  ++i)
+        repos[i].cooc.clear();
 
     // For each, find those that cooccur within the same set of predictions
     // Ignore those repos that have too many predictions or those users that

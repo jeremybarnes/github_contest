@@ -4,6 +4,15 @@ This is Jeremy Barnes's Github recommendation engine.
 
 For the moment, there's nothing much to see here...
 
+Feel free to browse my code and take my ideas for your system, if ever they are useful.
+
+If ever you want to use my code, you can do so under the Affero GPL v3.  Note that getting it to work might be difficult; it relies on JML (Jeremy's Machine Learning Library) at http://bitbucket.org/jeremy_barnes/jml/.  This code needs to be downloaded and compiled and the jml symlink in the github repo set to point to it.  I build it on 32 and 64 bit Ubuntu 8.10/9.04 machines; anything else might be difficult.  There are also a *lot* of supporting libraries to install (all of which come with Ubuntu).
+
+I'm currently looking for consulting contracts.  I do pretty much any data mining, machine learning or early-stage technology stuff, but I'm particularly experienced in Natural Language Processing.
+
+You can contact me on <my firstname> at <my family name>+"o" .com.
+
+
 System Architecture
 ===================
 
@@ -25,64 +34,122 @@ The system architecture for prediction is as follows:
 
 3.  We filter out predictions for already watched repos, sort by the score, and take the 10 top predictions.
 
+
 Algorithms
 ==========
 
 The following algorithms are used:
 - a SVD in order to map each user and repo onto a low dimensional representation;
-- k-means clustering in order to 
+- k-means clustering in order to cluster the users and repos;
+- bagged boosted decision trees in order to generate the ranking classifier
+- a stochastic random walk process to determine a popularity ranking of the repos.  It mostly gives the same results as ranking by the number of watchers, though.
+- a language similarity model, which takes the cosine between normalized language vectors
+- a cooccurrence model, where weight is awarded when two repositories are recommended together by the same user, or when two users both watch the same repository together. 
+
+Features
+========
+
+To be written...
+
+- Heuristic feature, that calculates a heuristics score based upon the following:
+  * First, add the parent repositories of repositories that the user is already watching, in order of popularity
+  * Then, those other repositories by the same author as the current one
+  * Then, add ancestor repositories (ie, more than one parent away)
+  * Finally, add in order of popularity
 
 
-Currently, I use a heuristic with the following features:
-* First, add the parent repositories of repositories that the user is already watching, in order of popularity
-* Then, those other repositories by the same author as the current one
-* Then, add ancestor repositories (ie, more than one parent away)
-* Finally, add in order of popularity
+Cheating
+========
 
-By "order of popularity", I mean in order of the number of users that are watching.
+There are also features that model the particular dataset that we have here,
+and do not actually contribute to making a recommendation.  These features
+include:
+- Modeling the density of the user/repo space.  If you look at doc/user_repo.png in my repo, you will see that there is a line that goes up the middle.  This line is due to the common user behaviour of 1) joining github, and 2) adding one or more repos.  Since the user IDs and repo IDs weren't obfuscated, and are allocated sequentially, we know that time increases monotonically on both axes.  By checking to see if a repo is in a dense part of the graph, we can essentially check to see if a repo could be a user's first repo.
+- Matching authors to users.  If we see that user 2839 is the only watcher on repos 6879, 7039 and 23405, and that these have the same author, then we can be pretty sure that user 2839 *is* that author.  Using this algorithm, we map 22602 users unambiguously to an author, and a further 13554 authors to one of several authors (I haven't yet investigated what happens in this case).
+
+
+Testing
+=======
+
+I do testing locally by generating a fake test set (the code is in data.cc).  This allows me to test my ideas without needing to always test against the official test set, which stops me from overfitting too badly.  Overfitting is, of course, a benefit in this competition but my goal is to write a good recommendation engine, not just to get the highest score.
+
+Unfortunately, the test results that I get, regardless of the random seed that I use, tend to be about 10% better than the results I get when I submit to the official scoring program.  I have checked that the repos that I take out are similar to the official ones and they are; I am at a loss to explain it.  But there must be some systematic bias due to me not having implemented one of the details of the way the repos were held out in the generation of the official test set.
+
+Due to this problem, I sometimes see an improvement on my test set that is not reflected on the official test set.
+
+One of the other useful things about local testing is that I can test both my set of candidate repos and the reduced set once they have been ranked.  This testing allows me to see that for about 25% of users I never propose the correct repo; on those where I do propose the correct one, the classifier performance is quite good.
+
+I perform training in the same manner, by holding out some more of the repos and testing the ability of the algorithm to predict what I held out.  This is particularly useful to generate the feature vector for the ranking classifier.
+
+
+Training
+========
+
+The training process works roughly as follows:
+
+1.  Perform the (slow) k-means clustering to generate clusters of users and repos.
+2.  Generate a feature vector file for the classifier.
+
+3.  Train a classifier on the feature vector file.
+
+4.  Run the classifier over both a fake testing set to get non-official results, and the official testing set to get a results.txt file to submit.
+
+The training process is in the loadbuild.mk file.
+
+
+Unbiasing
+=========
+
+One of the problems with a system like this is systematic biasing.  If we generate clusters knowing the missing repos, the clusters are likely to represent the missing repos.  Then when we train a classifier it will learn to trust the clustering more than it really should, and this will lead to poor results.
+
+In order to avoid this problem, we remove the classifier training data from the dataset before we perform any of the steps in training, including the clustering.
+
+
+Code
+====
+
+The code is organized as follows:
+
+Compiling: (make -j2)
+github.cc: main driver program; --help shows main modes (or look in loadbuild.mk)
+data.{h,cc}: data structures to read the data and save the results of analysis
+ranker.{h,cc}: data structures and algorithms for the ranking of hypotheses
+decompose.{h,cc}: algorithms for decomposition and clustering
+exception_hook.{h,cc}: simple file to cause a backtrace to be printed at the point where an exception is thrown
+
+svdlibc/: the external library of this name; code has been patched to work with our version of GCC.  Note that there is no license with the code, so it's redistribution status is unknown.
+jml/: a symlink to the jml library's source tree.  This is used for the machine learning, basic system services and build system.
+
+Makefile: main makefile; includes logic from the make system in jml
+build/: binaries go into this directory
+
+Training: (make -j2 loadbuild)
+loadbuild.mk: makefile to generate results.txt (make -j2 loadbuild to generate a results.txt file)
+ranker-classifier-training-config.txt: configuration file for the classifier generator for the ranker
+config.txt: configuration file for the system; not many options have been put in it for the moment
+download/: contains the original data for the competition
+
+Credits
+=======
 
 Thanks to:
 * Daniel Haran's code and README for the idea of using parent repositories;
 * asciiarmor's code (thanks for publishing it) for the basic features necessary to get to reasonable performance
 * xlvector's code for the idea of clustering by cooccurrences (now why didn't I think of that!)
 
-Future things that I will try:
-* Use a classifier instead of a heuristic to rank the set of potential repositories (this will help us where the user has a lot of watched repositories);
-* Look at language matches;
+Todo
+====
+
+Future things that I will or may try:
+
+* Use a classifier instead of a heuristic to rank the set of potential repositories (this will help us where the user has a lot of watched repositories) (done)
+* Look at language matches (done)
 * Look at keywords in the repository names (eg, "rails" says a lot about which kind of repos that people like)
 * Add a simple knn implementation based upon a dot product between repos to find new ones
-* EM on a graphical model to learn a smoothed user/repo matrix
+* EM on a graphical model to learn a smoothed user/repo matrix (done)
 * Embed both repositories and users into the same feature space using a deep neural network and use cosine similarity between embedded representations to learn similarity.
-* Potentially, other (simpler) matrix factorization models
-* Blending, of course, once I have enough models to make it useful
+* Potentially, other (simpler) matrix factorization models (done)
 
-Feel free to browse my code and take my ideas for your system, if ever they are useful.
-
-If ever you want to use my code, you can do so under the Affero GPL v3.  Note that getting it to work might be difficult; it relies on JML (Jeremy's Machine Learning Library) at http://bitbucket.org/jeremy_barnes/jml/.  This code needs to be downloaded and compiled and the jml symlink in the github repo set to point to it.  I build it on 32 and 64 bit Ubuntu 8.10/9.04 machines; anything else might be difficult.
-
-I'm currently looking for consulting contracts.  I do pretty much any data mining, machine learning or early-stage technology stuff, but I'm particularly experienced in Natural Language Processing.
-
-You can contact me on <my firstname> at <my family name>+"o" .com.
 
 Jeremy Barnes
-8 August 2009
-
-==================
-
-Notes
-
-Before also watched:
-
-fake test results: 
-     total:      real: 2286/4788 =  47.74%  poss: 2679/4788 =  55.95%
-     enough:     real: 1397/3348 =  41.73%  poss: 1811/3348 =  54.09%  avg num: 300.9
-     not enough: real:  889/1440 =  61.74%  poss:  868/1440 =  60.28%  avg num:   3.7
-
-After also watched:
-
-fake test results: 
-     total:      real: 2289/4788 =  47.81%  poss: 3014/4788 =  62.95%
-     enough:     real: 1431/3383 =  42.30%  poss: 2177/3383 =  64.35%  avg num: 1481.3
-     not enough: real:  858/1405 =  61.07%  poss:  837/1405 =  59.57%  avg num:   3.7
-
-So we moved a lot from impossible to possible, but they didn't tend to be the highest ones.
+18 August 2009
