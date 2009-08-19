@@ -732,6 +732,9 @@ configure(const ML::Configuration & config_,
          << " config_.prefix() = " << config_.prefix() << endl;
 
     config.require(classifier_file, "classifier_file");
+
+    load_data = true;
+    config.get(load_data, "load_data");
 }
 
 void
@@ -740,9 +743,15 @@ init(boost::shared_ptr<Candidate_Generator> generator)
 {
     Ranker::init(generator);
 
+    ranker_fs = feature_space();
+
+    cerr << "classifier_ranker of type " << typeid(*this).name()
+         << " load_data = " << load_data << endl;
+
+    if (!load_data) return;
+
     classifier.load(classifier_file);
 
-    ranker_fs = feature_space();
     classifier_fs = classifier.feature_space<ML::Dense_Feature_Space>();
 
     classifier_fs->create_mapping(*ranker_fs, mapping);
@@ -774,15 +783,14 @@ features(int user_id,
 
 Ranked
 Classifier_Ranker::
-rank(int user_id,
-     const std::vector<Candidate> & candidates,
-     const Candidate_Data & candidate_data,
-     const Data & data) const
+classify(int user_id,
+         const std::vector<Candidate> & candidates,
+         const Candidate_Data & candidate_data,
+         const Data & data,
+         const std::vector<ML::distribution<float> > & features) const
 {
     Ranked result;
 
-    vector<distribution<float> > features
-        = this->features(user_id, candidates, candidate_data, data);
 
 
     for (unsigned i = 0;  i < candidates.size();  ++i) {
@@ -817,6 +825,115 @@ rank(int user_id,
     return result;
 }
 
+Ranked
+Classifier_Ranker::
+rank(int user_id,
+     const std::vector<Candidate> & candidates,
+     const Candidate_Data & candidate_data,
+     const Data & data) const
+{
+    vector<distribution<float> > features
+        = this->features(user_id, candidates, candidate_data, data);
+
+    return classify(user_id, candidates, candidate_data, data, features);
+}
+
+
+/*****************************************************************************/
+/* CLASSIFIER_RERANKER                                                       */
+/*****************************************************************************/
+
+Classifier_Reranker::~Classifier_Reranker()
+{
+}
+
+void
+Classifier_Reranker::
+configure(const ML::Configuration & config_,
+          const std::string & name)
+{
+    Classifier_Ranker::configure(config_, name);
+
+    Configuration config(config_, name, Configuration::PREFIX_APPEND);
+
+    phase1.configure(config, "phase1");
+}
+
+void
+Classifier_Reranker::
+init(boost::shared_ptr<Candidate_Generator> generator)
+{
+    phase1.generator = generator;
+    this->generator = generator;
+    phase1.init(generator);
+    Classifier_Ranker::init(generator);
+}
+
+boost::shared_ptr<const ML::Dense_Feature_Space>
+Classifier_Reranker::
+feature_space() const
+{
+    boost::shared_ptr<ML::Dense_Feature_Space> result;
+    result.reset(new ML::Dense_Feature_Space(*phase1.feature_space()));
+
+    // NOTE: these features might not be a good idea, as it might be able to
+    // model how the FV are selected in order to figure out what the correct
+    // one is (for example, if prerank_rank > 20 then we can be sure that
+    // it's the correct one as we only include a maximum of 20 incorrect
+    // examples, and these are the top ranked ones.
+    result->add_feature("prerank_score", Feature_Info::REAL);
+    result->add_feature("prerank_rank", Feature_Info::REAL);
+    result->add_feature("prerank_percentile", Feature_Info::REAL);
+    return result;
+}
+
+std::vector<ML::distribution<float> >
+Classifier_Reranker::
+features(int user_id,
+         const std::vector<Candidate> & candidates,
+         const Candidate_Data & candidate_data,
+         const Data & data) const
+{
+    std::vector<ML::distribution<float> > result
+        = phase1.features(user_id, candidates, candidate_data, data);
+
+    // First, we rank with the phase 1 classifier
+    Ranked ranked = phase1.classify(user_id, candidates, candidate_data, data,
+                                    result);
+    
+    ranked.sort();
+
+    // Now, go through and add the extra features in
+    for (unsigned i = 0;  i < ranked.size();  ++i) {
+        distribution<float> & fv = result[ranked[i].index];
+        fv.push_back(ranked[i].score);
+        fv.push_back((ranked[i].min_rank + ranked[i].max_rank) * 0.5);
+        fv.push_back(fv.back() / ranked.size());
+    }
+
+    return result;
+}
+
+Ranked
+Classifier_Reranker::
+rank(int user_id,
+     const std::vector<Candidate> & candidates,
+     const Candidate_Data & candidate_data,
+     const Data & data) const
+{
+    if (!load_data || true)
+        return phase1.rank(user_id, candidates, candidate_data, data);
+
+    return Classifier_Ranker::rank(user_id, candidates,
+                                   candidate_data, data);
+
+    // Need to use rankings from the old ranker
+}
+
+
+/*****************************************************************************/
+/* FACTORY                                                                   */
+/*****************************************************************************/
 
 boost::shared_ptr<Candidate_Generator>
 get_candidate_generator(const Configuration & config,
@@ -846,6 +963,9 @@ get_ranker(const Configuration & config_,
     }
     else if (type == "classifier") {
         result.reset(new Classifier_Ranker());
+    }
+    else if (type == "reranker") {
+        result.reset(new Classifier_Reranker());
     }
     else throw Exception("Ranker of type " + type + " doesn't exist");
 

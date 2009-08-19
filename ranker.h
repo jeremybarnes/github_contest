@@ -157,6 +157,13 @@ struct Classifier_Ranker : public Ranker {
              const Data & data) const;
 
     virtual Ranked
+    classify(int user_id,
+             const std::vector<Candidate> & candidates,
+             const Candidate_Data & candidate_data,
+             const Data & data,
+             const std::vector<ML::distribution<float> > & features) const;
+    
+    virtual Ranked
     rank(int user_id,
          const std::vector<Candidate> & candidates,
          const Candidate_Data & candidate_data,
@@ -167,6 +174,34 @@ struct Classifier_Ranker : public Ranker {
     boost::shared_ptr<const ML::Dense_Feature_Space> ranker_fs;
     boost::shared_ptr<const ML::Dense_Feature_Space> classifier_fs;
     ML::Dense_Feature_Space::Mapping mapping;
+    bool load_data;
+};
+
+struct Classifier_Reranker : public Classifier_Ranker {
+    virtual ~Classifier_Reranker();
+
+    virtual void configure(const ML::Configuration & config,
+                           const std::string & name);
+
+
+    virtual void init(boost::shared_ptr<Candidate_Generator> generator);
+
+    virtual boost::shared_ptr<const ML::Dense_Feature_Space>
+    feature_space() const;
+
+    virtual std::vector<ML::distribution<float> >
+    features(int user_id,
+             const std::vector<Candidate> & candidates,
+             const Candidate_Data & candidate_data,
+             const Data & data) const;
+
+    virtual Ranked
+    rank(int user_id,
+         const std::vector<Candidate> & candidates,
+         const Candidate_Data & candidate_data,
+         const Data & data) const;
+
+    Classifier_Ranker phase1;
 };
 
 // Factory methods

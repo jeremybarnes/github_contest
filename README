@@ -145,11 +145,11 @@ Future things that I will or may try:
 * Use a classifier instead of a heuristic to rank the set of potential repositories (this will help us where the user has a lot of watched repositories) (done)
 * Look at language matches (done)
 * Look at keywords in the repository names (eg, "rails" says a lot about which kind of repos that people like)
-* Add a simple knn implementation based upon a dot product between repos to find new ones
+* Add a simple knn implementation based upon a dot product between repos to find new ones (will need pre-computation is it will be SLLOOOOWWWW!)
 * EM on a graphical model to learn a smoothed user/repo matrix (done)
 * Embed both repositories and users into the same feature space using a deep neural network and use cosine similarity between embedded representations to learn similarity.
 * Potentially, other (simpler) matrix factorization models (done)
-
+* Try with no probabilizer on the classifier(s)
 
 Jeremy Barnes
 18 August 2009

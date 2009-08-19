@@ -10,6 +10,11 @@ generator {
 }
 
 ranker {
-    type=classifier
-    classifier_file=data/ranker.cls
+    phase1 {
+        type=classifier
+        classifier_file=data/ranker1.cls
+    }
+    
+    type=classifier #reranker
+    classifier_file=data/ranker2.cls
 }

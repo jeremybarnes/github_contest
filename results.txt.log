@@ -1,5 +1,5 @@
 loading data...max_count = 604
-user inferring: valid 56519 inferred 22602 multiple 13554 average 4.45831
+user inferring: valid 56519 inferred 35873 multiple 283 average 2.06714
 tested users with n repos: 
           0      2  0.042% 
           1   1347 28.133% **************************************************
@@ -40,9 +40,10 @@ KAPPA                     =  1.00E-06
 NUMBER OF LANCZOS STEPS   =    185
 RITZ VALUES STABILIZED    =     55
 SINGULAR VALUES FOUND     =     50
-SVD elapsed: elapsed: [11.06s cpu, 26439.9210 mticks, 11.69s wall]
+SVD elapsed: elapsed: [8.90s cpu, 33524.0742 mticks, 14.83s wall]
 done repos
 name = ranker config.prefix() = ranker config_.prefix() = 
+classifier_ranker of type 17Classifier_Ranker load_data = 1
 Buffer Input init
 first char = 1
 processing 4788 users...
@@ -50,9 +51,9 @@ processing 4788 users...
 0%   10   20   30   40   50   60   70   80   90   100%
 |----|----|----|----|----|----|----|----|----|----|
 ***************************************************
-elapsed: elapsed: [96.08s cpu, 225167.7509 mticks, 99.59s wall]
+elapsed: elapsed: [96.57s cpu, 350874.4068 mticks, 155.19s wall]
 done
 
 dumping results...done.
-111.90user 0.66system 1:56.90elapsed 96%CPU (0avgtext+0avgdata 0maxresident)k
-0inputs+480outputs (0major+123446minor)pagefaults 0swaps
+110.54user 0.47system 2:59.98elapsed 61%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+472outputs (0major+123416minor)pagefaults 0swaps

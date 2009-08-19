@@ -833,24 +833,22 @@ calc_author_stats()
              it != end;  ++it) {
             const Repo & repo = repos[*it];
             if (repo.watchers.size() == 1)
-                inferred_authors[*it] += 1;
+                inferred_authors[repo.author] += 1;
         }
 
         if (inferred_authors.empty()) continue;
 
-        if (inferred_authors.size() == 1) {
+        if (inferred_authors.size() == 1)
             ++inferred_users;
-            user.inferred_authors.insert(inferred_authors.begin()->first);
-        }
         else {
             ++multiple_users;
             total_multiple += inferred_authors.size();
-            for (hash_map<int, int>::const_iterator
-                     it = inferred_authors.begin(),
-                     end = inferred_authors.end();
-                 it != end;  ++it)
-                user.inferred_authors.insert(it->first);
         }
+        for (hash_map<int, int>::const_iterator
+                 it = inferred_authors.begin(),
+                 end = inferred_authors.end();
+             it != end;  ++it)
+            user.inferred_authors.insert(it->first);
     }
 
     for (Repo_Name_To_Repos::iterator

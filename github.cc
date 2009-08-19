@@ -119,7 +119,7 @@ int main(int argc, char ** argv)
              "dump predictions for debugging")
             ("include-all-correct", value<bool>(&include_all_correct),
              "include all correct (1, default) or only excluded correct (0)?")
-            ("train-discriminative",
+            ("discriminative",
              value<bool>(&train_discriminative)->zero_tokens(),
              "train second-phase merger data for discrimination")
             ("possible-only", value<bool>(&possible_only),
@@ -372,7 +372,7 @@ int main(int argc, char ** argv)
                     << data.repos[repo_id].name << endl;
             }
             
-            out << endl;
+            out << endl << endl;
         }
 
         if (dump_merger_data || possible_only) {
@@ -392,22 +392,37 @@ int main(int argc, char ** argv)
 
             out << "user_id " << user_id << " correct " << correct_repo_id
                 << " npossible " << possible_choices.size() << " possible "
-                << possible
-                << endl;
+                << possible << " authors { ";
+            for (IdSet::const_iterator
+                     it = user.inferred_authors.begin(),
+                     end = user.inferred_authors.end();
+                 it != end;  ++it) {
+                out << data.authors.at(*it).name << " ";
+            }
+            out << "}" << endl;
 
             for (unsigned j = 0;  j < ranked.size();  ++j) {
                 int repo_id = ranked[j].repo_id;
 
                 if (j > 10 && correct_repo_id != repo_id) continue;
                 
-                out << format("%5d %8.6f %c %d %6d ", j, ranked[j].score,
+                out << format("%5d %8.6f %c %d %6d %6d ", j, ranked[j].score,
                               (correct_repo_id == repo_id ? '*' : ' '),
                               (correct_repo_id == repo_id
                                || user.watching.count(repo_id)),
+                              data.repos[repo_id].popularity_rank,
                               repo_id)
                     << data.authors[data.repos[repo_id].author].name << "/"
                     << data.repos[repo_id].name << endl;
             }
+
+            if (!possible)
+                out << format("               * 1 %6d %6d ",
+                              correct_repo_id,
+                              data.repos[correct_repo_id].popularity_rank)
+                    << data.authors[data.repos[correct_repo_id].author].name
+                    << "/"
+                    << data.repos[correct_repo_id].name << endl;
 
             out << endl;
         }
