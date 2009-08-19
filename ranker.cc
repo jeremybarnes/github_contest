@@ -495,6 +495,8 @@ feature_space() const
     result->add_feature("repo_user_cooccurrences_max", Feature_Info::REAL);
     result->add_feature("repo_num_cooccurrences", Feature_Info::REAL);
 
+    result->add_feature("repo_date", Feature_Info::REAL);
+
     return result;
 }
 
@@ -629,6 +631,9 @@ features(int user_id,
         result.push_back(total_cooc / repo.watchers.size());
         result.push_back(max_cooc);
         result.push_back(repo.cooc.size());
+
+        result.push_back((repo.date
+                          - boost::gregorian::date(2000, 1, 1)).days());
     }
 
     return results;
