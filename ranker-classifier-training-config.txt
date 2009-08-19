@@ -62,6 +62,6 @@ glz {
 phase1: glz {
 }
 
-default: glz {
+default: bbdt {
 }
 
