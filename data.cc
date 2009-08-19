@@ -521,8 +521,10 @@ Data::
 calc_cooccurrences()
 {
     // Clear all of the cooccurrence sets
-    for (unsigned i = 0;  i < users.size();  ++i)
+    for (unsigned i = 0;  i < users.size();  ++i) {
         users[i].cooc.clear();
+        users[i].cooc2.clear();
+    }
 
     // For each, find those that cooccur within the same set of predictions
     // Ignore those users that have too many predictions or those repos that
@@ -535,11 +537,12 @@ calc_cooccurrences()
         // More than 20 means 1/400th or less of a point for each of 400 or
         // more, which uses lots of memory and doesn't make much difference.
         // So we simply skip these ones.
-        if (repo.watchers.size() > 20) continue;
+        if (repo.watchers.size() > 50) continue;
 
         // Weight it so that we give out a total of one point for each repo
-        double wt = 1.0 / (repo.watchers.size() * repo.watchers.size());
-
+        double wt1 = 1.0 / (repo.watchers.size() * repo.watchers.size());
+        double wt2 = 1.0 / repo.watchers.size();
+        
         for (IdSet::const_iterator
                  it = repo.watchers.begin(),
                  end = repo.watchers.end();
@@ -550,19 +553,27 @@ calc_cooccurrences()
                  jt != end;  ++jt) {
                 int user_id2 = *jt;
                 
-                users[user_id1].cooc.add(user_id2, wt);
-                users[user_id2].cooc.add(user_id1, wt);
+                if (repo.watchers.size() <= 20) {
+                    users[user_id1].cooc.add(user_id2, wt1);
+                    users[user_id2].cooc.add(user_id1, wt1);
+                }
+                users[user_id1].cooc2.add(user_id2, wt2);
+                users[user_id2].cooc2.add(user_id1, wt2);
             }
         }
     }
 
     // Finish all of the cooccurrence sets
-    for (unsigned i = 0;  i < users.size();  ++i)
+    for (unsigned i = 0;  i < users.size();  ++i) {
         users[i].cooc.finish();
+        users[i].cooc2.finish();
+    }
 
     // Clear all of the cooccurrence sets
-    for (unsigned i = 0;  i < repos.size();  ++i)
+    for (unsigned i = 0;  i < repos.size();  ++i) {
         repos[i].cooc.clear();
+        repos[i].cooc2.clear();
+    }
 
     // For each, find those that cooccur within the same set of predictions
     // Ignore those repos that have too many predictions or those users that
@@ -575,10 +586,11 @@ calc_cooccurrences()
         // More than 20 means 1/400th or less of a point for each of 400 or
         // more, which uses lots of memory and doesn't make much difference.
         // So we simply skip these ones.
-        if (user.watching.size() > 20) continue;
+        if (user.watching.size() > 50) continue;
 
         // Weight it so that we give out a total of one point for each user
-        double wt = 1.0 / (user.watching.size() * user.watching.size());
+        double wt1 = 1.0 / (user.watching.size() * user.watching.size());
+        double wt2 = 1.0 / user.watching.size();
 
         for (IdSet::const_iterator
                  it = user.watching.begin(),
@@ -590,16 +602,22 @@ calc_cooccurrences()
                  jt != end;  ++jt) {
                 int repo_id2 = *jt;
                 
-                repos[repo_id1].cooc.add(repo_id2, wt);
-                repos[repo_id2].cooc.add(repo_id1, wt);
+                if (user.watching.size() <= 20) {
+                    repos[repo_id1].cooc.add(repo_id2, wt1);
+                    repos[repo_id2].cooc.add(repo_id1, wt1);
+                }
+
+                repos[repo_id1].cooc2.add(repo_id2, wt2);
+                repos[repo_id2].cooc2.add(repo_id1, wt2);
             }
         }
     }
 
     // Finish all of the cooccurrence sets
-    for (unsigned i = 0;  i < repos.size();  ++i)
+    for (unsigned i = 0;  i < repos.size();  ++i) {
         repos[i].cooc.finish();
-
+        repos[i].cooc2.finish();
+    }
 }
 
 float

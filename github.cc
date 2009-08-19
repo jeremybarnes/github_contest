@@ -81,6 +81,9 @@ int main(int argc, char ** argv)
     // Calculate only possible/impossible (not ranking)
     bool possible_only = false;
 
+    // Tranche specification
+    string tranches = "1";
+
     {
         using namespace boost::program_options;
 
@@ -119,6 +122,8 @@ int main(int argc, char ** argv)
              "cluster repositories, writing a cluster map")
             ("cluster-users", value<bool>(&cluster_users)->zero_tokens(),
              "cluster users, writing a cluster map")
+            ("tranches", value<string>(&tranches),
+             "bitmap of which parts of the testing set to use")
             ("output-file,o",
              value<string>(&output_file),
              "dump output file to the given filename");
@@ -221,9 +226,20 @@ int main(int argc, char ** argv)
 
     Timer timer;
 
+    vector<int> users_tested;
+    vector<int> answers_tested;
+
     for (unsigned i = 0;  i < data.users_to_test.size();  ++i, ++progress) {
 
+        if (tranches[i % tranches.size()] == '0')
+            continue;
+
         int user_id = data.users_to_test[i];
+
+        users_tested.push_back(user_id);
+        if (data.answers.size())
+            answers_tested.push_back(data.answers[i]);
+        else answers_tested.push_back(-1);
 
         const User & user = data.users[user_id];
 
@@ -238,6 +254,8 @@ int main(int argc, char ** argv)
 
 
         if (dump_merger_data) {
+
+            // Only for 
 
             // TODO: try to predict ALL repositories, not just the missing
             // one.  This should give us more general data.  Should be done
@@ -395,7 +413,7 @@ int main(int argc, char ** argv)
 
     if (dump_merger_data) return(0);
 
-    if (results.size() != data.users_to_test.size())
+    if (results.size() != users_tested.size())
         throw Exception("wrong number of results");
 
     cerr << "done" << endl << endl;
@@ -415,12 +433,15 @@ int main(int argc, char ** argv)
         for (unsigned i = 0;  i < results.size();  ++i) {
             if (results[i].size() > 10)
                 throw Exception("invalid result");
-            correct += results[i].count(data.answers[i]);
+
+            int answer = answers_tested.at(i);
+
+            correct += results[i].count(answer);
             
             bool possible
                 = std::binary_search(result_possible_choices[i].begin(),
                                      result_possible_choices[i].end(),
-                                     data.answers[i]);
+                                     answer);
             in_set += possible;
             if (result_possible_choices[i].size() < 10) {
                 ++not_enough;
@@ -446,6 +467,7 @@ int main(int argc, char ** argv)
                       100.0 * correct / results.size(),
                       in_set, results.size(),
                       100.0 * in_set / results.size())
+#if 0
             << format("     enough:     real: %4zd/%4zd = %6.2f%%  "
                       "poss: %4zd/%4zd = %6.2f%%  avg num: %5.1f\n",
                       is_enough_correct, is_enough,
@@ -460,6 +482,7 @@ int main(int argc, char ** argv)
                       not_enough_in_set, not_enough,
                       100.0 * not_enough_in_set / not_enough,
                       total_not_enough * 1.0 / not_enough)
+#endif
             << endl;
         
         // don't write results
@@ -470,9 +493,9 @@ int main(int argc, char ** argv)
 
         cerr << "dumping results...";
 
-        for (unsigned i = 0;  i < data.users_to_test.size();  ++i) {
+        for (unsigned i = 0;  i < users_tested.size();  ++i) {
 
-            int user_id = data.users_to_test[i];
+            int user_id = users_tested[i];
 
             const set<int> & user_results = results[i];
 

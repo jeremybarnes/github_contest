@@ -87,4 +87,11 @@ data/kmeans_repos.txt:
 	mv $@~ $@
 
 
-data/kmeans_repos.txt:
+data/unique_users.txt:
+	cat download/repos.txt | sed 's!.*:\([^:]*\)/.*!\1!g' | sort | uniq > $@~
+	mv $@~ $@
+
+# Here, we use the API in order to get the membership date for those users for
+# which we know the name.
+data/user_info.txt: data/unique_users.txt
+	bonus

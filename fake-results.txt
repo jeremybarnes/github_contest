@@ -1,5 +1,3 @@
 fake test results: 
-     total:      real: 2757/4788 =  57.58%  poss: 3566/4788 =  74.48%
-     enough:     real: 2757/4788 =  57.58%  poss: 3566/4788 =  74.48%  avg num: 765.0
-     not enough: real:    0/   0 =    nan%  poss:    0/   0 =    nan%  avg num:   nan
+     total:      real: 2737/4788 =  57.16%  poss: 3566/4788 =  74.48%
 

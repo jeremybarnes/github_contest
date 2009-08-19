@@ -66,7 +66,7 @@ KAPPA                     =  1.00E-06
 NUMBER OF LANCZOS STEPS   =    185
 RITZ VALUES STABILIZED    =     54
 SINGULAR VALUES FOUND     =     50
-SVD elapsed: elapsed: [11.72s cpu, 28732.8900 mticks, 12.71s wall]
+SVD elapsed: elapsed: [10.97s cpu, 25531.1515 mticks, 11.29s wall]
 done repos
 name = ranker config.prefix() = ranker config_.prefix() = 
 Buffer Input init
@@ -76,9 +76,9 @@ processing 4788 users...
 0%   10   20   30   40   50   60   70   80   90   100%
 |----|----|----|----|----|----|----|----|----|----|
 ***************************************************
-elapsed: elapsed: [897.93s cpu, 2103795.8315 mticks, 930.47s wall]
+elapsed: elapsed: [527.32s cpu, 1229851.6218 mticks, 543.94s wall]
 done
 
 calculating test result... done.
-913.86user 1.34system 15:49.27elapsed 96%CPU (0avgtext+0avgdata 0maxresident)k
-0inputs+8outputs (0major+110659minor)pagefaults 0swaps
+544.11user 0.82system 9:21.96elapsed 96%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+8outputs (0major+122867minor)pagefaults 0swaps

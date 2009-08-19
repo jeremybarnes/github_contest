@@ -191,7 +191,7 @@ struct Repo {
     int kmeans_cluster;
 
     // What does this cooccur with?
-    Cooccurrences cooc;
+    Cooccurrences cooc, cooc2;
 
     bool invalid() const { return id == -1; }
 };
@@ -240,7 +240,7 @@ struct User {
     IdSet inferred_authors;
 
     /// What other users does this user cooccur with?
-    Cooccurrences cooc;
+    Cooccurrences cooc, cooc2;
 
     bool invalid() const { return id == -1; }
 };

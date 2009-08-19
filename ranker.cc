@@ -490,10 +490,20 @@ feature_space() const
     result->add_feature("user_repo_cooccurrences_max", Feature_Info::REAL);
     result->add_feature("user_num_cooccurrences", Feature_Info::REAL);
 
+    result->add_feature("user_repo_cooccurrences2", Feature_Info::REAL);
+    result->add_feature("user_repo_cooccurrences_avg2", Feature_Info::REAL);
+    result->add_feature("user_repo_cooccurrences_max2", Feature_Info::REAL);
+    result->add_feature("user_num_cooccurrences2", Feature_Info::REAL);
+
     result->add_feature("repo_user_cooccurrences", Feature_Info::REAL);
     result->add_feature("repo_user_cooccurrences_avg", Feature_Info::REAL);
     result->add_feature("repo_user_cooccurrences_max", Feature_Info::REAL);
     result->add_feature("repo_num_cooccurrences", Feature_Info::REAL);
+
+    result->add_feature("repo_user_cooccurrences2", Feature_Info::REAL);
+    result->add_feature("repo_user_cooccurrences_avg2", Feature_Info::REAL);
+    result->add_feature("repo_user_cooccurrences_max2", Feature_Info::REAL);
+    result->add_feature("repo_num_cooccurrences2", Feature_Info::REAL);
 
     result->add_feature("repo_date", Feature_Info::REAL);
 
@@ -602,6 +612,7 @@ features(int user_id,
 
         // Find num cooc for this repo with each repo already watched
         double total_cooc = 0.0, max_cooc = 0.0;
+        double total_cooc2 = 0.0, max_cooc2 = 0.0;
         for (IdSet::const_iterator
                  it = user.watching.begin(),
                  end = user.watching.end();
@@ -609,6 +620,10 @@ features(int user_id,
             double score = repo.cooc[*it];
             total_cooc += score;
             max_cooc = std::max(max_cooc, score);
+
+            double score2 = repo.cooc2[*it];
+            total_cooc2 += score2;
+            max_cooc2 = std::max(max_cooc2, score);
         }
 
         result.push_back(total_cooc);
@@ -616,8 +631,13 @@ features(int user_id,
         result.push_back(max_cooc);
         result.push_back(user.cooc.size());
 
+        result.push_back(total_cooc2);
+        result.push_back(total_cooc2 / user.watching.size());
+        result.push_back(max_cooc2);
+        result.push_back(user.cooc2.size());
+
         // Find num cooc with each repo already watched
-        total_cooc = 0.0; max_cooc = 0.0;
+        total_cooc = max_cooc = total_cooc2 = max_cooc2 = 0.0;
         for (IdSet::const_iterator
                  it = repo.watchers.begin(),
                  end = repo.watchers.end();
@@ -625,12 +645,21 @@ features(int user_id,
             double score = user.cooc[*it];
             total_cooc += score;
             max_cooc = std::max(max_cooc, score);
+
+            double score2 = user.cooc2[*it];
+            total_cooc2 += score2;
+            max_cooc2 = std::max(max_cooc2, score2);
         }
 
         result.push_back(total_cooc);
         result.push_back(total_cooc / repo.watchers.size());
         result.push_back(max_cooc);
         result.push_back(repo.cooc.size());
+
+        result.push_back(total_cooc2);
+        result.push_back(total_cooc2 / repo.watchers.size());
+        result.push_back(max_cooc2);
+        result.push_back(repo.cooc2.size());
 
         result.push_back((repo.date
                           - boost::gregorian::date(2000, 1, 1)).days());
