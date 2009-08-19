@@ -62,7 +62,8 @@ data/ranker-fv.txt.gz: data/kmeans_users.txt data/kmeans_repos.txt
 	mv $@~ $@
 
 # For both of these, we cause the same (user, repo) pairs to be removed from
-# the 
+# the dataset as in the rest of the training, to avoid problems with the
+# number of entries
 
 data/kmeans_users.txt:
 	set -o pipefail && \
@@ -85,13 +86,3 @@ data/kmeans_repos.txt:
 		--output-file $@~ \
 	2>&1 | tee $@.log
 	mv $@~ $@
-
-
-data/unique_users.txt:
-	cat download/repos.txt | sed 's!.*:\([^:]*\)/.*!\1!g' | sort | uniq > $@~
-	mv $@~ $@
-
-# Here, we use the API in order to get the membership date for those users for
-# which we know the name.
-data/user_info.txt: data/unique_users.txt
-	bonus

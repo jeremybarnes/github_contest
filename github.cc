@@ -54,6 +54,9 @@ int main(int argc, char ** argv)
     // Include all correct entries or only the removed one?
     bool include_all_correct = false;
 
+    // Train a discriminative merger file
+    bool train_discriminative = false;
+
     // Configuration file to use
     string config_file = "config.txt";
 
@@ -116,6 +119,9 @@ int main(int argc, char ** argv)
              "dump predictions for debugging")
             ("include-all-correct", value<bool>(&include_all_correct),
              "include all correct (1, default) or only excluded correct (0)?")
+            ("train-discriminative",
+             value<bool>(&train_discriminative)->zero_tokens(),
+             "train second-phase merger data for discrimination")
             ("possible-only", value<bool>(&possible_only),
              "only calculate metrics for possible/impossible (no ranking)")
             ("cluster-repos", value<bool>(&cluster_repos)->zero_tokens(),
@@ -252,15 +258,15 @@ int main(int argc, char ** argv)
         for (unsigned j = 0;  j < candidates.size();  ++j)
             possible_choices.insert(candidates[j].repo_id);
 
+        Ranked ranked;
+        if (!dump_merger_data || train_discriminative) {
+            ranked = ranker->rank(user_id, candidates, *candidate_data,
+                                  data);
+            ranked.sort();
+        }
 
-        if (dump_merger_data) {
-
-            // Only for 
-
-            // TODO: try to predict ALL repositories, not just the missing
-            // one.  This should give us more general data.  Should be done
-            // by leave-one-out kind of training.
-
+        // A for loop with one iteration so we can use break
+        for (bool done = false; dump_merger_data && !done;  done = true) {
             int correct_repo_id = data.answers[i];
 
             bool possible = possible_choices.count(correct_repo_id);
@@ -270,37 +276,52 @@ int main(int argc, char ** argv)
                 << possible
                 << endl;
 
-            if (possible) {
+            if (!possible) {
+                out << endl;
+                break;
+            }
 
-                // Divide into two sets: those that predict a watched repo,
-                // and those that don't
-
-                set<int> incorrect;
+            // Divide into two sets: those that predict a watched repo,
+            // and those that don't
+            
+            set<int> incorrect;
+            set<int> correct;
+            
+            if (train_discriminative) {
+                // Find the highest 10 incorrect examples from the ranked set
+                for (unsigned i = 0;  i < ranked.size() && incorrect.size() < 10;  ++i) {
+                    int repo_id = ranked[i].repo_id;
+                    bool correct = (user.watching.count(repo_id)
+                                    || repo_id == correct_repo_id);
+                    if (correct) continue;
+                    incorrect.insert(repo_id);
+                }
+            }
+            else {
                 std::set_difference(possible_choices.begin(),
                                     possible_choices.end(),
                                     user.watching.begin(),
                                     user.watching.end(),
                                     inserter(incorrect, incorrect.end()));
                 incorrect.erase(correct_repo_id);
-
+                
                 if (incorrect.size() > 20) {
-
+                    
                     vector<int> sample(incorrect.begin(), incorrect.end());
                     std::random_shuffle(sample.begin(), sample.end());
                     
                     incorrect.clear();
                     incorrect.insert(sample.begin(), sample.begin() + 20);
                 }
-
-
-                set<int> correct;
-
+                
                 if (include_all_correct) {
                     std::set_intersection(possible_choices.begin(),
                                           possible_choices.end(),
                                           user.watching.begin(),
                                           user.watching.end(),
                                           inserter(correct, correct.end()));
+                    
+                    
                     
                     if (correct.size() > 20) {
                         
@@ -311,43 +332,44 @@ int main(int argc, char ** argv)
                         correct.insert(sample.begin(), sample.begin() + 20);
                     }
                 }
-
-                correct.insert(correct_repo_id);
-
-                // Generate features
-                vector<distribution<float> > features
-                    = ranker->features(user_id, candidates, *candidate_data,
-                                       data);
-
-                // Go through and dump those selected
-                for (unsigned j = 0;  j < candidates.size();  ++j) {
-                    const Candidate & candidate = candidates[j];
-                    int repo_id = candidate.repo_id;
-
-                    // if it's one we don't dump then don't output it
-                    if (!correct.count(repo_id)
-                        && !incorrect.count(repo_id))
-                        continue;
-                    
-                    bool label = correct.count(repo_id);
-                    float weight = (label
-                                    ? 1.0f / correct.size()
-                                    : 1.0f / incorrect.size());
-                    
-                    int group = user_id;
-
-                    out << label << " " << weight << " " << group << " "
-                        << (repo_id == correct_repo_id) << " ";
-
-                    boost::shared_ptr<Mutable_Feature_Set> encoded
-                        = ranker_fs->encode(features[j]);
-                    out << ranker_fs->print(*encoded);
-                    
-                    // A comment so we know where this feature vector came from
-                    out << " # repo " << repo_id << " "
-                        << data.authors[data.repos[repo_id].author].name << "/"
-                        << data.repos[repo_id].name << endl;
-                }
+                
+            }
+            
+            correct.insert(correct_repo_id);
+            
+            // Generate features
+            vector<distribution<float> > features
+                = ranker->features(user_id, candidates, *candidate_data,
+                                   data);
+            
+            // Go through and dump those selected
+            for (unsigned j = 0;  j < candidates.size();  ++j) {
+                const Candidate & candidate = candidates[j];
+                int repo_id = candidate.repo_id;
+                
+                // if it's one we don't dump then don't output it
+                if (!correct.count(repo_id)
+                    && !incorrect.count(repo_id))
+                    continue;
+                
+                bool label = correct.count(repo_id);
+                float weight = (label
+                                ? 1.0f / correct.size()
+                                : 1.0f / incorrect.size());
+                
+                int group = user_id;
+                
+                out << label << " " << weight << " " << group << " "
+                    << (repo_id == correct_repo_id) << " ";
+                
+                boost::shared_ptr<Mutable_Feature_Set> encoded
+                    = ranker_fs->encode(features[j]);
+                out << ranker_fs->print(*encoded);
+                
+                // A comment so we know where this feature vector came from
+                out << " # repo " << repo_id << " "
+                    << data.authors[data.repos[repo_id].author].name << "/"
+                    << data.repos[repo_id].name << endl;
             }
             
             out << endl;
@@ -360,10 +382,6 @@ int main(int argc, char ** argv)
                              possible_choices.end()));
             continue;
         }
-
-        Ranked ranked = ranker->rank(user_id, candidates, *candidate_data,
-                                     data);
-        ranked.sort();
 
         if (dump_predictions) {
             // verbosity...
