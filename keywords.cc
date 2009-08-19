@@ -39,7 +39,7 @@ std::vector<std::string> tokenize(const std::string & str)
     }
     
     if (word != "") result.push_back(word);
-
+    
     return result;
 }
 
@@ -71,12 +71,16 @@ void analyze_keywords(const Data & data)
 
     vector<Name> names;
 
-    std::hash_map<string, Vocab_Entry> vocab;
+    std::hash_map<string, int> vocab_map;
+    vector<Vocab_Entry> vocab;
+
 
     for (unsigned i = 0;  i < all_names.size();  ++i) {
         string name = all_names[i];
         
         vector<string> tokens = tokenize(name);
 
+        // Add each token to the vocabulary
+        for (
     }
 }

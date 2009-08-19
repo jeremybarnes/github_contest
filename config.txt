@@ -15,6 +15,6 @@ ranker {
         classifier_file=data/ranker1.cls
     }
     
-    type=classifier #reranker
+    type=reranker
     classifier_file=data/ranker2.cls
 }

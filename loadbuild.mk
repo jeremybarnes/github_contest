@@ -96,11 +96,11 @@ data/ranker-fv2.txt.gz: data/ranker1.cls
 		--num-users=20000 \
 		--output-file $@~ \
 		ranker.load_data=false \
+		--tranches=01 \
+		--discriminative \
 	2>&1 | tee $@.log
 	mv $@~ $@
 
-#		--tranches=01 \
-#		--discriminative \
 
 # For both of these, we cause the same (user, repo) pairs to be removed from
 # the dataset as in the rest of the training, to avoid problems with the

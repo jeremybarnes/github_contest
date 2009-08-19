@@ -401,25 +401,38 @@ int main(int argc, char ** argv)
             }
             out << "}" << endl;
 
+            int num_done = 0;
+
+            out << " rank    score   c  prank repoid watch name" << endl;
+
             for (unsigned j = 0;  j < ranked.size();  ++j) {
                 int repo_id = ranked[j].repo_id;
 
-                if (j > 10 && correct_repo_id != repo_id) continue;
+                bool correct = (correct_repo_id == repo_id
+                                || user.watching.count(repo_id));
+
+                if (correct && correct_repo_id != repo_id
+                    && !include_all_correct) continue;
+
+                if (num_done > 10 && correct_repo_id != repo_id) continue;
                 
-                out << format("%5d %8.6f %c %d %6d %6d ", j, ranked[j].score,
+                ++num_done;
+
+                out << format("%5d %8.6f %c %d %6d %6d %5d ", j, ranked[j].score,
                               (correct_repo_id == repo_id ? '*' : ' '),
-                              (correct_repo_id == repo_id
-                               || user.watching.count(repo_id)),
+                              correct,
                               data.repos[repo_id].popularity_rank,
-                              repo_id)
+                              repo_id,
+                              data.repos[repo_id].watchers.size())
                     << data.authors[data.repos[repo_id].author].name << "/"
                     << data.repos[repo_id].name << endl;
             }
 
             if (!possible)
-                out << format("               * 1 %6d %6d ",
+                out << format("               * 1 %6d %6d %5d ",
                               correct_repo_id,
-                              data.repos[correct_repo_id].popularity_rank)
+                              data.repos[correct_repo_id].popularity_rank,
+                              data.repos[correct_repo_id].watchers.size())
                     << data.authors[data.repos[correct_repo_id].author].name
                     << "/"
                     << data.repos[correct_repo_id].name << endl;
