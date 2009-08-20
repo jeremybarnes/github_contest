@@ -246,12 +246,16 @@ struct User {
 };
 
 struct Author {
-    Author() : num_watchers(0) {}
+    Author() : num_watchers(0), num_followers(-1), num_following(-1) {}
 
     int id;
     std::string name;
     std::set<int> repositories;
     size_t num_watchers;
+
+    boost::gregorian::date date;
+    int num_followers;
+    int num_following;
 };
 
 struct Cluster {
@@ -301,6 +305,8 @@ struct Data {
     void calc_author_stats();
 
     void calc_cooccurrences();
+
+    void infer_from_ids();
 
     float density(int user_id, int repo_id) const;
 

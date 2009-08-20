@@ -506,6 +506,16 @@ feature_space() const
     result->add_feature("repo_num_cooccurrences2", Feature_Info::REAL);
 
     result->add_feature("repo_date", Feature_Info::REAL);
+    result->add_feature("author_date", Feature_Info::REAL);
+    result->add_feature("author_repo_date_difference", Feature_Info::REAL);
+    result->add_feature("author_num_followers", Feature_Info::REAL);
+    result->add_feature("author_num_following", Feature_Info::REAL);
+
+    result->add_feature("user_date", Feature_Info::REAL);
+    result->add_feature("user_repo_date_difference", Feature_Info::REAL);
+    result->add_feature("user_author_date_difference", Feature_Info::REAL);
+    result->add_feature("user_num_followers", Feature_Info::REAL);
+    result->add_feature("user_num_following", Feature_Info::REAL);
 
     return result;
 }
@@ -661,8 +671,53 @@ features(int user_id,
         result.push_back(max_cooc2);
         result.push_back(repo.cooc2.size());
 
-        result.push_back((repo.date
-                          - boost::gregorian::date(2000, 1, 1)).days());
+        
+        static const boost::gregorian::date epoch(2007, 1, 1);
+
+        long repo_date = (repo.date - epoch).days();
+
+        result.push_back(repo_date);
+
+        long author_date = 0;
+
+        if (repo.author != -1 && data.authors[repo.author].num_followers != -1){
+            author_date = (data.authors[repo.author].date - epoch).days();
+        }
+
+        result.push_back(author_date);
+        result.push_back(repo_date - author_date);
+
+        if (repo.author != -1) {
+            result.push_back(data.authors[repo.author].num_followers);
+            result.push_back(data.authors[repo.author].num_following);
+        }
+        else {
+            result.push_back(-1);
+            result.push_back(-1);
+        }
+
+        long user_date = 10000;
+        int author_num_followers = -1;
+        int author_num_following = -1;
+        for (IdSet::const_iterator
+                 it = user.inferred_authors.begin(),
+                 end = user.inferred_authors.end();
+             it != end;  ++it) {
+            if (data.authors[*it].num_followers != -1) {
+                author_num_followers = max(author_num_followers,
+                                           data.authors[*it].num_followers);
+                author_num_following = max(author_num_following,
+                                           data.authors[*it].num_following);
+                user_date = min(user_date,
+                                (data.authors[*it].date - epoch).days());
+            }
+        }
+
+        result.push_back(user_date);
+        result.push_back(repo_date - user_date);
+        result.push_back(author_date - user_date);
+        result.push_back(author_num_followers);
+        result.push_back(author_num_following);
     }
 
     return results;

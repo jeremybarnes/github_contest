@@ -40,7 +40,7 @@ void Data::load()
 
     repos.resize(125000);
 
-    authors.resize(60000);
+    authors.reserve(60000);
 
     while (repo_file) {
         Repo repo;
@@ -87,6 +87,46 @@ void Data::load()
         repo_name_to_repos[repo.name].push_back(repo.id);
     }
 
+    Parse_Context author_file("authors.txt");
+
+    while (author_file) {
+        string author_name = author_file.expect_text(':', true);
+        if (author_name == "") continue;
+
+        int author_id = -1;
+
+        if (!author_name_to_id.count(author_name)) {
+            cerr << "warning: unseen author in file: " << author_name
+                 << endl;
+            // Unseen author... add it
+            author_id = author_name_to_id[author_name] = authors.size();
+            Author new_author;
+            new_author.name = author_name;
+            new_author.id = author_id;
+            authors.push_back(new_author);
+        }
+        else author_id = author_name_to_id[author_name];
+        
+        if (author_id == -1)
+            throw Exception("author not found");
+
+        Author & author = authors[author_id];
+    
+        author_file.expect_literal(':');
+        author.num_following = author_file.expect_int();
+        author_file.expect_literal(',');
+        author_file.expect_int();  // github ID; unused
+        author_file.expect_literal(',');
+        author.num_followers = author_file.expect_int();
+        author_file.expect_literal(',');
+        string date_str = author_file.expect_text("\n,", false);
+
+        author.date = boost::gregorian::from_simple_string(date_str);
+        //cerr << "date_str " << date_str << " date " << author.date
+        //     << endl;
+
+        author_file.expect_eol();
+    }
 
     // Children.  Only direct ones for the moment.
     for (unsigned i = 0;  i < repos.size();  ++i) {
@@ -221,16 +261,6 @@ void Data::load()
         user_entry.id = user_id;
     }
 
-    calc_languages();
-
-    calc_popularity();
-
-    calc_density();
-
-    calc_author_stats();
-
-    calc_cooccurrences();
-
     users_to_test.reserve(5000);
 
     Parse_Context test_file("download/test.txt");
@@ -247,6 +277,16 @@ void Data::load()
         users[user_id].incomplete = true;
         users[user_id].id = user_id;
     }
+
+    calc_author_stats();
+    
+    calc_languages();
+
+    calc_popularity();
+
+    calc_density();
+
+    calc_cooccurrences();
 
     stochastic_random_walk();
 
@@ -298,6 +338,8 @@ void
 Data::
 frequency_stats()
 {
+    return;
+
     set<int> test_users(users_to_test.begin(),
                         users_to_test.end());
 
@@ -867,6 +909,313 @@ calc_author_stats()
          << " inferred " << inferred_users
          << " multiple " << multiple_users
          << " average " << (1.0 * total_multiple / multiple_users) << endl;
+}
+
+void
+Data::
+infer_from_ids()
+{
+    return;
+
+    /* There should be a monotonically increasing user ID that runs through
+       the repos.
+
+       If we look at the data by taking the lowest user ID for each of the
+       repositories, we get something that looks like this:
+
+       cat download/data.txt | \
+       tr ':' ' ' \
+       | awk '{ printf("%06d %06d\n", $2, $1); }' \
+       | sort \
+       | awk 'BEGIN { last = -1; } $1 != last { print; last = $1; }' \
+       > lowest_user_for_each_repo.csv
+
+       The data must have been created using the following algorithm:
+
+       - Go through the repos in random order, assigning them IDs from 1 onwards
+       - for each of the repos (in ID order 1, 2, ...)
+           - Go through the watching users in a random order
+           - If the watching user already had an ID, then add this ID to the
+             repo's watchers list
+           - Otherwise, create a new user ID that is one greater than the
+             last one, and add this ID to the repo's watchers list
+
+       If we look in this file, from line 1025 onwards (annotated with other
+       information from data.txt):
+
+         repo lowest other users watching
+       ------ ------ --------------------
+       001029 001080
+       001030 000016  001081
+       001031 000083  001082
+       001032 001082
+       001033 000055  (user 001083 is NOT watching 001033) <--- here
+       001034 001595  (user 001083 is NOT watching 001034) <--- here
+       001035 001084
+       001036 000437  001085 
+       001037 000212  001085 001086 (1087??)
+       001038 000024  001088
+       001039 000015  001088 001089
+       001040 001090
+       001041 001091  (1092??)
+       001042 001093
+       001043 001095
+       001044 000091  001096 (1097?? 1098?? 1099?)
+       001045 001100
+       001046 000016  001101
+
+       Users 1082, 1083, 1088 and 1094 are missing a repo in this sample.
+
+       Note that user 1083 is missing from the list.  However, user 1084
+       could not have been created without user 1083 being first created, so
+       we can deduce that user 1083 must have been removed from either
+       repo 1033 or repo 1034.
+
+       We can further see that user 1083 must have been watching repo 1034, as
+       if its lowest user number was 1595, then it could not possibly have been
+       assigned the id 1034.
+
+       Finally, there appear to be more watches missing than those that are
+       just in the testing file that was provided.  Maybe there has been a
+       (sneaky) extra set removed for further testing of the final solutions,
+       or maybe there is something else that I don't know about.
+    */
+       
+#if 0
+    // Print repos from 1029 to 1046
+    cerr << "repos" << endl;
+    for (unsigned i = 1;  i <= 100;  ++i) {
+        int repo_id = i;
+        const Repo & repo = repos[repo_id];
+        cerr << format("%6zd %6d %-30s",
+                       repo.watchers.size(),
+                       repo_id,
+                       (authors[repo.author].name + "/" + repo.name).c_str());
+
+        for (IdSet::const_iterator
+                 it = repo.watchers.begin(),
+                 end = repo.watchers.end();
+             it != end;  ++it) {
+            if (*it >= 1 && *it <= 100)
+                cerr << " " << *it;
+        }
+        cerr << endl;
+    }
+    cerr << endl;
+
+    // Print users from 1082 to 1100
+    cerr << "users" << endl;
+    for (unsigned i = 1;  i <= 100;  ++i) {
+        const User & user = users[i];
+        cerr << format("%4d %5d ", i, user.watching.size());
+
+        if (user.incomplete) cerr << "* { ";
+        else cerr << "  { ";
+
+        for (IdSet::const_iterator
+                 it = user.inferred_authors.begin(),
+                 end = user.inferred_authors.end();
+             it != end;  ++it) {
+            cerr << authors.at(*it).name << " ";
+        }
+        cerr << "} ";
+
+        for (IdSet::const_iterator
+                 it = user.watching.begin(),
+                 end = user.watching.end();
+             it != end;  ++it) {
+            if (*it >= 1 && *it <= 100)
+                cerr << " " << *it;
+        }
+        cerr << endl;
+    }
+
+    cerr << endl;
+#endif
+
+#if 0
+    int cu = 0, cr = 0;
+    while (cu < users.size() && users[cu].invalid()) ++cu;
+    while (cr < repos.size() && repos[cr].invalid()) ++cr;
+
+    while (cu < users.size() && cr < repos.size()) {
+        cerr << "user " << cu << " repo " << cr << endl;
+        
+        const User & user = users[cu];
+        const Repo & repo = repos[cu];
+
+        // Get next valid user and repo
+        while (cu < users.size() && users[cu].invalid()) ++cu;
+        while (cr < repos.size() && repos[cr].invalid()) ++cr;
+        
+    } 
+#endif
+
+    vector<int> user_for_repo(repos.size(), -1);
+
+    int u = 0;
+    while (u < users.size() && users[u].invalid()) ++u;
+
+    int num_not_found = 0, restart_point = u;
+
+#if 1
+    // Look for known points
+    for (unsigned i = 0;  i < repos.size();  ++i) {
+        if (i % 1000 == 0) cerr << i << endl;
+        const Repo & repo = repos[i];
+        if (repo.invalid()) continue;
+        if (repo.watchers.empty()) continue;
+
+        bool debug = false;
+
+        if (debug) {
+            cerr << endl;
+            
+            cerr << i << " " << u << " nnf " << num_not_found << endl;
+            
+            cerr << format("          repo %6d %6zd %-30s",
+                           i, 
+                           repo.watchers.size(),
+                           (authors[repo.author].name + "/" + repo.name).c_str());
+            
+            for (IdSet::const_iterator
+                     it = repo.watchers.begin(),
+                     end = repo.watchers.end();
+                 it != end;  ++it) {
+                if (*it >= u - 10 && *it <= u + 10)
+                    cerr << " " << *it;
+            }
+            cerr << endl;
+            
+            const User & user = users[u];
+            cerr << format("          user %6d %6d ", u, user.watching.size());
+            
+            if (user.incomplete) cerr << "* { ";
+            else cerr << "  { ";
+            
+            for (IdSet::const_iterator
+                     it = user.inferred_authors.begin(),
+                     end = user.inferred_authors.end();
+                 it != end;  ++it) {
+                cerr << authors.at(*it).name << " ";
+            }
+            cerr << "} ";
+            
+            for (IdSet::const_iterator
+                     it = user.watching.begin(),
+                     end = user.watching.end();
+                 it != end;  ++it) {
+                if (*it >= (i - 10) && *it <= (i + 10))
+                    cerr << " " << *it;
+            }
+            cerr << endl;
+            
+            cerr << "         ";
+        }
+
+        // Find the first user ID at or above the current one
+        const IdSet & rusers = repo.watchers;
+
+        IdSet::const_iterator it
+            = std::lower_bound(rusers.begin(), rusers.end(), u);
+
+        if (*it - u <= 5 && *it - u >= 0) {
+            // If the lowest entry is higher than the current one by not too
+            // much, then we can be pretty sure that the user was introduced
+            // here.
+            if (debug) cerr << " found new entry " << *it;
+            u = *it;
+            num_not_found = 0;
+            restart_point = i;
+
+            user_for_repo[i] = u;
+        }
+        else {
+            // Not found
+            if (debug) {
+                cerr << " not found";
+                if (it != rusers.end())
+                    cerr << " " << *it;
+            }
+            ++num_not_found;
+
+            if (*it - u >= 100) {
+                if (debug) cerr << " *** incomplete ***";
+            }
+
+            if (num_not_found == 5) {
+                // restart with next
+                i = restart_point - 1;
+                ++u;
+                num_not_found = 0;
+                if (debug) cerr << " *** restart *** ";
+            }
+        }
+
+        if (it != rusers.begin()) {
+            --it;
+            if (debug) cerr << " prev: " << *it;
+        }
+        if (debug) cerr << endl;
+    }
+
+    cerr << "at end: u = " << u << endl;
+
+#else
+
+    for (unsigned i = 0;  i < repos.size() && i < 1100;  ++i) {
+        const Repo & repo = repos[i];
+        if (repo.invalid()) continue;
+        if (repo.watchers.empty()) continue;
+
+        cerr << i << " " << u << " nnf " << num_not_found;
+
+        // Find the first user ID at or above the current one
+        const IdSet & rusers = repo.watchers;
+
+        IdSet::const_iterator it
+            = std::lower_bound(rusers.begin(), rusers.end(), u);
+
+        if (it != rusers.end() && *it == u) {
+            // If we found it, we are OK
+            cerr << " found " << *it;
+            ++u;
+            while (u < users.size() && users[u].invalid()) ++u;
+            num_not_found = 0;
+            restart_point = u;
+        }
+        else if (it == rusers.begin() && *it - u <= 5) {
+            // If the lowest entry is higher than the current one by not too
+            // much, then we can be pretty sure that the user was introduced
+            // here.
+            cerr << " found new entry " << *it;
+            u = *it;
+            num_not_found = 0;
+            restart_point = i;
+        }
+        else {
+            // Not found
+            cerr << " not found";
+            if (it != rusers.end())
+                cerr << " " << *it;
+            ++num_not_found;
+
+            if (num_not_found == 5) {
+                // restart with next
+                i = restart_point - 1;
+                ++u;
+                num_not_found = 0;
+                cerr << " *** restart *** ";
+            }
+        }
+
+        if (it != rusers.begin()) {
+            --it;
+            cerr << " prev: " << *it;
+        }
+        cerr << endl;
+    }
+#endif
 }
 
 void

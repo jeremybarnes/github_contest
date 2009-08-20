@@ -1,56 +1,8 @@
-loading data...max_count = 604
-user inferring: valid 56519 inferred 35873 multiple 283 average 2.06714
-tested users with n repos: 
-          0      2  0.042% 
-          1   1347 28.133% **************************************************
-          2    553 11.550% ********************
-          3    367  7.665% *************
-          4    264  5.514% *********
-          5    226  4.720% ********
-          6    191  3.989% *******
-          7    147  3.070% *****
-          8    122  2.548% ****
-          9    125  2.611% ****
-         10     96  2.005% ***
-      11-12    184  3.843% ******
-      13-14    134  2.799% ****
-      15-16    108  2.256% ****
-      17-20    148  3.091% *****
-      21-40    396  8.271% **************
-      41-60    168  3.509% ******
-     61-100    121  2.527% ****
-    101-200     65  1.358% **
-    201-500     21  0.439% 
-   501-1000      3  0.063% 
-      1001-      0  0.000% 
-
+loading data...user inferring: valid 56521 inferred 35873 multiple 283 average 2.06714
+max_count = 604
  done.
 max_count = 601
 user inferring: valid 56521 inferred 35851 multiple 535 average 2.0972
-tested users with n repos: 
-          0      0  0.000% 
-          1   1509 31.516% **************************************************
-          2    537 11.216% *****************
-          3    388  8.104% ************
-          4    287  5.994% *********
-          5    222  4.637% *******
-          6    182  3.801% ******
-          7    171  3.571% *****
-          8    127  2.652% ****
-          9    106  2.214% ***
-         10     92  1.921% ***
-      11-12    163  3.404% *****
-      13-14    120  2.506% ***
-      15-16     90  1.880% **
-      17-20    150  3.133% ****
-      21-40    338  7.059% ***********
-      41-60    154  3.216% *****
-     61-100     80  1.671% **
-    101-200     60  1.253% *
-    201-500     12  0.251% 
-   501-1000      0  0.000% 
-      1001-      0  0.000% 
-
 running SVD
 SOLVING THE [A^TA] EIGENPROBLEM
 NO. OF ROWS               = 120867
@@ -66,7 +18,7 @@ KAPPA                     =  1.00E-06
 NUMBER OF LANCZOS STEPS   =    185
 RITZ VALUES STABILIZED    =     54
 SINGULAR VALUES FOUND     =     50
-SVD elapsed: elapsed: [11.55s cpu, 26556.1703 mticks, 11.75s wall]
+SVD elapsed: elapsed: [11.49s cpu, 26231.8491 mticks, 11.60s wall]
 done repos
 name = ranker config.prefix() = ranker config_.prefix() = 
 name = phase1 config.prefix() = ranker.phase1 config_.prefix() = ranker
@@ -81,9 +33,9 @@ processing 4788 users...
 0%   10   20   30   40   50   60   70   80   90   100%
 |----|----|----|----|----|----|----|----|----|----|
 ***************************************************
-elapsed: elapsed: [83.48s cpu, 190455.8511 mticks, 84.24s wall]
+elapsed: elapsed: [84.54s cpu, 195726.6362 mticks, 86.57s wall]
 done
 
 calculating test result... done.
-101.04user 0.55system 1:42.72elapsed 98%CPU (0avgtext+0avgdata 0maxresident)k
-0inputs+8outputs (0major+122956minor)pagefaults 0swaps
+102.43user 0.42system 1:45.16elapsed 97%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+8outputs (0major+126454minor)pagefaults 0swaps

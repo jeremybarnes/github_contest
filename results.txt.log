@@ -1,29 +1,5 @@
-loading data...max_count = 604
-user inferring: valid 56519 inferred 35873 multiple 283 average 2.06714
-tested users with n repos: 
-          0      2  0.042% 
-          1   1347 28.133% **************************************************
-          2    553 11.550% ********************
-          3    367  7.665% *************
-          4    264  5.514% *********
-          5    226  4.720% ********
-          6    191  3.989% *******
-          7    147  3.070% *****
-          8    122  2.548% ****
-          9    125  2.611% ****
-         10     96  2.005% ***
-      11-12    184  3.843% ******
-      13-14    134  2.799% ****
-      15-16    108  2.256% ****
-      17-20    148  3.091% *****
-      21-40    396  8.271% **************
-      41-60    168  3.509% ******
-     61-100    121  2.527% ****
-    101-200     65  1.358% **
-    201-500     21  0.439% 
-   501-1000      3  0.063% 
-      1001-      0  0.000% 
-
+loading data...user inferring: valid 56521 inferred 35873 multiple 283 average 2.06714
+max_count = 604
  done.
 running SVD
 SOLVING THE [A^TA] EIGENPROBLEM
@@ -40,7 +16,7 @@ KAPPA                     =  1.00E-06
 NUMBER OF LANCZOS STEPS   =    185
 RITZ VALUES STABILIZED    =     55
 SINGULAR VALUES FOUND     =     50
-SVD elapsed: elapsed: [11.49s cpu, 26538.6960 mticks, 11.74s wall]
+SVD elapsed: elapsed: [11.52s cpu, 27077.2964 mticks, 11.98s wall]
 done repos
 name = ranker config.prefix() = ranker config_.prefix() = 
 name = phase1 config.prefix() = ranker.phase1 config_.prefix() = ranker
@@ -55,9 +31,9 @@ processing 4788 users...
 0%   10   20   30   40   50   60   70   80   90   100%
 |----|----|----|----|----|----|----|----|----|----|
 ***************************************************
-elapsed: elapsed: [92.26s cpu, 214263.3897 mticks, 94.76s wall]
+elapsed: elapsed: [94.06s cpu, 223443.5048 mticks, 98.83s wall]
 done
 
 dumping results...done.
-108.69user 0.51system 1:52.18elapsed 97%CPU (0avgtext+0avgdata 0maxresident)k
-0inputs+472outputs (0major+123641minor)pagefaults 0swaps
+110.77user 0.54system 1:56.75elapsed 95%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+472outputs (0major+126434minor)pagefaults 0swaps
