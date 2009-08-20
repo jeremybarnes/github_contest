@@ -157,7 +157,7 @@ struct Repo {
         : id(-1), author(-1), parent(-1), depth(-1), total_loc(0),
           popularity_rank(-1),
           repo_prob(0.0), repo_prob_rank(-1), repo_prob_percentile(0.0),
-          kmeans_cluster(-1)
+          kmeans_cluster(-1), min_user(-1), max_user(-1)
     {
     }
 
@@ -193,6 +193,9 @@ struct Repo {
     // What does this cooccur with?
     Cooccurrences cooc, cooc2;
 
+    int min_user, max_user;
+    IdSet corresponding_user;
+
     bool invalid() const { return id == -1; }
 };
 
@@ -210,7 +213,7 @@ struct User {
         : id(-1),
           user_prob(0.0), user_prob_rank(-1), user_prob_percentile(0.0),
           kmeans_cluster(-1),
-          incomplete(false)
+          incomplete(false), min_repo(-1), max_repo(-1)
     {
     }
 
@@ -241,6 +244,11 @@ struct User {
 
     /// What other users does this user cooccur with?
     Cooccurrences cooc, cooc2;
+
+    /// Corresponding repo number
+    IdSet corresponding_repo;
+
+    int min_repo, max_repo;
 
     bool invalid() const { return id == -1; }
 };

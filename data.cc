@@ -25,6 +25,9 @@
 #include <backward/hash_map>
 #include <boost/assign/list_of.hpp>
 
+#include <fstream>
+
+
 using namespace std;
 using namespace ML;
 
@@ -280,6 +283,8 @@ void Data::load()
 
     calc_author_stats();
     
+    infer_from_ids();
+
     calc_languages();
 
     calc_popularity();
@@ -911,11 +916,14 @@ calc_author_stats()
          << " average " << (1.0 * total_multiple / multiple_users) << endl;
 }
 
+// Cost-based way of doing it?  Including backtracking?
+
+
 void
 Data::
 infer_from_ids()
 {
-    return;
+    cerr << "inferring from IDs" << endl;
 
     /* There should be a monotonically increasing user ID that runs through
        the repos.
@@ -1033,32 +1041,134 @@ infer_from_ids()
     cerr << endl;
 #endif
 
-#if 0
-    int cu = 0, cr = 0;
-    while (cu < users.size() && users[cu].invalid()) ++cu;
-    while (cr < repos.size() && repos[cr].invalid()) ++cr;
-
-    while (cu < users.size() && cr < repos.size()) {
-        cerr << "user " << cu << " repo " << cr << endl;
-        
-        const User & user = users[cu];
-        const Repo & repo = repos[cu];
-
-        // Get next valid user and repo
-        while (cu < users.size() && users[cu].invalid()) ++cu;
-        while (cr < repos.size() && repos[cr].invalid()) ++cr;
-        
-    } 
-#endif
-
     vector<int> user_for_repo(repos.size(), -1);
 
-    int u = 0;
-    while (u < users.size() && users[u].invalid()) ++u;
+    // First, look for points where there is only one user watching the repo
 
-    int num_not_found = 0, restart_point = u;
+    int last_user = 0, last_repo = 0;
 
-#if 1
+    // Slope of the line.  It goes from 1 repo/user at the start to 2.5
+    // repos/user at the end.
+    // So, assume that it's 2.
+    double slope = 2.0;
+
+    int total_gap = 0, max_gap = 0, valid = 0, found = 0;
+
+    for (unsigned i = 0;  i < repos.size();  ++i) {
+        Repo & repo = repos[i];
+        if (repo.invalid()) continue;
+        ++valid;
+        if (repo.watchers.size() != 1) continue;
+
+        int u = *repo.watchers.begin();
+
+        if (u <= last_user) continue;
+        
+        int predicted_u = last_user + (i - last_repo) / slope;
+
+        //int u_diff = u - predicted_u;
+
+        if (u > predicted_u + 50) continue;
+
+        ++found;
+
+        //cerr << "repo " << i << " user " << u << endl;
+
+        int gap = i - last_repo;
+        total_gap += gap;
+        max_gap = std::max(gap, max_gap);
+
+        User & user = users[u];
+
+        user.corresponding_repo.insert(i);
+        repo.corresponding_user.insert(u);
+
+        for (unsigned u2 = last_user;  u2 <= u;  ++u2) {
+            users[u2].min_repo = last_repo;
+            users[u2].max_repo = i;
+        }
+        user.min_repo = i;
+
+        for (unsigned i2 = last_repo;  i2 <= i;  ++i2) {
+            repos[i2].min_user = last_user;
+            repos[i2].max_user = u;
+        }
+        repo.min_user = u;
+
+        last_user = u;  last_repo = i;
+    }
+    
+    cerr << format("found %d/%d=%.2f%%, gap max %d avg %.2f",
+                   found, valid, 100.0 * found / valid,
+                   max_gap, total_gap * 1.0 / found)
+         << endl;
+
+    ofstream out("match_results.txt");
+
+    for (unsigned i = 0;  i < users_to_test.size();  ++i) {
+        vector<int> results;
+
+        const User & user = users[users_to_test[i]];
+        cerr << "user " << user.id << " min_repo " << user.min_repo
+             << " max_repo " << user.max_repo << " min watcher "
+             << (user.watching.size() ? *user.watching.begin() : -1)
+             << endl;
+
+        // Find which of the repos could match up
+        for (unsigned r = user.min_repo;  r <= user.max_repo;  ++r) {
+            const Repo & repo = repos[r];
+            cerr << "    repo " << repo.id << " min_user " << repo.min_user
+                 << " max_user " << repo.max_user << " min watching "
+                 << (repo.watchers.size() ? *repo.watchers.begin() : -1);
+            if (repo.watchers.size()
+                && *repo.watchers.begin() > repo.max_user) {
+                cerr << " ******* ";
+                results.push_back(r);
+            }
+            cerr << endl;
+        }
+
+        if (results.size() > 10)
+            results.erase(results.begin() + 10, results.end());
+
+        if (results.empty()) continue;
+
+        out << users_to_test[i] << ":";
+        for (unsigned i = 0;  i < results.size();  ++i) {
+            if (i != 0) out << ",";
+            out << results[i];
+        }
+        out << endl;
+    }
+    
+    exit(0);  // for now...
+    
+#if 0
+    last_user = 0;  last_repo = 0;
+
+    for (unsigned i = 0;  i < users.size();  ++i) {
+        const User & user = users[i];
+        if (user.invalid()) continue;
+        if (user.watching.size() != 1) continue;
+
+        int r = *user.watching.begin();
+
+        if (r <= last_repo) continue;
+        
+        int predicted_r = last_repo + (i - last_user) * slope;
+
+        //int u_diff = u - predicted_u;
+
+        if (r > predicted_r + 50) continue;
+
+        cerr << "user " << i << " repo " << r << endl;
+
+        last_user = i;  last_repo = r;
+    }
+#endif
+
+#if 0
+
     // Look for known points
     for (unsigned i = 0;  i < repos.size();  ++i) {
         if (i % 1000 == 0) cerr << i << endl;
@@ -1066,7 +1176,7 @@ infer_from_ids()
         if (repo.invalid()) continue;
         if (repo.watchers.empty()) continue;
 
-        bool debug = false;
+        bool debug = true;//(i > 2000);
 
         if (debug) {
             cerr << endl;
@@ -1082,7 +1192,7 @@ infer_from_ids()
                      it = repo.watchers.begin(),
                      end = repo.watchers.end();
                  it != end;  ++it) {
-                if (*it >= u - 10 && *it <= u + 10)
+                if (*it >= u - 20 && *it <= u + 20)
                     cerr << " " << *it;
             }
             cerr << endl;
@@ -1105,7 +1215,7 @@ infer_from_ids()
                      it = user.watching.begin(),
                      end = user.watching.end();
                  it != end;  ++it) {
-                if (*it >= (i - 10) && *it <= (i + 10))
+                if (*it >= (i - 20) && *it <= (i + 20))
                     cerr << " " << *it;
             }
             cerr << endl;
@@ -1119,7 +1229,7 @@ infer_from_ids()
         IdSet::const_iterator it
             = std::lower_bound(rusers.begin(), rusers.end(), u);
 
-        if (*it - u <= 5 && *it - u >= 0) {
+        if (*it - u <= 5 && *it - u >= 5) {
             // If the lowest entry is higher than the current one by not too
             // much, then we can be pretty sure that the user was introduced
             // here.
@@ -1161,7 +1271,7 @@ infer_from_ids()
 
     cerr << "at end: u = " << u << endl;
 
-#else
+#elif 0
 
     for (unsigned i = 0;  i < repos.size() && i < 1100;  ++i) {
         const Repo & repo = repos[i];
