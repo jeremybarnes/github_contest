@@ -1083,6 +1083,9 @@ infer_from_ids()
         user.corresponding_repo.insert(i);
         repo.corresponding_user.insert(u);
 
+        //refine_mapping(last_user, user
+
+
         for (unsigned u2 = last_user;  u2 <= u;  ++u2) {
             users[u2].min_repo = last_repo;
             users[u2].max_repo = i;
@@ -1127,6 +1130,8 @@ infer_from_ids()
             }
             cerr << endl;
         }
+
+        if (results.empty()) continue;
 
         for (unsigned r = user.min_repo;  r <= user.max_repo && results.size() < 10;  ++r) {
             const Repo & repo = repos[r];
