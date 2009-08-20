@@ -1134,7 +1134,7 @@ infer_from_ids()
             cerr << endl;
         }
 
-        //if (results.empty()) continue;
+        if (results.empty()) continue;
 
         for (unsigned r = user.min_repo;  r <= user.max_repo && results.size() < 10;  ++r) {
             const Repo & repo = repos[r];
