@@ -1117,9 +1117,6 @@ infer_from_ids()
              << (user.watching.size() ? *user.watching.begin() : -1)
              << endl;
 
-        if (user.watching.size() && *user.watching.begin() <= user.max_repo)
-            continue;
-
         // Find which of the repos could match up
         for (unsigned r = user.min_repo;  r <= user.max_repo;  ++r) {
             const Repo & repo = repos[r];
@@ -1134,7 +1131,9 @@ infer_from_ids()
             cerr << endl;
         }
 
-        if (results.empty()) continue;
+        if (results.empty() && user.watching.size()
+            && *user.watching.begin() <= user.max_repo)
+            continue;
 
         for (unsigned r = user.min_repo;  r <= user.max_repo && results.size() < 10;  ++r) {
             const Repo & repo = repos[r];
