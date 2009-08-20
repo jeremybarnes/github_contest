@@ -1128,6 +1128,15 @@ infer_from_ids()
             cerr << endl;
         }
 
+        for (unsigned r = user.min_repo;  r <= user.max_repo && results.size() < 10;  ++r) {
+            const Repo & repo = repos[r];
+            if (repo.watchers.size()
+                && *repo.watchers.begin() > repo.max_user) {
+                // do nothing; results already there
+            }
+            else results.push_back(r);
+        }
+
         if (results.size() > 10)
             results.erase(results.begin() + 10, results.end());
 
