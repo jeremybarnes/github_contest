@@ -280,7 +280,7 @@ candidates(const Data & data, int user_id) const
         int repo_id = *it;
         const Repo & repo = data.repos[repo_id];
         
-        const Cooccurrences & cooc = repo.cooc2;
+        const Cooccurrences & cooc = repo.cooc;
 
         for (Cooccurrences::const_iterator
                  jt = cooc.begin(), end = cooc.end();
