@@ -46,10 +46,19 @@ The following algorithms are used:
 - a language similarity model, which takes the cosine between normalized language vectors
 - a cooccurrence model, where weight is awarded when two repositories are recommended together by the same user, or when two users both watch the same repository together. 
 
+Extra Information
+=================
+
+I downloaded information for each author about the date that the person joined and the number of followed and following people, as well as the original github ID (which is completely useless, and ignored).  It's in the authors.txt file, which anyone can feel free to use however they want.  Personally, I got nearly zero benefit from this information.
+
+I am also in the process of downloading the repository descriptions, in order to analyze the text in them.  I will also make this data available once it's ready.
+
 Features
 ========
 
-To be written...
+The classifier includes about 90 features about all aspects of the models above and several more mundane features.  See in ranker.cc for a list of the names of the features and how they are calculated.
+
+(TODO: document them here)
 
 - Heuristic feature, that calculates a heuristics score based upon the following:
   * First, add the parent repositories of repositories that the user is already watching, in order of popularity
@@ -57,15 +66,21 @@ To be written...
   * Then, add ancestor repositories (ie, more than one parent away)
   * Finally, add in order of popularity
 
+- Date features.  These features were nearly useless.
+- Author following/followed features.  These features were nearly useless.
 
-Cheating
-========
+
+Side Channel Information
+========================
 
 There are also features that model the particular dataset that we have here,
 and do not actually contribute to making a recommendation.  These features
 include:
-- Modeling the density of the user/repo space.  If you look at doc/user_repo.png in my repo, you will see that there is a line that goes up the middle.  This line is due to the common user behaviour of 1) joining github, and 2) adding one or more repos.  Since the user IDs and repo IDs weren't obfuscated, and are allocated sequentially, we know that time increases monotonically on both axes.  By checking to see if a repo is in a dense part of the graph, we can essentially check to see if a repo could be a user's first repo.
-- Matching authors to users.  If we see that user 2839 is the only watcher on repos 6879, 7039 and 23405, and that these have the same author, then we can be pretty sure that user 2839 *is* that author.  Using this algorithm, we map 22602 users unambiguously to an author, and a further 13554 authors to one of several authors (I haven't yet investigated what happens in this case).
+- Modeling the density of the user/repo space.  If you look at doc/user_repo.png in my repo, you will see that there is a line that goes up the middle.
+  Further investivation shows that this is a mapping between user IDs and repo IDs.  It must have been created by the process that created the dataset; this process only created a user or repo ID at the moment when it first encountered it, and the shape of the line shows the relationship between the new user creation and the new repo creation.
+  If we look further, by plotting the *lowest* watching user ID against the repo ID, we can see that almost everything is below this curve, except for a sparse set of scattered points above the line (doc/repo_id_vs_lowest_user_id.png).  Most of these points above the line are due to a point on the line having been removed from the testing set.  See the comment in data.cc for more data/investigation.
+  By tracing this line (which isn't that easy, as there is a lot of noise) and proposing repositories that cover the missing points, as well as exploiting the scattered points above, we manage to pick up about 2% of repositories that we wouldn't have got before.
+- Matching authors to users.  If we see that user 2839 is the only watcher on repos 6879, 7039 and 23405, and that these have the same author, then we can be pretty sure that user 2839 *is* that author.  Using this algorithm, we map 35873 of the 56521 users unambiguously to a single author id, and a further 535 users to several authors (I haven't yet investigated what happens in this case; I suspect that one person has created more than one account to get around size limits or there are user/project accounts both controlled by the same person).
 
 
 Testing
@@ -110,7 +125,7 @@ Code
 
 The code is organized as follows:
 
-Compiling: (make -j2)
+Compiling: (make or make -jx where x is number of cores on machine)
 github.cc: main driver program; --help shows main modes (or look in loadbuild.mk)
 data.{h,cc}: data structures to read the data and save the results of analysis
 ranker.{h,cc}: data structures and algorithms for the ranking of hypotheses
