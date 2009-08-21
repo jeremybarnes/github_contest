@@ -285,8 +285,8 @@ candidates(const Data & data, int user_id) const
     possible_choices.insert(in_cluster_repo.begin(),
                             in_cluster_repo.end());
 
-    //possible_choices.insert(in_id_range.begin(),
-    //                        in_id_range.end());
+    possible_choices.insert(in_id_range.begin(),
+                            in_id_range.end());
 
 #if 0
     for (IdSet::const_iterator
@@ -759,10 +759,10 @@ features(int user_id,
             = user_id >= repo.min_user && user_id <= repo.max_user;
         bool suspicious_user
             = user.watching.empty()
-            || *user.watching.begin() <= user.max_repo;
+            || *user.watching.begin() > user.max_repo;
         bool suspicious_repo
             = repo.watchers.empty()
-            || *repo.watchers.begin() <= repo.max_user;
+            || *repo.watchers.begin() > repo.max_user;
 
         result.push_back(repo_in_id_range);
         result.push_back(user_in_id_range);

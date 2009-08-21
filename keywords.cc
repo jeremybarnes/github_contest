@@ -107,21 +107,25 @@ void analyze_keywords(const Data & data)
         for (unsigned i = 0;  i < tokens.size();  ++i) {
             string token = tokens[i];
 
+            // Insert or find vocabulary entry
             hash_map<string, int>::iterator it;
             bool found;
             boost::tie(it, found)
                 = vocab_map.insert(make_pair(token, vocab.size()));
 
+            int id;
             if (!found) {
                 Vocab_Entry new_entry;
                 new_entry.id = vocab.size();
                 new_entry.token = token;
 
-                vocab.push_back(Vocab_Entry());
-                vocab.back().id = v
-                it->second.token = token;
-                it->second.id = 
+                id = vocab.size();
+                vocab.push_back(new_entry);
             }
+            else id = it->second;
+
+            Vocab_Entry & entry = vocab[id];
+            
         }
     }
 }
