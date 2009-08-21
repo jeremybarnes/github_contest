@@ -12,7 +12,7 @@ using namespace std;
 using namespace ML;
 
 struct Vocab_Entry {
-    std::string word;
+    std::string token;
     int id;
 };
 
@@ -29,13 +29,19 @@ std::vector<std::string> uncamelcase(const std::string & str)
 
     if (num_upper == 0) return str;
 
-    // Break on each lower-to-upper transition
-    
+    // TODO: do...
+
+    string result;
+    result.reserve(str.size());
+    for (unsigned i = 0;  i < str.size();  ++i)
+        result.push_back(str[i]);
+
+    return result;
 }
 
 std::vector<std::string> tokenize(const std::string & str)
 {
-    std::string word;
+    std::string token;
     std::vector<std::string> tokens;
     bool after_space = true;
 
@@ -43,16 +49,19 @@ std::vector<std::string> tokenize(const std::string & str)
         char c = str[i];
         if (c == '_' || c == ':' || c == '-' || c == '.')
             c = ' ';
-        if (c != ' ') word.push_back(c);
+        if (c != ' ') token.push_back(c);
         else if (!after_space) {
-            tokens.push_back(word);
-            word = "";
+            tokens.push_back(token);
+            token = "";
         }
 
         after_space = (c != ' ');
     }
     
-    if (word != "") result.push_back(word);
+    if (token != "") {
+        vector<string> tokens = uncamelcase(token);
+        result.insert(result.back(), tokens.begin(), tokens.end());
+    }
     
     return result;
 }
@@ -96,7 +105,23 @@ void analyze_keywords(const Data & data)
 
         // Add each token to the vocabulary
         for (unsigned i = 0;  i < tokens.size();  ++i) {
-            hash_map<string, int>::const_iterator it
-                = vocab_map.find(
+            string token = tokens[i];
+
+            hash_map<string, int>::iterator it;
+            bool found;
+            boost::tie(it, found)
+                = vocab_map.insert(make_pair(token, vocab.size()));
+
+            if (!found) {
+                Vocab_Entry new_entry;
+                new_entry.id = vocab.size();
+                new_entry.token = token;
+
+                vocab.push_back(Vocab_Entry());
+                vocab.back().id = v
+                it->second.token = token;
+                it->second.id = 
+            }
+        }
     }
 }

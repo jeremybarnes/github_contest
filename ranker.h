@@ -29,6 +29,7 @@ struct Candidate {
           child_of_watched(false),
           watched_by_cluster_user(0),
           in_cluster_repo(0),
+          in_id_range(0),
           also_watched_rank(-1),
           also_watched_percentile(-1.0f),
           num_also_watched(0)
@@ -47,6 +48,7 @@ struct Candidate {
     bool child_of_watched;
     int  watched_by_cluster_user;
     bool in_cluster_repo; 
+    bool in_id_range;
 
     int also_watched_rank;
     float also_watched_percentile;
@@ -61,6 +63,7 @@ struct Candidate_Data {
     IdSet authors_of_watched_repos;
     IdSet repos_with_same_name;
     IdSet children_of_watched_repos;
+    IdSet in_id_range;
 
     virtual ~Candidate_Data()
     {

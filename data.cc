@@ -918,6 +918,200 @@ calc_author_stats()
 
 // Cost-based way of doing it?  Including backtracking?
 
+// Refine a user mapping (see infer_from_ids below)
+
+void
+refine_mapping(Data & data, int last_repo, int curr_repo,
+               int last_user, int curr_user)
+{
+    for (unsigned u = last_user;  u <= curr_user;  ++u) {
+        data.users[u].min_repo = last_repo;
+        data.users[u].max_repo = curr_repo;
+    }
+    data.users[curr_user].min_repo = curr_repo;
+
+    for (unsigned i = last_repo;  i <= curr_repo;  ++i) {
+        data.repos[i].min_user = last_user;
+        data.repos[i].max_user = curr_user;
+    }
+    data.repos[curr_repo].min_user = curr_user;
+
+    return;
+
+    // TODO: do
+
+    if (curr_repo - last_repo < 15 && curr_user - last_user < 15) return;
+
+#if 1
+    // Show some around the edges
+    last_repo -= 5;
+    curr_repo += 5;
+    last_user -= 5;
+    curr_user += 5;
+#endif
+
+    // Find the matrix
+    map<int, map<int, bool> > adjacency;
+
+    cerr << endl << " users " << last_user << " to " << curr_user
+         << endl;
+
+    cerr << "         ";
+    for (unsigned j = last_user;  j <= curr_user;  ++j) {
+        cerr << (j == last_user || (j % 10 == 0) ? char('0' + (j / 10) % 10) : ' ');
+    }
+    cerr << endl;
+
+    cerr << "         ";
+    for (unsigned j = last_user;  j <= curr_user;  ++j) {
+        cerr << j % 10;
+    }
+    cerr << endl;
+
+    cerr << "         ";
+    for (unsigned j = last_user;  j <= curr_user;  ++j) {
+        cerr << (data.users[j].invalid() ? '!'
+                 : (data.users[j].incomplete ? 'X' : ' '));
+    }
+    cerr << endl;
+    
+
+    for (unsigned i = last_repo;  i <= curr_repo;  ++i) {
+        const Repo & repo = data.repos[i];
+        if (repo.invalid()) continue;
+
+        // Find the first user ID at or above the current one
+        const IdSet & rusers = repo.watchers;
+
+        IdSet::const_iterator start
+            = std::lower_bound(rusers.begin(), rusers.end(), last_user);
+        IdSet::const_iterator finish
+            = std::upper_bound(rusers.begin(), rusers.end(), curr_user);
+        
+        for (; start != finish;  ++start) {
+            adjacency[i][*start] = true;
+        }
+
+        cerr << format("%6d | ", i);
+        for (unsigned j = last_user;  j <= curr_user;  ++j)
+            cerr << (adjacency[i][j] ? '*'
+                     : (((j - last_user < 5 || curr_user - j < 5)
+                         || (i - last_repo < 5 || curr_repo - i < 5))
+                        ? ' ' : '.'));
+        cerr << endl;
+    }
+
+#if 0
+
+    // Look for known points
+
+    int u = last_user;
+
+    for (int i = last_repo;  i < curr_repo_repo;  ++i) {
+        const Repo & repo = repos[i];
+        if (repo.invalid()) continue;
+        if (repo.watchers.empty()) continue;
+
+        bool debug = false;//true;//(i > 2000);
+
+        if (debug) {
+            cerr << endl;
+            
+            cerr << i << " " << u << " nnf " << num_not_found << endl;
+            
+            cerr << format("          repo %6d %6zd %-30s",
+                           i, 
+                           repo.watchers.size(),
+                           (authors[repo.author].name + "/" + repo.name).c_str());
+            
+            for (IdSet::const_iterator
+                     it = repo.watchers.begin(),
+                     end = repo.watchers.end();
+                 it != end;  ++it) {
+                if (*it >= u - 20 && *it <= u + 20)
+                    cerr << " " << *it;
+            }
+            cerr << endl;
+            
+            const User & user = users[u];
+            cerr << format("          user %6d %6d ", u, user.watching.size());
+            
+            if (user.incomplete) cerr << "* { ";
+            else cerr << "  { ";
+            
+            for (IdSet::const_iterator
+                     it = user.inferred_authors.begin(),
+                     end = user.inferred_authors.end();
+                 it != end;  ++it) {
+                cerr << authors.at(*it).name << " ";
+            }
+            cerr << "} ";
+            
+            for (IdSet::const_iterator
+                     it = user.watching.begin(),
+                     end = user.watching.end();
+                 it != end;  ++it) {
+                if (*it >= (i - 20) && *it <= (i + 20))
+                    cerr << " " << *it;
+            }
+            cerr << endl;
+            
+            cerr << "         ";
+        }
+
+        // Find the first user ID at or above the current one
+        const IdSet & rusers = repo.watchers;
+
+        IdSet::const_iterator it
+            = std::lower_bound(rusers.begin(), rusers.end(), u);
+
+        if (*it != rusers.end() && *it == u) {
+            // Found it exactly
+        }
+        else if (*it != rusers.end() && *it - u
+        if (*it - u <= 5 && *it - u >= 5) {
+            // If the lowest entry is higher than the current one by not too
+            // much, then we can be pretty sure that the user was introduced
+            // here.
+            if (debug) cerr << " found new entry " << *it;
+            u = *it;
+            num_not_found = 0;
+            restart_point = i;
+
+            user_for_repo[i] = u;
+        }
+        else {
+            // Not found
+            if (debug) {
+                cerr << " not found";
+                if (it != rusers.end())
+                    cerr << " " << *it;
+            }
+            ++num_not_found;
+
+            if (*it - u >= 100) {
+                if (debug) cerr << " *** incomplete ***";
+            }
+
+            if (num_not_found == 5) {
+                // restart with next
+                i = restart_point - 1;
+                ++u;
+                num_not_found = 0;
+                if (debug) cerr << " *** restart *** ";
+            }
+        }
+
+        if (it != rusers.begin()) {
+            --it;
+            if (debug) cerr << " prev: " << *it;
+        }
+        if (debug) cerr << endl;
+    }
+
+    cerr << "at end: u = " << u << endl;
+#endif
+}
 
 void
 Data::
@@ -989,61 +1183,8 @@ infer_from_ids()
        or maybe there is something else that I don't know about.
     */
        
-#if 0
-    // Print repos from 1029 to 1046
-    cerr << "repos" << endl;
-    for (unsigned i = 1;  i <= 100;  ++i) {
-        int repo_id = i;
-        const Repo & repo = repos[repo_id];
-        cerr << format("%6zd %6d %-30s",
-                       repo.watchers.size(),
-                       repo_id,
-                       (authors[repo.author].name + "/" + repo.name).c_str());
-
-        for (IdSet::const_iterator
-                 it = repo.watchers.begin(),
-                 end = repo.watchers.end();
-             it != end;  ++it) {
-            if (*it >= 1 && *it <= 100)
-                cerr << " " << *it;
-        }
-        cerr << endl;
-    }
-    cerr << endl;
-
-    // Print users from 1082 to 1100
-    cerr << "users" << endl;
-    for (unsigned i = 1;  i <= 100;  ++i) {
-        const User & user = users[i];
-        cerr << format("%4d %5d ", i, user.watching.size());
-
-        if (user.incomplete) cerr << "* { ";
-        else cerr << "  { ";
-
-        for (IdSet::const_iterator
-                 it = user.inferred_authors.begin(),
-                 end = user.inferred_authors.end();
-             it != end;  ++it) {
-            cerr << authors.at(*it).name << " ";
-        }
-        cerr << "} ";
-
-        for (IdSet::const_iterator
-                 it = user.watching.begin(),
-                 end = user.watching.end();
-             it != end;  ++it) {
-            if (*it >= 1 && *it <= 100)
-                cerr << " " << *it;
-        }
-        cerr << endl;
-    }
-
-    cerr << endl;
-#endif
-
-    vector<int> user_for_repo(repos.size(), -1);
-
     // First, look for points where there is only one user watching the repo
+    // These help us to stay in sync
 
     int last_user = 0, last_repo = 0;
 
@@ -1083,7 +1224,7 @@ infer_from_ids()
         user.corresponding_repo.insert(i);
         repo.corresponding_user.insert(u);
 
-        //refine_mapping(last_user, user
+        refine_mapping(*this, last_repo, i, last_user, u);
 
 
         for (unsigned u2 = last_user;  u2 <= u;  ++u2) {
@@ -1105,6 +1246,8 @@ infer_from_ids()
                    found, valid, 100.0 * found / valid,
                    max_gap, total_gap * 1.0 / found)
          << endl;
+
+    return;
 
     ofstream out("match_results.txt");
 
@@ -1131,8 +1274,8 @@ infer_from_ids()
             cerr << endl;
         }
 
-        if (results.empty() && user.watching.size()
-            && *user.watching.begin() <= user.max_repo)
+        if (results.empty()) continue;
+        if (user.watching.size() && *user.watching.begin() <= user.max_repo)
             continue;
 
         for (unsigned r = user.min_repo;  r <= user.max_repo && results.size() < 10;  ++r) {
@@ -1158,190 +1301,6 @@ infer_from_ids()
     }
     
     exit(0);  // for now...
-    
-#if 0
-    last_user = 0;  last_repo = 0;
-
-    for (unsigned i = 0;  i < users.size();  ++i) {
-        const User & user = users[i];
-        if (user.invalid()) continue;
-        if (user.watching.size() != 1) continue;
-
-        int r = *user.watching.begin();
-
-        if (r <= last_repo) continue;
-        
-        int predicted_r = last_repo + (i - last_user) * slope;
-
-        //int u_diff = u - predicted_u;
-
-        if (r > predicted_r + 50) continue;
-
-        cerr << "user " << i << " repo " << r << endl;
-
-        last_user = i;  last_repo = r;
-    }
-#endif
-
-#if 0
-
-    // Look for known points
-    for (unsigned i = 0;  i < repos.size();  ++i) {
-        if (i % 1000 == 0) cerr << i << endl;
-        const Repo & repo = repos[i];
-        if (repo.invalid()) continue;
-        if (repo.watchers.empty()) continue;
-
-        bool debug = true;//(i > 2000);
-
-        if (debug) {
-            cerr << endl;
-            
-            cerr << i << " " << u << " nnf " << num_not_found << endl;
-            
-            cerr << format("          repo %6d %6zd %-30s",
-                           i, 
-                           repo.watchers.size(),
-                           (authors[repo.author].name + "/" + repo.name).c_str());
-            
-            for (IdSet::const_iterator
-                     it = repo.watchers.begin(),
-                     end = repo.watchers.end();
-                 it != end;  ++it) {
-                if (*it >= u - 20 && *it <= u + 20)
-                    cerr << " " << *it;
-            }
-            cerr << endl;
-            
-            const User & user = users[u];
-            cerr << format("          user %6d %6d ", u, user.watching.size());
-            
-            if (user.incomplete) cerr << "* { ";
-            else cerr << "  { ";
-            
-            for (IdSet::const_iterator
-                     it = user.inferred_authors.begin(),
-                     end = user.inferred_authors.end();
-                 it != end;  ++it) {
-                cerr << authors.at(*it).name << " ";
-            }
-            cerr << "} ";
-            
-            for (IdSet::const_iterator
-                     it = user.watching.begin(),
-                     end = user.watching.end();
-                 it != end;  ++it) {
-                if (*it >= (i - 20) && *it <= (i + 20))
-                    cerr << " " << *it;
-            }
-            cerr << endl;
-            
-            cerr << "         ";
-        }
-
-        // Find the first user ID at or above the current one
-        const IdSet & rusers = repo.watchers;
-
-        IdSet::const_iterator it
-            = std::lower_bound(rusers.begin(), rusers.end(), u);
-
-        if (*it - u <= 5 && *it - u >= 5) {
-            // If the lowest entry is higher than the current one by not too
-            // much, then we can be pretty sure that the user was introduced
-            // here.
-            if (debug) cerr << " found new entry " << *it;
-            u = *it;
-            num_not_found = 0;
-            restart_point = i;
-
-            user_for_repo[i] = u;
-        }
-        else {
-            // Not found
-            if (debug) {
-                cerr << " not found";
-                if (it != rusers.end())
-                    cerr << " " << *it;
-            }
-            ++num_not_found;
-
-            if (*it - u >= 100) {
-                if (debug) cerr << " *** incomplete ***";
-            }
-
-            if (num_not_found == 5) {
-                // restart with next
-                i = restart_point - 1;
-                ++u;
-                num_not_found = 0;
-                if (debug) cerr << " *** restart *** ";
-            }
-        }
-
-        if (it != rusers.begin()) {
-            --it;
-            if (debug) cerr << " prev: " << *it;
-        }
-        if (debug) cerr << endl;
-    }
-
-    cerr << "at end: u = " << u << endl;
-
-#elif 0
-
-    for (unsigned i = 0;  i < repos.size() && i < 1100;  ++i) {
-        const Repo & repo = repos[i];
-        if (repo.invalid()) continue;
-        if (repo.watchers.empty()) continue;
-
-        cerr << i << " " << u << " nnf " << num_not_found;
-
-        // Find the first user ID at or above the current one
-        const IdSet & rusers = repo.watchers;
-
-        IdSet::const_iterator it
-            = std::lower_bound(rusers.begin(), rusers.end(), u);
-
-        if (it != rusers.end() && *it == u) {
-            // If we found it, we are OK
-            cerr << " found " << *it;
-            ++u;
-            while (u < users.size() && users[u].invalid()) ++u;
-            num_not_found = 0;
-            restart_point = u;
-        }
-        else if (it == rusers.begin() && *it - u <= 5) {
-            // If the lowest entry is higher than the current one by not too
-            // much, then we can be pretty sure that the user was introduced
-            // here.
-            cerr << " found new entry " << *it;
-            u = *it;
-            num_not_found = 0;
-            restart_point = i;
-        }
-        else {
-            // Not found
-            cerr << " not found";
-            if (it != rusers.end())
-                cerr << " " << *it;
-            ++num_not_found;
-
-            if (num_not_found == 5) {
-                // restart with next
-                i = restart_point - 1;
-                ++u;
-                num_not_found = 0;
-                cerr << " *** restart *** ";
-            }
-        }
-
-        if (it != rusers.begin()) {
-            --it;
-            cerr << " prev: " << *it;
-        }
-        cerr << endl;
-    }
-#endif
 }
 
 void
@@ -1480,6 +1439,7 @@ setup_fake_test(int nusers, int seed)
     calc_popularity();
     calc_density();
     calc_author_stats();
+    infer_from_ids();
     calc_cooccurrences();
     frequency_stats();
 }

@@ -475,6 +475,7 @@ int main(int argc, char ** argv)
         size_t total_not_enough = 0, total_is_enough = 0;
         size_t not_enough_correct = 0, is_enough_correct = 0;
         size_t not_enough_in_set = 0, is_enough_in_set = 0;
+        size_t total = 0.0;
 
         for (unsigned i = 0;  i < results.size();  ++i) {
             if (results[i].size() > 10)
@@ -489,6 +490,8 @@ int main(int argc, char ** argv)
                                      result_possible_choices[i].end(),
                                      answer);
             in_set += possible;
+            total += result_possible_choices[i].size();
+
             if (result_possible_choices[i].size() < 10) {
                 ++not_enough;
                 total_not_enough += result_possible_choices[i].size();
@@ -508,11 +511,12 @@ int main(int argc, char ** argv)
 
         out << format("fake test results: \n"
                       "     total:      real: %4zd/%4zd = %6.2f%%  "
-                      "poss: %4zd/%4zd = %6.2f%%\n",
+                      "poss: %4zd/%4zd = %6.2f%%  avg num: %5.1f\n",
                       correct, results.size(),
                       100.0 * correct / results.size(),
                       in_set, results.size(),
-                      100.0 * in_set / results.size())
+                      100.0 * in_set / results.size(),
+                      total * 1.0 / results.size())
 #if 0
             << format("     enough:     real: %4zd/%4zd = %6.2f%%  "
                       "poss: %4zd/%4zd = %6.2f%%  avg num: %5.1f\n",

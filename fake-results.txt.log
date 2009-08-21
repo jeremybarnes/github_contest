@@ -1,8 +1,12 @@
 loading data...user inferring: valid 56521 inferred 35873 multiple 283 average 2.06714
+inferring from IDs
+found 21503/120867=17.79%, gap max 74 avg 5.74
 max_count = 604
  done.
 max_count = 601
 user inferring: valid 56521 inferred 35851 multiple 535 average 2.0972
+inferring from IDs
+found 21644/120867=17.91%, gap max 74 avg 5.70
 running SVD
 SOLVING THE [A^TA] EIGENPROBLEM
 NO. OF ROWS               = 120867
@@ -18,7 +22,7 @@ KAPPA                     =  1.00E-06
 NUMBER OF LANCZOS STEPS   =    185
 RITZ VALUES STABILIZED    =     54
 SINGULAR VALUES FOUND     =     50
-SVD elapsed: elapsed: [11.49s cpu, 26231.8491 mticks, 11.60s wall]
+SVD elapsed: elapsed: [11.42s cpu, 26302.0384 mticks, 11.63s wall]
 done repos
 name = ranker config.prefix() = ranker config_.prefix() = 
 name = phase1 config.prefix() = ranker.phase1 config_.prefix() = ranker
@@ -33,9 +37,9 @@ processing 4788 users...
 0%   10   20   30   40   50   60   70   80   90   100%
 |----|----|----|----|----|----|----|----|----|----|
 ***************************************************
-elapsed: elapsed: [84.54s cpu, 195726.6362 mticks, 86.57s wall]
+elapsed: elapsed: [87.14s cpu, 200449.1566 mticks, 88.66s wall]
 done
 
 calculating test result... done.
-102.43user 0.42system 1:45.16elapsed 97%CPU (0avgtext+0avgdata 0maxresident)k
-0inputs+8outputs (0major+126454minor)pagefaults 0swaps
+104.92user 0.56system 1:47.28elapsed 98%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+8outputs (0major+128593minor)pagefaults 0swaps

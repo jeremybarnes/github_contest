@@ -1,4 +1,6 @@
 loading data...user inferring: valid 56521 inferred 35873 multiple 283 average 2.06714
+inferring from IDs
+found 21503/120867=17.79%, gap max 74 avg 5.74
 max_count = 604
  done.
 running SVD
@@ -16,7 +18,7 @@ KAPPA                     =  1.00E-06
 NUMBER OF LANCZOS STEPS   =    185
 RITZ VALUES STABILIZED    =     55
 SINGULAR VALUES FOUND     =     50
-SVD elapsed: elapsed: [11.52s cpu, 27077.2964 mticks, 11.98s wall]
+SVD elapsed: elapsed: [11.35s cpu, 27838.3244 mticks, 12.31s wall]
 done repos
 name = ranker config.prefix() = ranker config_.prefix() = 
 name = phase1 config.prefix() = ranker.phase1 config_.prefix() = ranker
@@ -31,9 +33,9 @@ processing 4788 users...
 0%   10   20   30   40   50   60   70   80   90   100%
 |----|----|----|----|----|----|----|----|----|----|
 ***************************************************
-elapsed: elapsed: [94.06s cpu, 223443.5048 mticks, 98.83s wall]
+elapsed: elapsed: [96.70s cpu, 224013.7082 mticks, 99.08s wall]
 done
 
 dumping results...done.
-110.77user 0.54system 1:56.75elapsed 95%CPU (0avgtext+0avgdata 0maxresident)k
-0inputs+472outputs (0major+126434minor)pagefaults 0swaps
+113.28user 0.60system 1:57.33elapsed 97%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+472outputs (0major+128566minor)pagefaults 0swaps

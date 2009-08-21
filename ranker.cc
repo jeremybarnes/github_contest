@@ -259,6 +259,16 @@ candidates(const Data & data, int user_id) const
             .insert(data.authors[*it].repositories.begin(),
                     data.authors[*it].repositories.end());
 
+    IdSet & in_id_range = candidate_data.in_id_range;
+
+    // Find which of the repos could match up
+    for (int r = user.min_repo;  r <= user.max_repo;  ++r) {
+        if (r == -1) break;
+        const Repo & repo = data.repos[r];
+        if (repo.invalid()) continue;
+        in_id_range.insert(r);
+    }
+
     possible_choices.insert(parents_of_watched.begin(),
                             parents_of_watched.end());
     possible_choices.insert(ancestors_of_watched.begin(),
@@ -274,6 +284,9 @@ candidates(const Data & data, int user_id) const
                             in_cluster_user.end());
     possible_choices.insert(in_cluster_repo.begin(),
                             in_cluster_repo.end());
+
+    //possible_choices.insert(in_id_range.begin(),
+    //                        in_id_range.end());
 
 #if 0
     for (IdSet::const_iterator
@@ -342,6 +355,7 @@ candidates(const Data & data, int user_id) const
         c.child_of_watched = children_of_watched_repos.count(repo_id);
         c.watched_by_cluster_user = watched_by_cluster_user[repo_id];
         c.in_cluster_repo = in_cluster_repo.count(repo_id);
+        c.in_id_range = in_id_range.count(repo_id);
   
         if (also_watched_by_people_who_watched.count(repo_id)) {
             c.also_watched_by_people_who_watched = true;
@@ -517,6 +531,14 @@ feature_space() const
     result->add_feature("user_num_followers", Feature_Info::REAL);
     result->add_feature("user_num_following", Feature_Info::REAL);
 
+    result->add_feature("repo_in_id_range", Feature_Info::BOOLEAN);
+    result->add_feature("user_in_id_range", Feature_Info::BOOLEAN);
+    result->add_feature("repo_id_range_size", Feature_Info::REAL);
+    result->add_feature("user_id_range_size", Feature_Info::REAL);
+    result->add_feature("id_range_suspicious_repo", Feature_Info::BOOLEAN);
+    result->add_feature("id_range_suspicious_user", Feature_Info::BOOLEAN);
+    result->add_feature("id_range_score", Feature_Info::REAL);
+
     return result;
 }
 
@@ -607,14 +629,26 @@ features(int user_id,
 
         result.push_back(dp);
 
-        const string & author_name = data.authors[repo.author].name;
+        bool valid_author
+            = repo.author >= 0 && repo.author < data.authors.size();
+
+        string author_name
+            = (valid_author ? data.authors[repo.author].name : string());
 
         const Data::Name_Info & name_info = data.name_to_repos(repo.name);
 
         result.push_back(author_name.find(repo.name) != string::npos);
         result.push_back(repo.name.find(author_name) != string::npos);
-        result.push_back(data.authors[repo.author].repositories.size());
-        result.push_back(data.authors[repo.author].num_watchers);
+
+        if (valid_author) {
+            result.push_back(data.authors[repo.author].repositories.size());
+            result.push_back(data.authors[repo.author].num_watchers);
+        }
+        else {
+            result.push_back(-1);
+            result.push_back(-1);
+        }
+
         result.push_back(name_info.size());
         result.push_back(name_info.num_watchers);
         result.push_back(user.inferred_authors.count(repo.author));
@@ -718,6 +752,35 @@ features(int user_id,
         result.push_back(author_date - user_date);
         result.push_back(author_num_followers);
         result.push_back(author_num_following);
+
+        bool repo_in_id_range
+            = repo_id >= user.min_repo && repo_id <= user.max_repo;
+        bool user_in_id_range
+            = user_id >= repo.min_user && user_id <= repo.max_user;
+        bool suspicious_user
+            = user.watching.empty()
+            || *user.watching.begin() <= user.max_repo;
+        bool suspicious_repo
+            = repo.watchers.empty()
+            || *repo.watchers.begin() <= repo.max_user;
+
+        result.push_back(repo_in_id_range);
+        result.push_back(user_in_id_range);
+        result.push_back(repo.max_user - repo.min_user);
+        result.push_back(user.max_repo - user.min_repo);
+        result.push_back(suspicious_user);
+        result.push_back(suspicious_repo);
+
+        // Little heuristic score to represent suspicious users and repos
+        int score = 0;
+        if (repo_in_id_range || user_in_id_range) {
+            score += repo_in_id_range;
+            score += user_in_id_range;
+            score += 2 * suspicious_user;
+            score += 2 * suspicious_repo;
+            score += 2 * (suspicious_user && suspicious_repo);
+        }
+        result.push_back(score);
     }
 
     return results;
