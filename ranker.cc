@@ -271,33 +271,63 @@ candidates(const Data & data, int user_id) const
 
     // Find cooccurring with the most specicivity
 
-    hash_map<int, float> coocs_map;
-
-    for (IdSet::const_iterator
-             it = user.watching.begin(),
-             end = user.watching.end();
-         it != end;  ++it) {
-        int repo_id = *it;
-        const Repo & repo = data.repos[repo_id];
-        
-        const Cooccurrences & cooc = repo.cooc;
-
-        for (Cooccurrences::const_iterator
-                 jt = cooc.begin(), end = cooc.end();
-             jt != end;  ++jt) {
-            if (data.repos[jt->with].watchers.size() < 2) continue;
-            coocs_map[jt->with] += jt->score;
-        }
-    }
-
-    vector<pair<int, float> > coocs_sorted(coocs_map.begin(), coocs_map.end());
-
-    sort_on_second_descending(coocs_sorted);
-
     IdSet coocs;
 
-    for (unsigned i = 0;  i < 100 && i < coocs_sorted.size();  ++i)
-        coocs.insert(coocs_sorted[i].first);
+    {
+        hash_map<int, float> coocs_map;
+        
+        for (IdSet::const_iterator
+                 it = user.watching.begin(),
+                 end = user.watching.end();
+             it != end;  ++it) {
+            int repo_id = *it;
+            const Repo & repo = data.repos[repo_id];
+            
+            const Cooccurrences & cooc = repo.cooc;
+            
+            for (Cooccurrences::const_iterator
+                     jt = cooc.begin(), end = cooc.end();
+                 jt != end;  ++jt) {
+                if (data.repos[jt->with].watchers.size() < 2) continue;
+                coocs_map[jt->with] += jt->score;
+            }
+        }
+
+        vector<pair<int, float> > coocs_sorted(coocs_map.begin(), coocs_map.end());
+        
+        sort_on_second_descending(coocs_sorted);
+
+        for (unsigned i = 0;  i < 100 && i < coocs_sorted.size();  ++i)
+            coocs.insert(coocs_sorted[i].first);
+    }
+
+    {
+        hash_map<int, float> coocs_map;
+        
+        for (IdSet::const_iterator
+                 it = user.watching.begin(),
+                 end = user.watching.end();
+             it != end;  ++it) {
+            int repo_id = *it;
+            const Repo & repo = data.repos[repo_id];
+            
+            const Cooccurrences & cooc = repo.cooc2;
+            
+            for (Cooccurrences::const_iterator
+                     jt = cooc.begin(), end = cooc.end();
+                 jt != end;  ++jt) {
+                if (data.repos[jt->with].watchers.size() < 2) continue;
+                coocs_map[jt->with] += jt->score;
+            }
+        }
+
+        vector<pair<int, float> > coocs_sorted(coocs_map.begin(), coocs_map.end());
+        
+        sort_on_second_descending(coocs_sorted);
+
+        for (unsigned i = 0;  i < 100 && i < coocs_sorted.size();  ++i)
+            coocs.insert(coocs_sorted[i].first);
+    }
 
     possible_choices.insert(parents_of_watched.begin(),
                             parents_of_watched.end());
