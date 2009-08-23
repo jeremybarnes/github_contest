@@ -97,7 +97,8 @@ struct Candidate_Generator {
 
 struct Ranked_Entry {
     Ranked_Entry()
-        : index(-1), repo_id(-1), score(0.0), min_rank(-1), max_rank(-1)
+        : index(-1), repo_id(-1), score(0.0), min_rank(-1), max_rank(-1),
+          filtered(false)
     {
     }
 
@@ -106,6 +107,7 @@ struct Ranked_Entry {
     float score;
     int min_rank;
     int max_rank;
+    bool filtered;
 };
 
 struct Ranked : std::vector<Ranked_Entry> {

@@ -59,7 +59,7 @@ glz {
 }
 
 # Copy the one that we want to the given key
-phase1: glz {
+phase1: bbdt {
 }
 
 default: bbdt {
