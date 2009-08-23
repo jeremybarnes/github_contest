@@ -131,6 +131,8 @@ data.{h,cc}: data structures to read the data and save the results of analysis
 ranker.{h,cc}: data structures and algorithms for the ranking of hypotheses
 decompose.{h,cc}: algorithms for decomposition and clustering
 exception_hook.{h,cc}: simple file to cause a backtrace to be printed at the point where an exception is thrown
+keywords.{h,c}: functionality to process keywords in the repo names/descriptions
+siamese.cc: unfinished implementation of a siamese network to perform a better vector space mapping.
 
 svdlibc/: the external library of this name; code has been patched to work with our version of GCC.  Note that there is no license with the code, so it's redistribution status is unknown.
 jml/: a symlink to the jml library's source tree.  This is used for the machine learning, basic system services and build system.
@@ -142,13 +144,13 @@ Training: (make -j2 loadbuild)
 loadbuild.mk: makefile to generate results.txt (make -j2 loadbuild to generate a results.txt file)
 ranker-classifier-training-config.txt: configuration file for the classifier generator for the ranker
 config.txt: configuration file for the system; not many options have been put in it for the moment
-download/: contains the original data for the competition
+download/: contains the original data for the competition; not included in the repo (others will need to download it for themselves)
 
 Credits
 =======
 
 Thanks to:
-* Daniel Haran's code and README for the idea of using parent repositories;
+* Daniel Haran's code and README for the idea of using parent repositories, and him personally for discussions of the solutions
 * asciiarmor's code (thanks for publishing it) for the basic features necessary to get to reasonable performance
 * xlvector's code for the idea of clustering by cooccurrences (now why didn't I think of that!)
 

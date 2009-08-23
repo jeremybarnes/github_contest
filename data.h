@@ -164,6 +164,7 @@ struct Repo {
     int id;
     int author;
     std::string name;
+    std::string description;
     boost::gregorian::date date;
     int parent;
     int depth;

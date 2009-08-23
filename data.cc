@@ -12,7 +12,7 @@
 #include "utils/vector_utils.h"
 #include "utils/pair_utils.h"
 #include "stats/distribution_simd.h"
-
+#include "utils/hash_map.h"
 
 #include "utils/pair_utils.h"
 #include "utils/vector_utils.h"
@@ -22,7 +22,6 @@
 #include "stats/distribution_simd.h"
 
 
-#include <backward/hash_map>
 #include <boost/assign/list_of.hpp>
 
 #include <fstream>
@@ -32,6 +31,34 @@ using namespace std;
 using namespace ML;
 
 enum { DENSITY_REPO_STEP = 200, DENSITY_USER_STEP=100 };
+
+std::string unescape_json_string(const std::string & str)
+{
+    if (str.empty() || str == "\"\"") return "";
+    else if (str[0] == '\"') {
+        if (str[str.size() - 1] != '\"')
+            throw Exception("invalid json string: " + str);
+
+        string result;
+
+        for (unsigned i = 1; i < str.size() - 1;  ++i) {
+            char c = str[i];
+
+            if (c == '\\') {
+                if (i == str.size() - 2)
+                    throw Exception("invalid backslash in json string: " + str);
+                ++i;
+                c = str[i];
+            }
+
+            result += c;
+        }
+        
+        return result;
+    }
+
+    return str;
+}
 
 Data::Data()
 {
@@ -44,6 +71,8 @@ void Data::load()
     repos.resize(125000);
 
     authors.reserve(60000);
+
+    hash_map<string, int> full_repo_name_to_index;
 
     while (repo_file) {
         Repo repo;
@@ -88,6 +117,48 @@ void Data::load()
         
         repos[repo.id] = repo;
         repo_name_to_repos[repo.name].push_back(repo.id);
+
+        full_repo_name_to_index[author_name + "/" + repo.name] = repo.id;
+    }
+
+    cerr << "full_repo_name_to_index.size() = " << full_repo_name_to_index.size()
+         << endl;
+
+    Parse_Context repo_desc_file("repo_descriptions.txt");
+
+    while (repo_desc_file) {
+        string full_repo_name = repo_desc_file.expect_text(':', false);
+        repo_desc_file.expect_literal(':');
+        string repo_desc = repo_desc_file.expect_text('\n', true);
+        repo_desc = unescape_json_string(repo_desc);
+
+        if (!full_repo_name_to_index.count(full_repo_name)) {
+            //repo_desc_file.exception("repo " + full_repo_name
+            //                         + " not found in repos");
+
+            //cerr << "repo " + full_repo_name + " not found in repos"
+            //     << endl;
+            repo_desc_file.expect_eol();
+            continue;
+        }
+        
+        int repo_id = full_repo_name_to_index[full_repo_name];
+
+        //cerr << "repo_id = " << repo_id << endl;
+
+        if (repos[repo_id].description != "") {
+            if (repo_desc == "---") repo_desc = repos[repo_id].description;
+            else if (repos[repo_id].description == "---") ;
+            else {
+                //repo_desc_file.exception("repo " + full_repo_name
+                //                         + " was already in description file");
+                //cerr << "repo " + full_repo_name
+                //    + " was already in description file" << endl;
+            }
+        }
+
+        repos[repo_id].description = repo_desc;
+        repo_desc_file.expect_eol();
     }
 
     Parse_Context author_file("authors.txt");

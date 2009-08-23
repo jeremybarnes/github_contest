@@ -35,7 +35,8 @@ LIBGITHUB_SOURCES := \
 	siamese.cc \
 	data.cc \
 	ranker.cc \
-	decompose.cc
+	decompose.cc \
+	keywords.cc
 
 LIBGITHUB_LINK := \
 	utils ACE boost_date_time-mt db arch boosting svdlibc
@@ -45,6 +46,8 @@ $(eval $(call library,github,$(LIBGITHUB_SOURCES),$(LIBGITHUB_LINK)))
 $(eval $(call add_sources,exception_hook.cc))
 
 $(eval $(call program,github,github utils ACE boost_program_options-mt db arch boosting svdlibc,github.cc exception_hook.cc,tools))
+
+$(eval $(call program,analyze_keywords,github utils ACE boost_program_options-mt db arch boosting svdlibc,analyze_keywords.cc exception_hook.cc,tools))
 
 $(eval $(call include_sub_makes,svdlibc))
 
