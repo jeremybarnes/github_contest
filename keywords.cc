@@ -79,14 +79,6 @@ void analyze_keywords(Data & data)
     // The goal is to get as far towards a uniform representation as possible,
     // without spending too much time on trying to get it perfect.
 
-    vector<string> all_names;
-    for (unsigned i = 0;  i < data.repos.size();  ++i) {
-        if (!data.repos[i].invalid())
-            all_names.push_back(data.repos[i].name);
-    }
-
-    make_vector_set(all_names);
-
     // Tokenization
 
     vector<Name> names;
@@ -94,18 +86,23 @@ void analyze_keywords(Data & data)
     std::hash_map<string, int> vocab_map;
     vector<Vocab_Entry> vocab;
 
+    int num_valid_repos = 0;
 
-    for (unsigned i = 0;  i < all_names.size();  ++i) {
-        string name = all_names[i];
-        
-        vector<string> tokens = tokenize(name, Repo_Name);
+    for (unsigned i = 0;  i < data.repos.size();  ++i) {
+        if (data.repos[i].invalid()) continue;
+        ++num_valid_repos;
+        Repo & repo = data.repos[i];
+        vector<string> tokens = tokenize(repo.name, Repo_Name);
 
-        //vector<string> desc_tokens = tokenize(name, Description);
+        vector<string> desc_tokens = tokenize(repo.description, Description);
 
         //cerr << "name " << name << " tokens " << tokens << endl;
 
         // Add each token to the vocabulary
 
+        tokens.insert(tokens.end(),
+                      desc_tokens.begin(), desc_tokens.end());
+        
         set<int> ids_done;
 
         for (unsigned j = 0;  j < tokens.size();  ++j) {
@@ -136,7 +133,12 @@ void analyze_keywords(Data & data)
                 ids_done.insert(id);
                 entry.in_names += 1;
             }
+
+            repo.keywords.add(id, 1.0 / tokens.size());
         }
+
+        repo.keywords.finish();
+        repo.keywords_2norm = sqrt(repo.keywords.overlap(repo.keywords).first);
     }
 
     cerr << vocab.size() << " vocab entries" << endl;
@@ -144,13 +146,31 @@ void analyze_keywords(Data & data)
     int num_gt_two = 0;
 
     for (unsigned i = 0;  i < vocab.size();  ++i) {
-        if (vocab[i].in_names >= 5) {
-            cerr << vocab[i].token << " " << vocab[i].in_names << endl;
+        if (vocab[i].in_names >= 2) {
+            //cerr << vocab[i].token << " " << vocab[i].in_names << endl;
             ++num_gt_two;
         }
     }
 
     cerr << "num_gt_two = " << num_gt_two << endl;
+    
+    // Scale by IDF and add new vector
+    for (unsigned i = 0;  i < data.repos.size();  ++i) {
+        if (data.repos[i].invalid()) continue;
+        Repo & repo = data.repos[i];
+        repo.keywords_idf.reserve(repo.keywords.size());
+        for (Cooccurrences::const_iterator
+                 it = repo.keywords.begin(),
+                 end = repo.keywords.end();
+             it != end;  ++it) {
+            float freq = vocab[it->with].in_names;
+            float idf = log(1.0 * num_valid_repos / freq);
+            repo.keywords_idf.add(it->with, it->score * idf);
+        }
+        repo.keywords_idf.finish();
+        repo.keywords_idf_2norm
+            = sqrt(repo.keywords_idf.overlap(repo.keywords_idf).first);
+    }
 
 
 #if 0

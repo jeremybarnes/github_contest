@@ -627,11 +627,29 @@ finish()
     swap(new_me);
 }
 
-void
+std::pair<float, float>
 Cooccurrences::
-add(int with, float weight)
+overlap(const Cooccurrences & other) const
 {
-    push_back(Cooc_Entry(with, weight));
+    // Joint iteration
+    const_iterator b1 = begin(), b2 = other.begin();
+    const_iterator e1 = end(), e2 = other.end();
+
+    double result = 0.0;
+    double count = 0.0;
+    while (b1 != e1 && b2 != e2) {
+        if (b1->with == b2->with) {
+            ++count;
+            result += b1->score * b2->score;
+            ++b1;
+            ++b2;
+        }
+        else if (b1->with < b2->with)
+            ++b1;
+        else ++b2;
+    }
+
+    return make_pair(result, count);
 }
 
 void

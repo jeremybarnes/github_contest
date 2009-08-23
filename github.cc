@@ -8,6 +8,7 @@
 #include "data.h"
 #include "ranker.h"
 #include "decompose.h"
+#include "keywords.h"
 
 #include <fstream>
 #include <iterator>
@@ -177,6 +178,10 @@ int main(int argc, char ** argv)
 
     Decomposition decomposition;
     decomposition.decompose(data);
+
+    cerr << "doing keywords" << endl;
+    analyze_keywords(data);
+    cerr << "done keywords" << endl;
 
     // results file
     filter_ostream out(output_file);

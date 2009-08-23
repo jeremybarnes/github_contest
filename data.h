@@ -139,7 +139,17 @@ struct Cooc_Entry {
 struct Cooccurrences
     : public std::vector<Cooc_Entry> {
 
-    void add(int with, float weight);
+    void add(int with, float weight)
+    {
+        push_back(Cooc_Entry(with, weight));
+    }
+    
+    void add(const Cooccurrences & other, float weight = 1.0)
+    {
+        for (const_iterator it = other.begin(), end = other.end();
+             it != end;  ++it)
+            add(it->with, it->score * weight);
+    }
 
     void finish();
 
@@ -150,6 +160,10 @@ struct Cooccurrences
         if (it == end() || it->with != other) return 0.0;
         return it->score;
     }
+
+    // How much did they overlap?  First is percentage of elements, second is
+    // percentage of scores
+    std::pair<float, float> overlap(const Cooccurrences & cooc) const;
 };
 
 struct Repo {
@@ -196,6 +210,11 @@ struct Repo {
 
     int min_user, max_user;
     IdSet corresponding_user;
+
+    Cooccurrences keywords;  ///< What keywords are in the description?
+    Cooccurrences keywords_idf;  ///< Same, but multiplied by IDF
+
+    float keywords_2norm, keywords_idf_2norm;
 
     bool invalid() const { return id == -1; }
 };

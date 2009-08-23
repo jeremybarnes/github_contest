@@ -601,6 +601,18 @@ feature_space() const
     result->add_feature("id_range_suspicious_user", Feature_Info::BOOLEAN);
     result->add_feature("id_range_score", Feature_Info::REAL);
 
+    result->add_feature("keyword_overlap_score", Feature_Info::REAL);
+    result->add_feature("keyword_overlap_score_norm", Feature_Info::REAL);
+    result->add_feature("keyword_overlap_idf", Feature_Info::REAL);
+    result->add_feature("keyword_overlap_idf_norm", Feature_Info::REAL);
+    result->add_feature("keyword_overlap_count", Feature_Info::REAL);
+    result->add_feature("user_nkeywords", Feature_Info::REAL);
+    result->add_feature("user_keyword_factor", Feature_Info::REAL);
+    result->add_feature("user_keyword_idf_factor", Feature_Info::REAL);
+    result->add_feature("repo_nkeywords", Feature_Info::REAL);
+    result->add_feature("repo_keyword_factor", Feature_Info::REAL);
+    result->add_feature("repo_keyword_idf_factor", Feature_Info::REAL);
+
     return result;
 }
 
@@ -620,6 +632,24 @@ features(int user_id,
     heuristic.sort();
 
     const User & user = data.users[user_id];
+
+    // Get cooccurrences for all repos
+    Cooccurrences user_keywords, user_keywords_idf;
+
+    for (IdSet::const_iterator
+             it = user.watching.begin(), end = user.watching.end();
+         it != end;  ++it) {
+        user_keywords.add(data.repos[*it].keywords);
+        user_keywords_idf.add(data.repos[*it].keywords_idf);
+    }
+
+    user_keywords.finish();
+    user_keywords_idf.finish();
+
+    float user_keywords_2norm
+        = sqrt(user_keywords.overlap(user_keywords).first);
+    float user_keywords_idf_2norm
+        = sqrt(user_keywords_idf.overlap(user_keywords_idf).first);
 
     for (unsigned i = 0;  i < heuristic.size();  ++i) {
         distribution<float> & result = results[heuristic[i].index];
@@ -834,15 +864,50 @@ features(int user_id,
         result.push_back(suspicious_repo);
 
         // Little heuristic score to represent suspicious users and repos
-        int score = 0;
-        if (repo_in_id_range || user_in_id_range) {
-            score += repo_in_id_range;
-            score += user_in_id_range;
-            score += 2 * suspicious_user;
-            score += 2 * suspicious_repo;
-            score += 2 * (suspicious_user && suspicious_repo);
+        {
+            int score = 0;
+            if (repo_in_id_range || user_in_id_range) {
+                score += repo_in_id_range;
+                score += user_in_id_range;
+                score += 2 * suspicious_user;
+                score += 2 * suspicious_repo;
+                score += 2 * (suspicious_user && suspicious_repo);
+            }
+            result.push_back(score);
         }
-        result.push_back(score);
+
+        {
+            float score, count;
+            boost::tie(score, count)
+                = repo.keywords.overlap(user_keywords);
+
+            result.push_back(score);
+
+            float norm = repo.keywords_2norm * user_keywords_2norm;
+            if (norm == 0.0)
+                result.push_back(-2.0);
+            else result.push_back(score / norm);
+
+
+            boost::tie(score, count)
+                = repo.keywords_idf.overlap(user_keywords_idf);
+
+            result.push_back(score);
+
+            norm = repo.keywords_idf_2norm * user_keywords_idf_2norm;
+            if (norm == 0.0)
+                result.push_back(-2.0);
+            else result.push_back(score / norm);
+            
+            result.push_back(count);
+
+            result.push_back(user_keywords.size());
+            result.push_back(user_keywords_2norm);
+            result.push_back(user_keywords_idf_2norm);
+            result.push_back(repo.keywords.size());
+            result.push_back(repo.keywords_2norm);
+            result.push_back(repo.keywords_idf_2norm);
+        }
     }
 
     return results;
