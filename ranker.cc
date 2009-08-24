@@ -170,8 +170,7 @@ candidates(const Data & data, int user_id) const
        watched */
     IdSet & parents_of_watched = candidate_data.parents_of_watched;
     IdSet & ancestors_of_watched = candidate_data.ancestors_of_watched;
-    IdSet & authors_of_watched_repos
-        = candidate_data.authors_of_watched_repos;
+    IdSet authors_of_watched_repos;
     IdSet & repos_with_same_name
         = candidate_data.repos_with_same_name;
     hash_map<int, int> also_watched_by_people_who_watched;
@@ -208,7 +207,7 @@ candidates(const Data & data, int user_id) const
 
     // Find repos watched by other users in the same cluster
     hash_map<int, int> watched_by_cluster_user;
-    IdSet in_cluster_user;
+    IdSet & in_cluster_user = candidate_data.in_cluster_user;
 
     int clusterno = user.kmeans_cluster;
     if (clusterno != -1) {
@@ -243,7 +242,7 @@ candidates(const Data & data, int user_id) const
             in_cluster_user.insert(ranked[i].first);
     }
 
-    IdSet in_cluster_repo;
+    IdSet & in_cluster_repo = candidate_data.in_cluster_repo;
 
     for (IdSet::const_iterator
              it = user.watching.begin(),
@@ -295,7 +294,8 @@ candidates(const Data & data, int user_id) const
         in_cluster_repo.insert(ranked2[i].first);
 
     // Find all other repos by authors of watched repos
-    IdSet repos_by_watched_authors;
+    IdSet & repos_by_watched_authors
+        = candidate_data.repos_by_watched_authors;
     for (IdSet::const_iterator
              it = authors_of_watched_repos.begin(),
              end = authors_of_watched_repos.end();
@@ -316,7 +316,7 @@ candidates(const Data & data, int user_id) const
 
     // Find cooccurring with the most specicivity
 
-    IdSet coocs;
+    IdSet & coocs = candidate_data.coocs;
 
     {
         hash_map<int, float> coocs_map;
@@ -1113,8 +1113,24 @@ features(int user_id,
     // First, we rank with the phase 1 classifier
     Ranked ranked = phase1.classify(user_id, candidates, candidate_data, data,
                                     result);
-    
     ranked.sort();
+
+#if 0
+    hash_map<int, int> id_to_index;
+    for (unsigned i = 0;  i < ranked.size();  ++i)
+        id_to_index[ranked[i].repo_id] = ranked[i].index;
+
+    // For each of the generation algorithms, we look at the rank within that
+    // set
+    const IdSet & ids = candidate_data.parents_of_watched;
+    vector<pair<int, float> > ranked;
+    ranked.reserve(ids.size());
+    for (IdSet::const_iterator it = ids.begin(), end = ids.end();
+         it != end;  ++it)
+        ranked.push_back(make_pair(*it, ranked[id_to_index[*it]].score));
+    sort_on_second_descending(ranked);
+#endif    
+
 
     // Now, go through and add the extra features in
     for (unsigned i = 0;  i < ranked.size();  ++i) {
@@ -1134,7 +1150,7 @@ rank(int user_id,
      const Candidate_Data & candidate_data,
      const Data & data) const
 {
-    if (!load_data || true)
+    if (!load_data)
         return phase1.rank(user_id, candidates, candidate_data, data);
 
     return Classifier_Ranker::rank(user_id, candidates,
@@ -1151,13 +1167,30 @@ classify(int user_id,
 {
     Ranked result;
 
+    hash_map<int, vector<pair<int, float> > > rank_per_author;
+
+    for (unsigned i = 0;  i < candidates.size();  ++i) {
+        const Candidate & c = candidates[i];
+        int repo_id = c.repo_id;
+
+        float score = features[i][features[i].size() - 3];
+
+        rank_per_author[data.repos[repo_id].author]
+            .push_back(make_pair(repo_id, score));
+    }
+    
+    for (hash_map<int, vector<pair<int, float> > >::iterator
+             it = rank_per_author.begin(), end = rank_per_author.end();
+         it != end;  ++it)
+        sort_on_second_descending(it->second);
+
     for (unsigned i = 0;  i < candidates.size();  ++i) {
         const Candidate & c = candidates[i];
         int repo_id = c.repo_id;
 
         float score;
 
-#if 1
+#if 0
         int rank = features[i][features[i].size() - 2];
         if (rank > 200) score = 0.0;
         else {
@@ -1167,7 +1200,20 @@ classify(int user_id,
             score = classifier.impl->predict(1, *encoded, opt_info);
         }
 #else
-        score = features[i][features[i].size() - 3];
+
+        // Enforce diversity in authors
+        int n_per_author = 2;
+
+        const vector<pair<int, float> > & author_ranks
+            = rank_per_author[data.repos[repo_id].author];
+        bool found = false;
+        for (int j = 0;\
+             j < author_ranks.size() && j < n_per_author && !found; ++j) {
+            found = (author_ranks[j].first == repo_id);
+        }
+        
+        if (found) score = features[i][features[i].size() - 3];
+        else score = 0.0;
 #endif
 
         Ranked_Entry entry;

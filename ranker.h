@@ -50,11 +50,14 @@ struct Candidate_Data {
 
     IdSet parents_of_watched;
     IdSet ancestors_of_watched;
-    IdSet children_of_watched;
-    IdSet authors_of_watched_repos;
+    IdSet repos_by_watched_authors;
     IdSet repos_with_same_name;
+    IdSet children_of_watched;
     IdSet children_of_watched_repos;
+    IdSet in_cluster_user;
+    IdSet in_cluster_repo;
     IdSet in_id_range;
+    IdSet coocs;
 
     virtual ~Candidate_Data()
     {
