@@ -179,6 +179,7 @@ struct Classifier_Ranker : public Ranker {
     boost::shared_ptr<const ML::Dense_Feature_Space> ranker_fs;
     boost::shared_ptr<const ML::Dense_Feature_Space> classifier_fs;
     ML::Dense_Feature_Space::Mapping mapping;
+    ML::Optimization_Info opt_info;
     bool load_data;
 };
 
@@ -205,6 +206,13 @@ struct Classifier_Reranker : public Classifier_Ranker {
          const std::vector<Candidate> & candidates,
          const Candidate_Data & candidate_data,
          const Data & data) const;
+
+    virtual Ranked
+    classify(int user_id,
+             const std::vector<Candidate> & candidates,
+             const Candidate_Data & candidate_data,
+             const Data & data,
+             const std::vector<ML::distribution<float> > & features) const;
 
     Classifier_Ranker phase1;
 };

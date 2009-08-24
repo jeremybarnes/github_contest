@@ -749,19 +749,12 @@ features(int user_id,
         // Find num cooc for this repo with each repo already watched
         double total_cooc = 0.0, max_cooc = 0.0;
         double total_cooc2 = 0.0, max_cooc2 = 0.0;
-        for (IdSet::const_iterator
-                 it = user.watching.begin(),
-                 end = user.watching.end();
-             it != end;  ++it) {
-            double score = repo.cooc[*it];
-            total_cooc += score;
-            max_cooc = std::max(max_cooc, score);
 
-            double score2 = repo.cooc2[*it];
-            total_cooc2 += score2;
-            max_cooc2 = std::max(max_cooc2, score);
-        }
-
+        boost::tie(total_cooc, max_cooc)
+            = repo.cooc.overlap(user.watching);
+        boost::tie(total_cooc2, max_cooc2)
+            = repo.cooc2.overlap(user.watching);
+        
         result.push_back(total_cooc);
         result.push_back(total_cooc / user.watching.size());
         result.push_back(max_cooc);
@@ -774,18 +767,10 @@ features(int user_id,
 
         // Find num cooc with each repo already watched
         total_cooc = max_cooc = total_cooc2 = max_cooc2 = 0.0;
-        for (IdSet::const_iterator
-                 it = repo.watchers.begin(),
-                 end = repo.watchers.end();
-             it != end;  ++it) {
-            double score = user.cooc[*it];
-            total_cooc += score;
-            max_cooc = std::max(max_cooc, score);
-
-            double score2 = user.cooc2[*it];
-            total_cooc2 += score2;
-            max_cooc2 = std::max(max_cooc2, score2);
-        }
+        boost::tie(total_cooc, max_cooc)
+            = user.cooc.overlap(repo.watchers);
+        boost::tie(total_cooc2, max_cooc2)
+            = user.cooc2.overlap(repo.watchers);
 
         result.push_back(total_cooc);
         result.push_back(total_cooc / repo.watchers.size());
@@ -999,6 +984,8 @@ init(boost::shared_ptr<Candidate_Generator> generator)
 
     classifier_fs = classifier.feature_space<ML::Dense_Feature_Space>();
 
+    opt_info = classifier.impl->optimize(classifier_fs->features());
+
     classifier_fs->create_mapping(*ranker_fs, mapping);
 
     vector<ML::Feature> classifier_features
@@ -1036,8 +1023,6 @@ classify(int user_id,
 {
     Ranked result;
 
-
-
     for (unsigned i = 0;  i < candidates.size();  ++i) {
         const Candidate & c = candidates[i];
         int repo_id = c.repo_id;
@@ -1057,7 +1042,7 @@ classify(int user_id,
         //}
 
 
-        float score = classifier.predict(1, *encoded);
+        float score = classifier.impl->predict(1, *encoded, opt_info);
 
         Ranked_Entry entry;
         entry.index = i;
@@ -1166,13 +1151,47 @@ rank(int user_id,
      const Candidate_Data & candidate_data,
      const Data & data) const
 {
-    if (!load_data || true)
+    if (!load_data)
         return phase1.rank(user_id, candidates, candidate_data, data);
 
     return Classifier_Ranker::rank(user_id, candidates,
                                    candidate_data, data);
+}
 
-    // Need to use rankings from the old ranker
+Ranked
+Classifier_Reranker::
+classify(int user_id,
+         const std::vector<Candidate> & candidates,
+         const Candidate_Data & candidate_data,
+         const Data & data,
+         const std::vector<ML::distribution<float> > & features) const
+{
+    Ranked result;
+
+    for (unsigned i = 0;  i < candidates.size();  ++i) {
+        const Candidate & c = candidates[i];
+        int repo_id = c.repo_id;
+
+        float score;
+
+        int rank = features[i][features[i].size() - 2];
+        if (rank > 50) score = 0.0;
+        else {
+            boost::shared_ptr<Mutable_Feature_Set> encoded
+                = classifier_fs->encode(features[i], *ranker_fs, mapping);
+
+            score = classifier.impl->predict(1, *encoded, opt_info);
+        }
+
+        Ranked_Entry entry;
+        entry.index = i;
+        entry.repo_id = repo_id;
+        entry.score = score;
+
+        result.push_back(entry);
+    }
+
+    return result;
 }
 
 

@@ -34,6 +34,37 @@
 using namespace std;
 using namespace ML;
 
+struct Result_Stats {
+    size_t n_correct;
+    size_t n_in_set;
+    size_t n_choices;
+    size_t n_results;
+
+    Result_Stats()
+        : n_correct(0), n_in_set(0), n_choices(0), n_results(0)
+    {
+    }
+
+    void add(bool correct, bool possible, size_t choices)
+    {
+        n_correct += correct;
+        n_in_set  += possible;
+        n_choices += choices;
+        n_results += 1;
+    }
+
+    std::string print() const
+    {
+        return format("     total:      real: %4zd/%4zd = %6.2f%%  "
+                      "poss: %4zd/%4zd = %6.2f%%  avg num: %5.1f\n",
+                      n_correct, n_results,
+                      100.0 * n_correct / n_results,
+                      n_in_set, n_results,
+                      100.0 * n_in_set / n_results,
+                      n_choices * 1.0 / n_results);
+    }
+};
+
 int main(int argc, char ** argv)
 {
     // Do we perform a fake test (where we test different users than the ones
@@ -203,8 +234,10 @@ int main(int argc, char ** argv)
 
     vector<set<int> > results;
     vector<vector<int> > result_possible_choices;
+    vector<vector<int> > result_non_zero;
     results.reserve(data.users_to_test.size());
     result_possible_choices.reserve(data.users_to_test.size());
+    result_non_zero.reserve(data.users_to_test.size());
 
     if (generator_name != "" && generator_name[0] == '@')
         config.must_find(generator_name, string(generator_name, 1));
@@ -385,6 +418,7 @@ int main(int argc, char ** argv)
             result_possible_choices.push_back
                 (vector<int>(possible_choices.begin(),
                              possible_choices.end()));
+            result_non_zero.push_back(vector<int>());
             continue;
         }
 
@@ -447,17 +481,21 @@ int main(int argc, char ** argv)
 
         // Extract the best ones
         set<int> user_results;
-        for (unsigned j = 0;  j < ranked.size() && user_results.size() < 10;
-             ++j) {
+        set<int> nz;
+        for (unsigned j = 0;  j < ranked.size(); ++j) {
             int repo_id = ranked[j].repo_id;
 
             if (user.watching.count(repo_id)) continue;  // already watched
-            user_results.insert(repo_id);
+            if (user_results.size() < 10)
+                user_results.insert(repo_id);
+            if (ranked[j].score > 0.0)
+                nz.insert(repo_id);
         }
 
         results.push_back(user_results);
         result_possible_choices.push_back(vector<int>(possible_choices.begin(),
                                                       possible_choices.end()));
+        result_non_zero.push_back(vector<int>(nz.begin(), nz.end()));
     }
 
     cerr << "elapsed: " << timer.elapsed() << endl;
@@ -470,77 +508,40 @@ int main(int argc, char ** argv)
     cerr << "done" << endl << endl;
 
 
-    if (fake_test) {
+    if (fake_test || true) {
         cerr << "calculating test result...";
 
-        // We now perform the evaluation
-        size_t correct = 0;
-        size_t in_set = 0;
-        size_t not_enough = 0, is_enough = 0;
-        size_t total_not_enough = 0, total_is_enough = 0;
-        size_t not_enough_correct = 0, is_enough_correct = 0;
-        size_t not_enough_in_set = 0, is_enough_in_set = 0;
-        size_t total = 0.0;
+        Result_Stats all, nz;
 
         for (unsigned i = 0;  i < results.size();  ++i) {
             if (results[i].size() > 10)
                 throw Exception("invalid result");
 
-            int answer = answers_tested.at(i);
+            int answer = (answers_tested.empty() ? -1 : answers_tested.at(i));
 
-            correct += results[i].count(answer);
+            bool correct = results[i].count(answer);
             
             bool possible
                 = std::binary_search(result_possible_choices[i].begin(),
                                      result_possible_choices[i].end(),
                                      answer);
-            in_set += possible;
-            total += result_possible_choices[i].size();
 
-            if (result_possible_choices[i].size() < 10) {
-                ++not_enough;
-                total_not_enough += result_possible_choices[i].size();
+            bool nz_possible
+                = std::binary_search(result_non_zero[i].begin(),
+                                     result_non_zero[i].end(),
+                                     answer);
 
-                not_enough_correct += results[i].count(data.answers[i]);
-                not_enough_in_set += possible;
-            }
-            else {
-                ++is_enough;
-                total_is_enough += result_possible_choices[i].size();
-                is_enough_correct += results[i].count(data.answers[i]);
-                is_enough_in_set += possible;
-            }
+            all.add(correct, possible, result_possible_choices[i].size());
+            nz.add (correct, nz_possible, result_non_zero[i].size());
         }
-
         cerr << " done." << endl;
 
-        out << format("fake test results: \n"
-                      "     total:      real: %4zd/%4zd = %6.2f%%  "
-                      "poss: %4zd/%4zd = %6.2f%%  avg num: %5.1f\n",
-                      correct, results.size(),
-                      100.0 * correct / results.size(),
-                      in_set, results.size(),
-                      100.0 * in_set / results.size(),
-                      total * 1.0 / results.size())
-#if 0
-            << format("     enough:     real: %4zd/%4zd = %6.2f%%  "
-                      "poss: %4zd/%4zd = %6.2f%%  avg num: %5.1f\n",
-                      is_enough_correct, is_enough,
-                      100.0 * is_enough_correct / is_enough,
-                      is_enough_in_set, is_enough,
-                      100.0 * is_enough_in_set / is_enough,
-                      total_is_enough * 1.0 / is_enough)
-            << format("     not enough: real: %4zd/%4zd = %6.2f%%  "
-                      "poss: %4zd/%4zd = %6.2f%%  avg num: %5.1f\n",
-                      not_enough_correct, not_enough,
-                      100.0 * not_enough_correct / not_enough,
-                      not_enough_in_set, not_enough,
-                      100.0 * not_enough_in_set / not_enough,
-                      total_not_enough * 1.0 / not_enough)
-#endif
+        (fake_test ? out : cerr)
+            << "fake test results: \n"
+            << all.print()
+            << "non-zero scores: \n"
+            << nz.print()
             << endl;
-        
-        // don't write results
     }
 
 

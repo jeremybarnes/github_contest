@@ -164,6 +164,9 @@ struct Cooccurrences
     // How much did they overlap?  First is percentage of elements, second is
     // percentage of scores
     std::pair<float, float> overlap(const Cooccurrences & cooc) const;
+
+    // Returns (total, max)
+    std::pair<float, float> overlap(const IdSet & ids) const;
 };
 
 struct Repo {

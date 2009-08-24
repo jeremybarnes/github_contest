@@ -652,6 +652,32 @@ overlap(const Cooccurrences & other) const
     return make_pair(result, count);
 }
 
+std::pair<float, float>
+Cooccurrences::
+overlap(const IdSet & ids) const
+{
+    // Joint iteration
+    const_iterator b1 = begin(), e1 = end();
+    IdSet::const_iterator b2 = ids.begin(), e2 = ids.end();
+
+    double total = 0.0;
+    float maxval = 0.0;
+
+    while (b1 != e1 && b2 != e2) {
+        if (b1->with == *b2) {
+            total += b1->score;
+            maxval = std::max<float>(maxval, b1->score);
+            ++b1;
+            ++b2;
+        }
+        else if (b1->with < (*b2))
+            ++b1;
+        else ++b2;
+    }
+
+    return make_pair(total, maxval);
+}
+
 void
 Data::
 calc_cooccurrences()
