@@ -4,9 +4,18 @@
 
 JML_BIN := jml/../build/$(ARCH)/bin
 
-loadbuild: results.txt fake-results.txt
+loadbuild: results.txt fake-results.txt prob-results.txt
 
-results.txt: data/ranker2.cls
+results.txt:	prob-results.txt
+	set -o pipefail && \
+	cat $< \
+	| sed 's/{\([0-9]\+\),[0-9.]\+}/\1/g' \
+	| awk -F , '{ for (i = 1;  i <= 10 && i < NF;  ++i) printf("%s,", $$i); printf("\n"); }' \
+	| sed 's/,$$//g' \
+	> $@~
+	mv $@~ $@
+
+prob-results.txt: data/ranker2.cls
 	set -o pipefail && \
 	/usr/bin/time \
 	$(BIN)/github \

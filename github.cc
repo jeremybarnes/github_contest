@@ -116,6 +116,8 @@ int main(int argc, char ** argv)
     // Calculate only possible/impossible (not ranking)
     bool possible_only = false;
 
+    // 
+
     // Tranche specification
     string tranches = "1";
 
@@ -305,7 +307,8 @@ int main(int argc, char ** argv)
 
         // A for loop with one iteration so we can use break
         for (bool done = false; dump_merger_data && !done;  done = true) {
-            int correct_repo_id = data.answers[i];
+            int correct_repo_id
+                = (data.answers.empty() ? -1 : data.answers[i]);
 
             bool possible = possible_choices.count(correct_repo_id);
 
@@ -482,6 +485,12 @@ int main(int argc, char ** argv)
         // Extract the best ones
         set<int> user_results;
         set<int> nz;
+
+        if (dump_results)
+            out << user_id << ":";
+
+        int dumped = 0;
+
         for (unsigned j = 0;  j < ranked.size(); ++j) {
             int repo_id = ranked[j].repo_id;
 
@@ -490,7 +499,15 @@ int main(int argc, char ** argv)
                 user_results.insert(repo_id);
             if (ranked[j].score > 0.0)
                 nz.insert(repo_id);
+
+            if (dump_results && dumped < 100) {
+                if (dumped != 0)
+                    out << ",";
+                ++dumped;
+                out << "{" << repo_id << "," << format("%.4f", ranked[j].score) << "}";
+            }
         }
+        if (dump_results) out << endl;
 
         results.push_back(user_results);
         result_possible_choices.push_back(vector<int>(possible_choices.begin(),
@@ -545,7 +562,7 @@ int main(int argc, char ** argv)
     }
 
 
-    if (dump_results) {
+    if (dump_results && false) {
 
         cerr << "dumping results...";
 

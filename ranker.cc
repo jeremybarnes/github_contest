@@ -56,11 +56,6 @@ feature_space() const
     result->add_feature("by_author_of_watched_repo", Feature_Info::BOOLEAN);
     result->add_feature("ancestor_of_watched", Feature_Info::BOOLEAN);
     result->add_feature("same_name", Feature_Info::BOOLEAN);
-    result->add_feature("also_watched_by_people_who_watched",
-                        Feature_Info::BOOLEAN);
-    result->add_feature("also_watched_rank", Feature_Info::REAL);
-    result->add_feature("also_watched_percentile", Feature_Info::REAL);
-    result->add_feature("num_also_watched", Feature_Info::REAL);
     result->add_feature("repo_id", Feature_Info::REAL);
     result->add_feature("repo_rank", Feature_Info::REAL);
     result->add_feature("repo_watchers", Feature_Info::REAL);
@@ -90,10 +85,6 @@ features(int user_id,
         result.push_back(candidate.by_author_of_watched_repo);
         result.push_back(candidate.ancestor_of_watched);
         result.push_back(candidate.same_name);
-        result.push_back(candidate.also_watched_by_people_who_watched);
-        result.push_back(candidate.also_watched_rank);
-        result.push_back(candidate.also_watched_percentile);
-        result.push_back(candidate.num_also_watched);
         result.push_back(candidate.repo_id);
         
         const Repo & repo = data.repos[candidate.repo_id];
@@ -106,6 +97,60 @@ features(int user_id,
     }
 
     return results;
+}
+
+namespace {
+
+struct Name_Stats {
+    Name_Stats()
+        : total_size(0), n(0), incremental_size(0), max_size(0)
+    {
+    }
+
+    size_t total_size;
+    size_t n;
+    size_t incremental_size;
+    size_t max_size;
+};
+
+map<string, Name_Stats> stats;
+
+struct PrintStats {
+    ~PrintStats()
+    {
+        for (map<string, Name_Stats>::const_iterator
+                 it = stats.begin(),
+                 end = stats.end();
+             it != end;  ++it) {
+            cerr << format("%-30s %6zd %6zd(%6.2f) %6zd(%6.2f) %6zd\n",
+                           it->first.c_str(),
+                           it->second.n,
+                           it->second.total_size,
+                           1.0 * it->second.total_size / it->second.n,
+                           it->second.incremental_size,
+                           1.0 * it->second.incremental_size / it->second.n,
+                           it->second.max_size);
+        }
+    }
+} printstats;
+
+}
+
+template<class Set>
+void
+insert_choices(IdSet & possible_choices, const Set & s,
+               const std::string & name)
+{
+    size_t before = possible_choices.size();
+    possible_choices.insert(s.begin(), s.end());
+    possible_choices.begin();
+    size_t after = possible_choices.size();
+
+    Name_Stats & st = stats[name];
+    if (!s.empty()) ++st.n;
+    st.total_size += s.size();
+    st.incremental_size += (after - before);
+    st.max_size = std::max(st.max_size, s.size());
 }
 
 std::pair<std::vector<Candidate>,
@@ -329,76 +374,29 @@ candidates(const Data & data, int user_id) const
             coocs.insert(coocs_sorted[i].first);
     }
 
-    possible_choices.insert(parents_of_watched.begin(),
-                            parents_of_watched.end());
-    possible_choices.insert(ancestors_of_watched.begin(),
-                            ancestors_of_watched.end());
-    possible_choices.insert(repos_by_watched_authors.begin(),
-                            repos_by_watched_authors.end());
-    possible_choices.insert(repos_with_same_name.begin(),
-                            repos_with_same_name.end());
-    possible_choices.insert(children_of_watched_repos.begin(),
-                            children_of_watched_repos.end());
-
-    possible_choices.insert(in_cluster_user.begin(),
-                            in_cluster_user.end());
-    possible_choices.insert(in_cluster_repo.begin(),
-                            in_cluster_repo.end());
-
-    possible_choices.insert(in_id_range.begin(),
-                            in_id_range.end());
-
-    possible_choices.insert(coocs.begin(), coocs.end());
-
-#if 0
-    for (IdSet::const_iterator
-             it = user.watching.begin(),
-             end = user.watching.end();
-         it != end && possible_choices.size() < 100;  ++it) {
-
-        int watched_id = *it;
-        const Repo & watched = data.repos[watched_id];
-        
-        // Find those also watched by those that watched this one
-        for (IdSet::const_iterator
-                 jt = watched.watchers.begin(),
-                 jend = watched.watchers.end();
-             jt != jend;  ++jt) {
-            int watcher_id = *jt;
-            if (watcher_id == user_id) continue;
-            
-            const User & watcher = data.users[watcher_id];
-            
-            for (IdSet::const_iterator
-                     kt = watcher.watching.begin(),
-                     kend = watcher.watching.end();
-                 kt != kend;  ++kt) {
-                if (*kt == watched_id) continue;
-                also_watched_by_people_who_watched[*kt] += 1;
-            }
-        }
-    }
-    
-    if (also_watched_by_people_who_watched.size() < 3000)
-        possible_choices.insert(first_extractor(also_watched_by_people_who_watched.begin()),
-                                first_extractor(also_watched_by_people_who_watched.end()));
-    
-    vector<pair<int, int> > also_watched_ranked(also_watched_by_people_who_watched.begin(),
-                                                also_watched_by_people_who_watched.end());
-    sort_on_second_descending(also_watched_ranked);
-#endif
-
-    map<int, int> awranks;
-#if 0
-    for (unsigned i = 0;  i < also_watched_ranked.size();  ++i) {
-        awranks[also_watched_ranked[i].first] = i;
-    }
-#endif
-
     set<int> top_twenty
         = data.get_most_popular_repos(20);
-    possible_choices.insert(top_twenty.begin(),
-                            top_twenty.end());
+
+    insert_choices(possible_choices, parents_of_watched,
+                   "parents_of_watched");
+    insert_choices(possible_choices, ancestors_of_watched,
+                   "ancestors_of_watched");
+    insert_choices(possible_choices, repos_by_watched_authors,
+                   "repos_by_watched_authors");
+    insert_choices(possible_choices, repos_with_same_name,
+                   "repos_with_same_name");
+    insert_choices(possible_choices, children_of_watched_repos,
+                   "children_of_watched_repos");
+    insert_choices(possible_choices, in_cluster_user,
+                   "in_cluster_user");
+    insert_choices(possible_choices, in_cluster_repo,
+                   "in_cluster_repo");
+    insert_choices(possible_choices, in_id_range,
+                   "in_id_range");
+    insert_choices(possible_choices, coocs,
+                   "coocs");
+    insert_choices(possible_choices, top_twenty,
+                   "top_twenty");
 
     candidates.reserve(possible_choices.size());
 
@@ -419,19 +417,6 @@ candidates(const Data & data, int user_id) const
         c.in_cluster_repo = in_cluster_repo.count(repo_id);
         c.in_id_range = in_id_range.count(repo_id);
   
-        if (also_watched_by_people_who_watched.count(repo_id)) {
-            c.also_watched_by_people_who_watched = true;
-            c.num_also_watched
-                = also_watched_by_people_who_watched[repo_id];
-            c.also_watched_rank = awranks[repo_id];
-            c.also_watched_percentile
-                = c.also_watched_rank * 1.0 / awranks.size();
-        }
-        else {
-            c.also_watched_by_people_who_watched = false;
-            c.also_watched_rank = awranks.size();
-            c.also_watched_percentile = 0.0;
-        }
         c.top_ten = data.repos[repo_id].popularity_rank < 10;
 
         candidates.push_back(c);
@@ -923,8 +908,6 @@ rank(int user_id,
         score += c.by_author_of_watched_repo * 100;
         //score += c.ancestor_of_watched * 10;
         score += c.same_name * 20;
-        score += c.also_watched_by_people_who_watched * 5;
-        //score += c.also_watched_percentile * 5;
 
         // Add in a popularity score
         score += popularity * 20;
@@ -1151,7 +1134,7 @@ rank(int user_id,
      const Candidate_Data & candidate_data,
      const Data & data) const
 {
-    if (!load_data)
+    if (!load_data || true)
         return phase1.rank(user_id, candidates, candidate_data, data);
 
     return Classifier_Ranker::rank(user_id, candidates,
@@ -1174,14 +1157,18 @@ classify(int user_id,
 
         float score;
 
+#if 1
         int rank = features[i][features[i].size() - 2];
-        if (rank > 50) score = 0.0;
+        if (rank > 200) score = 0.0;
         else {
             boost::shared_ptr<Mutable_Feature_Set> encoded
                 = classifier_fs->encode(features[i], *ranker_fs, mapping);
 
             score = classifier.impl->predict(1, *encoded, opt_info);
         }
+#else
+        score = features[i][features[i].size() - 3];
+#endif
 
         Ranked_Entry entry;
         entry.index = i;

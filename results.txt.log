@@ -19,7 +19,7 @@ KAPPA                     =  1.00E-06
 NUMBER OF LANCZOS STEPS   =    185
 RITZ VALUES STABILIZED    =     55
 SINGULAR VALUES FOUND     =     50
-SVD elapsed: elapsed: [12.78s cpu, 30307.8574 mticks, 13.40s wall]
+SVD elapsed: elapsed: [10.98s cpu, 25353.0339 mticks, 11.21s wall]
 done repos
 doing keywords
 86583 vocab entries
@@ -38,15 +38,25 @@ processing 4788 users...
 0%   10   20   30   40   50   60   70   80   90   100%
 |----|----|----|----|----|----|----|----|----|----|
 ***************************************************
-elapsed: elapsed: [177.68s cpu, 461051.7167 mticks, 205.14s wall]
+elapsed: elapsed: [450.46s cpu, 1048382.0827 mticks, 463.68s wall]
 done
 
 calculating test result... done.
 fake test results: 
      total:      real:    0/4788 =   0.00%  poss:    0/4788 =   0.00%  avg num: 922.9
 non-zero scores: 
-     total:      real:    0/4788 =   0.00%  poss:    0/4788 =   0.00%  avg num:  44.8
+     total:      real:    0/4788 =   0.00%  poss:    0/4788 =   0.00%  avg num: 909.3
 
 dumping results...done.
-198.60user 1.28system 3:49.88elapsed 86%CPU (0avgtext+0avgdata 0maxresident)k
-0inputs+512outputs (0major+142449minor)pagefaults 0swaps
+ancestors_of_watched             2833   9125(  3.22)    300(  0.11)    220
+children_of_watched_repos        3490 1402558(401.88)  22617(  6.48)   7253
+coocs                            3920 420669(107.31) 226227( 57.71)    162
+in_cluster_repo                  4786 756122(157.99) 661863(138.29)    200
+in_cluster_user                  4788 912798(190.64) 864139(180.48)    200
+in_id_range                      4788  45004(  9.40)  42097(  8.79)     46
+parents_of_watched               2833   8825(  3.12)   8825(  3.12)    219
+repos_by_watched_authors         4786 806416(168.49) 800937(167.35)   7125
+repos_with_same_name             4359 1805055(414.10) 1767657(405.52)   8784
+top_twenty                       4788  95760( 20.00)  24160(  5.05)     20
+469.76user 1.04system 8:05.17elapsed 97%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+560outputs (0major+146836minor)pagefaults 0swaps

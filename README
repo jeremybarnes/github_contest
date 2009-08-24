@@ -1,16 +1,22 @@
-NOTE: UNDER CONSTRUCTION
-
 This is Jeremy Barnes's Github recommendation engine.
 
-For the moment, there's nothing much to see here...
+Feel free to browse my code and take my ideas for your system, if ever they are useful.  You can also use my results.txt however you like.
 
-Feel free to browse my code and take my ideas for your system, if ever they are useful.
-
-If ever you want to use my code, you can do so under the Affero GPL v3.  Note that getting it to work might be difficult; it relies on JML (Jeremy's Machine Learning Library) at http://bitbucket.org/jeremy_barnes/jml/.  This code needs to be downloaded and compiled and the jml symlink in the github repo set to point to it.  I build it on 32 and 64 bit Ubuntu 8.10/9.04 machines; anything else might be difficult.  There are also a *lot* of supporting libraries to install (all of which come with Ubuntu).
+If ever you want to use my code, you can do so under the Affero GPL v3.  Note that getting it to work might be difficult; it relies on JML (Jeremy's Machine Learning Library) at http://bitbucket.org/jeremy_barnes/jml/.  This code needs to be downloaded and compiled and the jml symlink in the github repo set to point to it.  I build it on 32 and 64 bit Ubuntu 8.10/9.04 machines; anything else might be difficult.  There are also a *lot* of supporting libraries to install (all of which come with Ubuntu, but many of which aren't installed by default).
 
 I'm currently looking for consulting contracts.  I do pretty much any data mining, machine learning or early-stage technology stuff, but I'm particularly experienced in Natural Language Processing.
 
 You can contact me on <my firstname> at <my family name>+"o" .com.
+
+
+Features
+========
+
+The system that I have implemented has a few unique features that might be interesting.
+* Probabilistic predictions: the system provides probabilistic predictions of the score of the repos.  The major advantage of this is that we can see the confidence in our predictions.
+* Ability to explain predictions: using the explain functionality of the machine learning library (which has been designed and used commercially, but is not in the current version of the library), we can tell the user why we though that they would like a particular repo.
+* Practicality: it takes about 3 minutes to generate the predictions for all 4788 users on a single CPU core, which means that about 30 users/second/CPU core can be processed.  The training process takes about 20 minutes.
+* Malleability: there is essentially no hand-tuning that has been done on the system, and it is very easy to add extra features to take advantage of further information.  It would also be relatively easy to take out of the context of the competition and put into production.
 
 
 System Architecture
@@ -46,6 +52,7 @@ The following algorithms are used:
 - a language similarity model, which takes the cosine between normalized language vectors
 - a cooccurrence model, where weight is awarded when two repositories are recommended together by the same user, or when two users both watch the same repository together. 
 
+
 Extra Information
 =================
 
@@ -53,8 +60,9 @@ I downloaded information for each author about the date that the person joined a
 
 I am also in the process of downloading the repository descriptions, in order to analyze the text in them.  I will also make this data available once it's ready.
 
-Features
-========
+
+Feature Vector Contents
+=======================
 
 The classifier includes about 90 features about all aspects of the models above and several more mundane features.  See in ranker.cc for a list of the names of the features and how they are calculated.
 
@@ -146,13 +154,15 @@ ranker-classifier-training-config.txt: configuration file for the classifier gen
 config.txt: configuration file for the system; not many options have been put in it for the moment
 download/: contains the original data for the competition; not included in the repo (others will need to download it for themselves)
 
+
 Credits
 =======
 
 Thanks to:
 * Daniel Haran's code and README for the idea of using parent repositories, and him personally for discussions of the solutions
 * asciiarmor's code (thanks for publishing it) for the basic features necessary to get to reasonable performance
-* xlvector's code for the idea of clustering by cooccurrences (now why didn't I think of that!)
+* xlvector's code for the idea of clustering by cooccurrences (now why didn't I think of that!) and xlvector himself for the idea of increasing the diversity of the predictions
+
 
 Todo
 ====
@@ -161,12 +171,21 @@ Future things that I will or may try:
 
 * Use a classifier instead of a heuristic to rank the set of potential repositories (this will help us where the user has a lot of watched repositories) (done)
 * Look at language matches (done)
-* Look at keywords in the repository names (eg, "rails" says a lot about which kind of repos that people like)
+* Look at keywords in the repository names (eg, "rails" says a lot about which kind of repos that people like) (done)
 * Add a simple knn implementation based upon a dot product between repos to find new ones (will need pre-computation is it will be SLLOOOOWWWW!)
 * EM on a graphical model to learn a smoothed user/repo matrix (done)
 * Embed both repositories and users into the same feature space using a deep neural network and use cosine similarity between embedded representations to learn similarity.
 * Potentially, other (simpler) matrix factorization models (done)
-* Try with no probabilizer on the classifier(s)
+* Try with no probabilizer on the classifier(s) (done)
+* Fix boosting/decision tree bug causing us to stick on language_cosine < 1
+* Find where dataset is biased between fake/real test sets
+* Do some reasonable processing of the keywords file
+* Multithreading to produce the results file
+* Perform a SVD of the repo descriptions to smooth them
+* Diversity: don't allow all of the predictions to come from the same set.  Penalize those that are too similar to the previous source.
+* Cheating: hill-climb (using a Nelder-Mead or similar multivariate optimization technique).  Guaranteed to win, but not at all useful.
+* Figure out why the machine learning is getting stuck on the language cosine feature.
+
 
 Jeremy Barnes
-18 August 2009
+24 August 2009
