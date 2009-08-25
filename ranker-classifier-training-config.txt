@@ -81,8 +81,26 @@ bs2 {
     trace_training_acc=true;
 }
 
+bbs2 {
+    type=bagging;
+    num_bags=5;
+    weak_learner {
+        type=boosting;
+        verbosity=3;
+        weak_learner {
+            type=decision_tree;
+            max_depth=1;
+            verbosity=0;
+            update_alg=gentle;
+        }
+        min_iter=5;
+        max_iter=300;
+        trace_training_acc=true;
+    }
+}
+
 # Copy the one that we want to the given key
-phase1: bbdt {
+phase1: bbs2 {
 }
 
 default: bbdt {
