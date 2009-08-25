@@ -289,6 +289,9 @@ int main(int argc, char ** argv)
 
         const User & user = data.users[user_id];
 
+        correct_repo = answers_tested.back();
+        watching = &user.watching;
+
         vector<Candidate> candidates;
         boost::shared_ptr<Candidate_Data> candidate_data;
         boost::tie(candidates, candidate_data)

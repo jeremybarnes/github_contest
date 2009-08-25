@@ -19,7 +19,7 @@ KAPPA                     =  1.00E-06
 NUMBER OF LANCZOS STEPS   =    185
 RITZ VALUES STABILIZED    =     55
 SINGULAR VALUES FOUND     =     50
-SVD elapsed: elapsed: [11.86s cpu, 28106.3172 mticks, 12.43s wall]
+SVD elapsed: elapsed: [10.27s cpu, 33521.2814 mticks, 14.83s wall]
 done repos
 doing keywords
 86583 vocab entries
@@ -38,14 +38,14 @@ processing 4788 users...
 0%   10   20   30   40   50   60   70   80   90   100%
 |----|----|----|----|----|----|----|----|----|----|
 ***************************************************
-elapsed: elapsed: [469.40s cpu, 1103063.8070 mticks, 487.87s wall]
+elapsed: elapsed: [501.20s cpu, 1497239.9199 mticks, 662.20s wall]
 done
 
 calculating test result... done.
 fake test results: 
      total:      real:    0/4788 =   0.00%  poss:    0/4788 =   0.00%  avg num: 922.9
 non-zero scores: 
-     total:      real:    0/4788 =   0.00%  poss:    0/4788 =   0.00%  avg num: 896.6
+     total:      real:    0/4788 =   0.00%  poss:    0/4788 =   0.00%  avg num: 189.8
 
 ancestors_of_watched             2833   9125(  3.22)    300(  0.11)    220
 children_of_watched_repos        3490 1402558(401.88)  22617(  6.48)   7253
@@ -57,5 +57,5 @@ parents_of_watched               2833   8825(  3.12)   8825(  3.12)    219
 repos_by_watched_authors         4786 806416(168.49) 800937(167.35)   7125
 repos_with_same_name             4359 1805055(414.10) 1767657(405.52)   8784
 top_twenty                       4788  95760( 20.00)  24160(  5.05)     20
-489.64user 1.16system 8:30.80elapsed 96%CPU (0avgtext+0avgdata 0maxresident)k
-0inputs+13008outputs (0major+147513minor)pagefaults 0swaps
+519.54user 1.34system 11:30.20elapsed 75%CPU (0avgtext+0avgdata 0maxresident)k
+14808inputs+13064outputs (8major+144203minor)pagefaults 0swaps

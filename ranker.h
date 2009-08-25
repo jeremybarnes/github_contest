@@ -64,6 +64,10 @@ struct Candidate_Data {
     }
 };
 
+// Global variables for statistics
+extern int correct_repo;
+extern const IdSet * watching;
+
 // Base class for a candidate generator
 struct Candidate_Generator {
 

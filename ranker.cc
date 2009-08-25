@@ -103,14 +103,18 @@ namespace {
 
 struct Name_Stats {
     Name_Stats()
-        : total_size(0), n(0), incremental_size(0), max_size(0)
+        : total_size(0), n(0), correct(0), incremental_size(0),
+          incremental_correct(0), max_size(0), already_watched(0)
     {
     }
 
     size_t total_size;
     size_t n;
+    size_t correct;
     size_t incremental_size;
+    size_t incremental_correct;
     size_t max_size;
+    size_t already_watched;
 };
 
 map<string, Name_Stats> stats;
@@ -118,39 +122,63 @@ map<string, Name_Stats> stats;
 struct PrintStats {
     ~PrintStats()
     {
+        cerr << "generator                        fired   corr "
+             << endl;
         for (map<string, Name_Stats>::const_iterator
                  it = stats.begin(),
                  end = stats.end();
              it != end;  ++it) {
-            cerr << format("%-30s %6zd %6zd(%6.2f) %6zd(%6.2f) %6zd\n",
+            const Name_Stats & s = it->second;
+            cerr << format("%-30s %7zd %5zd(%5.2f%%) %7zd(%7.2f) %5zd(%5.2f%%) %7zd(%7.2f) %7zd\n",
                            it->first.c_str(),
-                           it->second.n,
-                           it->second.total_size,
-                           1.0 * it->second.total_size / it->second.n,
-                           it->second.incremental_size,
-                           1.0 * it->second.incremental_size / it->second.n,
-                           it->second.max_size);
+                           s.n,
+                           s.correct,
+                           100.0 * s.correct / s.n,
+                           s.total_size,
+                           1.0 * s.total_size / s.n,
+                           s.incremental_correct,
+                           100.0 * s.incremental_correct / s.n,
+                           s.incremental_size,
+                           1.0 * s.incremental_size / s.n,
+                           s.max_size);
         }
     }
 } printstats;
 
 }
 
+int correct_repo = -1;
+const IdSet * watching = 0;
+
 template<class Set>
 void
 insert_choices(IdSet & possible_choices, const Set & s,
                const std::string & name)
 {
+    IdSet filtered_choices;
+
+    if (watching) {
+        set<int> res;
+        std::set_difference(s.begin(), s.end(),
+                            watching->begin(), watching->end(),
+                            inserter(res, res.end()));
+        filtered_choices.insert(res.begin(), res.end());
+    }
+    else filtered_choices.insert(s.begin(), s.end());
+
+    bool correct_before = possible_choices.count(correct_repo);
     size_t before = possible_choices.size();
-    possible_choices.insert(s.begin(), s.end());
-    possible_choices.begin();
+    possible_choices.insert(filtered_choices.begin(), filtered_choices.end());
+    bool correct_after = possible_choices.count(correct_repo);
     size_t after = possible_choices.size();
 
     Name_Stats & st = stats[name];
     if (!s.empty()) ++st.n;
-    st.total_size += s.size();
+    st.total_size += filtered_choices.size();
+    st.correct += filtered_choices.count(correct_repo);
     st.incremental_size += (after - before);
-    st.max_size = std::max(st.max_size, s.size());
+    st.incremental_correct += (correct_after && !correct_before);
+    st.max_size = std::max(st.max_size, filtered_choices.size());
 }
 
 std::pair<std::vector<Candidate>,
@@ -1150,7 +1178,7 @@ rank(int user_id,
      const Candidate_Data & candidate_data,
      const Data & data) const
 {
-    if (!load_data)
+    if (!load_data || true)
         return phase1.rank(user_id, candidates, candidate_data, data);
 
     return Classifier_Ranker::rank(user_id, candidates,
@@ -1190,7 +1218,7 @@ classify(int user_id,
 
         float score;
 
-#if 0
+#if 1
         int rank = features[i][features[i].size() - 2];
         if (rank > 200) score = 0.0;
         else {

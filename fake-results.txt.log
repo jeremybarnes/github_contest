@@ -23,7 +23,7 @@ KAPPA                     =  1.00E-06
 NUMBER OF LANCZOS STEPS   =    185
 RITZ VALUES STABILIZED    =     54
 SINGULAR VALUES FOUND     =     50
-SVD elapsed: elapsed: [11.26s cpu, 26539.8045 mticks, 11.74s wall]
+SVD elapsed: elapsed: [10.06s cpu, 34878.5590 mticks, 15.43s wall]
 done repos
 doing keywords
 86583 vocab entries
@@ -42,7 +42,7 @@ processing 4788 users...
 0%   10   20   30   40   50   60   70   80   90   100%
 |----|----|----|----|----|----|----|----|----|----|
 ***************************************************
-elapsed: elapsed: [416.87s cpu, 990639.7759 mticks, 438.14s wall]
+elapsed: elapsed: [460.02s cpu, 1400002.7839 mticks, 619.20s wall]
 done
 
 calculating test result... done.
@@ -56,5 +56,5 @@ parents_of_watched               2971   8143(  2.74)   8143(  2.74)     55
 repos_by_watched_authors         4788 615732(128.60) 610637(127.53)   4948
 repos_with_same_name             4273 1480456(346.47) 1451433(339.68)   6928
 top_twenty                       4788  95760( 20.00)  27101(  5.66)     20
-437.77user 0.82system 7:41.57elapsed 95%CPU (0avgtext+0avgdata 0maxresident)k
-0inputs+8outputs (0major+146956minor)pagefaults 0swaps
+479.52user 1.14system 10:49.48elapsed 74%CPU (0avgtext+0avgdata 0maxresident)k
+3784inputs+8outputs (3major+144177minor)pagefaults 0swaps
