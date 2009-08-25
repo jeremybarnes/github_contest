@@ -58,6 +58,29 @@ glz {
     verbosity=3;
 }
 
+# Boosted stumps
+bs {
+    type=boosted_stumps;
+    min_iter=10;
+    max_iter=200;
+    update_alg=gentle;
+    verbosity=3;
+}
+
+bs2 {
+    type=boosting;
+    verbosity=3;
+    weak_learner {
+        type=decision_tree;
+        max_depth=1;
+        verbosity=0;
+        update_alg=gentle;
+    }
+    min_iter=5;
+    max_iter=300;
+    trace_training_acc=true;
+}
+
 # Copy the one that we want to the given key
 phase1: bbdt {
 }

@@ -1,12 +1,22 @@
 This is Jeremy Barnes's Github recommendation engine.
 
-Feel free to browse my code and take my ideas for your system, if ever they are useful.  You can also use my results.txt however you like.
 
-If ever you want to use my code, you can do so under the Affero GPL v3.  Note that getting it to work might be difficult; it relies on JML (Jeremy's Machine Learning Library) at http://bitbucket.org/jeremy_barnes/jml/.  This code needs to be downloaded and compiled and the jml symlink in the github repo set to point to it.  I build it on 32 and 64 bit Ubuntu 8.10/9.04 machines; anything else might be difficult.  There are also a *lot* of supporting libraries to install (all of which come with Ubuntu, but many of which aren't installed by default).
+Advertisement
+=============
 
 I'm currently looking for consulting contracts.  I do pretty much any data mining, machine learning or early-stage technology stuff, but I'm particularly experienced in Natural Language Processing.
 
-You can contact me on <my firstname> at <my family name>+"o" .com.
+You can contact me on jeremy (at) barneso (dot) com.
+
+
+Copying
+=======
+
+Feel free to browse my code and take my ideas for your system, if ever they are useful.  You can also use my results.txt however you like.
+
+I also have a file prob-results.txt which contains the top 100 repos predicted for each user as well as the probability associated with each of these predictions.  If you are doing blending experiments and want this file, please email me (I can't include it in the repo, as it takes about 6MB for each time I run an experiment).
+
+If ever you want to use my code, you can do so under the Affero GPL v3.  Note that getting it to work might be difficult; it relies on JML (Jeremy's Machine Learning Library) at http://bitbucket.org/jeremy_barnes/jml/.  This code needs to be downloaded and compiled and the jml symlink in the github repo set to point to it.  I build it on 32 and 64 bit Ubuntu 8.10/9.04 machines; anything else might be difficult.  There are also a *lot* of supporting libraries to install (all of which come with Ubuntu, but many of which aren't installed by default).
 
 
 Features
@@ -90,6 +100,8 @@ include:
   By tracing this line (which isn't that easy, as there is a lot of noise) and proposing repositories that cover the missing points, as well as exploiting the scattered points above, we manage to pick up about 2% of repositories that we wouldn't have got before.
 - Matching authors to users.  If we see that user 2839 is the only watcher on repos 6879, 7039 and 23405, and that these have the same author, then we can be pretty sure that user 2839 *is* that author.  Using this algorithm, we map 35873 of the 56521 users unambiguously to a single author id, and a further 535 users to several authors (I haven't yet investigated what happens in this case; I suspect that one person has created more than one account to get around size limits or there are user/project accounts both controlled by the same person).
 
+Note that I decided not to look at the watcher counts in the data from the API.  One could, with some added noise, probably guess which repos had been removed somewhere with this information; I consider this a little too close to cheating.
+
 
 Testing
 =======
@@ -161,7 +173,7 @@ Credits
 Thanks to:
 * Daniel Haran's code and README for the idea of using parent repositories, and him personally for discussions of the solutions
 * asciiarmor's code (thanks for publishing it) for the basic features necessary to get to reasonable performance
-* xlvector's code for the idea of clustering by cooccurrences (now why didn't I think of that!) and xlvector himself for the idea of increasing the diversity of the predictions
+* xlvector's code for the idea of clustering by cooccurrences (now why didn't I think of that!) and the man himself for the idea of increasing the diversity of the predictions
 
 
 Todo
@@ -177,14 +189,13 @@ Future things that I will or may try:
 * Embed both repositories and users into the same feature space using a deep neural network and use cosine similarity between embedded representations to learn similarity.
 * Potentially, other (simpler) matrix factorization models (done)
 * Try with no probabilizer on the classifier(s) (done)
-* Fix boosting/decision tree bug causing us to stick on language_cosine < 1
+* Fix boosting/decision tree bug causing us to stick on language_cosine < 1 (done)
 * Find where dataset is biased between fake/real test sets
 * Do some reasonable processing of the keywords file
 * Multithreading to produce the results file
 * Perform a SVD of the repo descriptions to smooth them
 * Diversity: don't allow all of the predictions to come from the same set.  Penalize those that are too similar to the previous source.
 * Cheating: hill-climb (using a Nelder-Mead or similar multivariate optimization technique).  Guaranteed to win, but not at all useful.
-* Figure out why the machine learning is getting stuck on the language cosine feature.
 
 
 Jeremy Barnes

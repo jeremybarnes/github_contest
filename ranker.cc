@@ -1202,7 +1202,7 @@ classify(int user_id,
 #else
 
         // Enforce diversity in authors
-        int n_per_author = 2;
+        int n_per_author = 50;
 
         const vector<pair<int, float> > & author_ranks
             = rank_per_author[data.repos[repo_id].author];
