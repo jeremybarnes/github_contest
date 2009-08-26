@@ -196,7 +196,7 @@ Future things that I will or may try:
 * Perform a SVD of the repo descriptions to smooth them
 * Diversity: don't allow all of the predictions to come from the same set.  Penalize those that are too similar to the previous source.
 * Cheating: hill-climb (using a Nelder-Mead or similar multivariate optimization technique).  Guaranteed to win, but not at all useful.
-
+* Why is repo.author == -1 in some cases?
 
 Jeremy Barnes
 24 August 2009

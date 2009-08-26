@@ -6,15 +6,63 @@ default_generator=generator
 default_ranker=ranker
 
 generator {
-    type=default
+    type=default;
+    sources=parents_of_watched,ancestors_of_watched,by_watched_authors,same_name,children_of_watched,in_cluster_user,in_cluster_repo,in_id_range,coocs,most_watched;
+    
+    parents_of_watched {
+        type=parents_of_watched;
+        classifier_file=data/parents_of_watched.cls;
+    }
+
+    ancestors_of_watched {
+        type=ancestors_of_watched;
+        classifier_file=data/ancestors_of_watched.cls;
+    }
+
+    by_watched_authors {
+        type=by_watched_authors;
+        classifier_file=data/by_watched_authors.cls;
+        max_entries=200;
+    }
+
+    same_name {
+        type=same_name;
+        classifier_file=data/same_name.cls;
+    }
+
+    children_of_watched {
+        type=children_of_watched;
+        classifier_file=data/children_of_watched.cls;
+    }
+
+    in_cluster_user {
+        type=in_cluster_user;
+        classifier_file=data/in_cluster_user.cls;
+    }
+
+    in_cluster_repo {
+        type=in_cluster_repo;
+        classifier_file=data/in_cluster_repo.cls;
+    }
+
+    in_id_range {
+        type=in_id_range;
+        classifier_file=data/in_id_range.cls;
+    }
+
+    coocs {
+        type=coocs;
+        classifier_file=data/coocs.cls;
+    }
+
+    most_watched {
+        type=most_watched;
+        classifier_file=data/most_watched.cls;
+    }
 }
 
 ranker {
-    phase1 {
-        type=classifier
-        classifier_file=data/ranker1.cls
-    }
-    
-    type=reranker
-    classifier_file=data/ranker2.cls
+    type=classifier
+    classifier_file=data/ranker.cls
 }
+

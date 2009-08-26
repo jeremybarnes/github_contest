@@ -38,15 +38,17 @@ struct Candidate_Generator {
     virtual boost::shared_ptr<const ML::Dense_Feature_Space>
     feature_space() const;
 
-    virtual std::vector<ML::distribution<float> >
-    features(int user_id,
+    virtual void
+    features(std::vector<ML::distribution<float> > & result,
+             int user_id,
              const Ranked & candidates,
              const Candidate_Data & candidate_data,
              const Data & data) const;
 
     /// Generates a set of candidates to be ranked for the given user
-    virtual std::pair<Ranked, boost::shared_ptr<Candidate_Data> >
-    candidates(const Data & data, int user_id) const;
+    virtual void
+    candidates(Ranked & ranked, Candidate_Data & candidate_data,
+               const Data & data, int user_id) const;
 
     std::vector<boost::shared_ptr<Candidate_Source> > sources;
 };
@@ -70,15 +72,16 @@ struct Ranker {
     virtual boost::shared_ptr<const ML::Dense_Feature_Space>
     feature_space() const;
 
-    virtual std::vector<ML::distribution<float> >
-    features(int user_id,
+    virtual void
+    features(std::vector<ML::distribution<float> > & result,
+             int user_id,
              const Ranked & candidates,
              const Candidate_Data & candidate_data,
              const Data & data) const;
 
-    virtual Ranked
-    rank(int user_id,
-         const Ranked & candidates,
+    virtual void
+    rank(Ranked & candidates,
+         int user_id,
          const Candidate_Data & candidate_data,
          const Data & data) const;
 
@@ -97,22 +100,23 @@ struct Classifier_Ranker : public Ranker {
     virtual boost::shared_ptr<const ML::Dense_Feature_Space>
     feature_space() const;
 
-    virtual std::vector<ML::distribution<float> >
-    features(int user_id,
+    virtual void
+    features(std::vector<ML::distribution<float> > & result,
+             int user_id,
              const Ranked & candidates,
              const Candidate_Data & candidate_data,
              const Data & data) const;
 
-    virtual Ranked
-    classify(int user_id,
-             const Ranked & candidates,
+    virtual void
+    classify(Ranked & candidates,
+             int user_id,
              const Candidate_Data & candidate_data,
              const Data & data,
              const std::vector<ML::distribution<float> > & features) const;
     
-    virtual Ranked
-    rank(int user_id,
-         const Ranked & candidates,
+    virtual void
+    rank(Ranked & candidates,
+         int user_id,
          const Candidate_Data & candidate_data,
          const Data & data) const;
 
@@ -137,21 +141,22 @@ struct Classifier_Reranker : public Classifier_Ranker {
     virtual boost::shared_ptr<const ML::Dense_Feature_Space>
     feature_space() const;
 
-    virtual std::vector<ML::distribution<float> >
-    features(int user_id,
+    virtual void
+    features(std::vector<ML::distribution<float> > & result,
+             int user_id,
              const Ranked & candidates,
              const Candidate_Data & candidate_data,
              const Data & data) const;
 
-    virtual Ranked
-    rank(int user_id,
-         const Ranked & candidates,
+    virtual void
+    rank(Ranked & candidates,
+         int user_id,
          const Candidate_Data & candidate_data,
          const Data & data) const;
 
-    virtual Ranked
-    classify(int user_id,
-             const Ranked & candidates,
+    virtual void
+    classify(Ranked & candidates,
+             int user_id,
              const Candidate_Data & candidate_data,
              const Data & data,
              const std::vector<ML::distribution<float> > & features) const;
@@ -160,10 +165,6 @@ struct Classifier_Reranker : public Classifier_Ranker {
 };
 
 // Factory methods
-
-boost::shared_ptr<Candidate_Source>
-get_candidate_source(const ML::Configuration & config,
-                     const std::string & name);
 
 boost::shared_ptr<Candidate_Generator>
 get_candidate_generator(const ML::Configuration & config,

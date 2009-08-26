@@ -6,9 +6,71 @@
 */
 
 #include "candidate_source.h"
+#include "utils/less.h"
 
 using namespace std;
 using namespace ML;
+
+
+/*****************************************************************************/
+/* RANKED                                                                    */
+/*****************************************************************************/
+
+Ranked::
+Ranked(const IdSet & idset)
+{
+    for (IdSet::const_iterator it = idset.begin(), end = idset.end();
+         it != end;  ++it) {
+        Ranked_Entry entry;
+        entry.repo_id = *it;
+        push_back(entry);
+    }
+}
+
+struct Compare_Ranked_Entries {
+    bool operator () (const Ranked_Entry & e1,
+                      const Ranked_Entry & e2)
+    {
+        return less_all(e2.score, e1.score,
+                        e2.repo_id, e1.repo_id);
+    }
+};
+
+void
+Ranked::
+sort()
+{
+    std::sort(begin(), end(), Compare_Ranked_Entries());
+
+    // Put in the rank
+    float last_score = INFINITY;
+    int start_with_score = -1;
+
+    for (unsigned i = 0;  i < size();  ++i) {
+        Ranked_Entry & entry = operator [] (i);
+        
+        if (entry.score == last_score) {
+            // same score
+            entry.min_rank = start_with_score;
+        }
+        else {
+            assert(entry.score < last_score);
+            // Fill in max rank
+            for (int j = start_with_score;  j < i && j > 0;  ++j)
+                operator [] (j).max_rank = i;
+
+            // Start of a range of scores
+            last_score = entry.score;
+            start_with_score = i;
+            entry.min_rank = start_with_score;
+        }
+    }
+
+    // Fill in max rank for those at the end
+    for (int j = start_with_score;  j < size() && j > 0;  ++j)
+        operator [] (j).max_rank = size();
+}
+
 
 
 /*****************************************************************************/
@@ -28,30 +90,30 @@ Candidate_Source::
 
 void
 Candidate_Source::
-configure(const ML::Configuration & config,
+configure(const ML::Configuration & config_,
           const std::string & name)
 {
     Configuration config(config_, name, Configuration::PREFIX_APPEND);
 
-    this->name_ = config.prefix();
+    this->name_ = name;
 
     config.require(classifier_file, "classifier_file");
     
     load_data = true;
-    config.get(load_data, "load_data");
+    config.find(load_data, "load_data");
 
     max_entries = 100;
-    config.get(max_entries, "max_entries");
+    config.find(max_entries, "max_entries");
 
     min_prob = 0.0;
-    config.get(min_prob, "min_prob");
+    config.find(min_prob, "min_prob");
 }
 
 void
 Candidate_Source::
 init()
 {
-    ranker_fs = feature_space();
+    our_fs = feature_space();
 
     if (load_data) {
         
@@ -61,7 +123,7 @@ init()
         
         opt_info = classifier.impl->optimize(classifier_fs->features());
         
-        classifier_fs->create_mapping(*ranker_fs, mapping);
+        classifier_fs->create_mapping(*our_fs, mapping);
         
         vector<ML::Feature> classifier_features
             = classifier.all_features();
@@ -82,25 +144,37 @@ Dense_Feature_Space
 Candidate_Source::
 common_feature_space()
 {
-    boost::shared_ptr<ML::Dense_Feature_Space> result;
-    result.reset(new ML::Dense_Feature_Space(*generator->feature_space()));
+    ML::Dense_Feature_Space result;
 
-    result->add_feature("density", Feature_Info::REAL);
-    result->add_feature("user_id", Feature_Info::REAL);
-    result->add_feature("user_repo_id_ratio", Feature_Info::REAL);
-    result->add_feature("user_watched_repos", Feature_Info::REAL);
-    result->add_feature("repo_watched_users", Feature_Info::REAL);
-    result->add_feature("repo_lines_of_code", Feature_Info::REAL);
-    result->add_feature("user_prob", Feature_Info::REAL);
-    result->add_feature("user_prob_rank", Feature_Info::REAL);
-    result->add_feature("repo_prob", Feature_Info::REAL);
-    result->add_feature("repo_prob_rank", Feature_Info::REAL);
-    result->add_feature("user_repo_prob", Feature_Info::REAL);
-    result->add_feature("repo_has_parent", Feature_Info::REAL);
-    result->add_feature("repo_num_children", Feature_Info::REAL);
-    result->add_feature("repo_num_ancestors", Feature_Info::REAL);
-    result->add_feature("repo_num_siblings", Feature_Info::REAL);
-    result->add_feature("repo_parent_watchers", Feature_Info::REAL);
+    result.add_feature("density", Feature_Info::REAL);
+    result.add_feature("user_id", Feature_Info::REAL);
+    result.add_feature("user_repo_id_ratio", Feature_Info::REAL);
+    result.add_feature("user_watched_repos", Feature_Info::REAL);
+    result.add_feature("repo_watched_users", Feature_Info::REAL);
+    result.add_feature("repo_lines_of_code", Feature_Info::REAL);
+    result.add_feature("user_prob", Feature_Info::REAL);
+    result.add_feature("user_prob_rank", Feature_Info::REAL);
+    result.add_feature("repo_prob", Feature_Info::REAL);
+    result.add_feature("repo_prob_rank", Feature_Info::REAL);
+    result.add_feature("user_repo_prob", Feature_Info::REAL);
+    result.add_feature("repo_has_parent", Feature_Info::REAL);
+    result.add_feature("repo_num_children", Feature_Info::REAL);
+    result.add_feature("repo_num_ancestors", Feature_Info::REAL);
+    result.add_feature("repo_num_siblings", Feature_Info::REAL);
+    result.add_feature("repo_parent_watchers", Feature_Info::REAL);
+
+    return result;
+}
+
+boost::shared_ptr<const ML::Dense_Feature_Space>
+Candidate_Source::
+feature_space() const
+{
+    boost::shared_ptr<ML::Dense_Feature_Space> 
+        result(new ML::Dense_Feature_Space());
+    result->add(common_feature_space());
+    result->add(specific_feature_space());
+    return result;
 }
 
 distribution<float>
@@ -108,22 +182,54 @@ Candidate_Source::
 common_features(int user_id, int repo_id, const Data & data,
                 Candidate_Data & candidate_data)
 {
+    const User & user = data.users[user_id];
+    const Repo & repo = data.repos[repo_id];
+
     distribution<float> result;
+
+    result.push_back(data.density(user_id, repo_id));
+    result.push_back(user_id);
+    result.push_back(user_id * 1.0 / repo_id);
+
+    result.push_back(user.watching.size());
+    result.push_back(repo.watchers.size());
+    result.push_back(log(repo.total_loc + 1));
+    
+    result.push_back(user.user_prob);
+    result.push_back(user.user_prob_rank);
+    result.push_back(repo.repo_prob);
+    result.push_back(repo.repo_prob_rank);
+    result.push_back(user.user_prob * repo.repo_prob);
+    
+    result.push_back(repo.parent != -1);
+    result.push_back(repo.children.size());
+    result.push_back(repo.ancestors.size());
+
+    if (repo.parent == -1) {
+        result.push_back(0);
+        result.push_back(-1);
+    }
+    else {
+        result.push_back(data.repos[repo.parent].children.size());
+        result.push_back(data.repos[repo.parent].watchers.size());
+    }
 
     return result;
 }
 
 Ranked
 Candidate_Source::
-gen_candidates(int user_id, const Data & data, Candidate_Data & candidate_data)
+gen_candidates(int user_id, const Data & data,
+               Candidate_Data & candidate_data) const
 {
     // Get them, unranked
-    Ranked entries = candidates(user_id, data, candidate_data);
+    Ranked entries = candidate_set(user_id, data, candidate_data);
 
     // For each, get the features and run the classifier
     for (unsigned i = 0;  i < entries.size();  ++i) {
         distribution<float> features
-            = common_features(entries[i], user_id, data, candidate_data);
+            = common_features(user_id, entries[i].repo_id, data,
+                              candidate_data);
 
         features.insert(features.end(),
                         entries[i].features.begin(),
@@ -132,8 +238,7 @@ gen_candidates(int user_id, const Data & data, Candidate_Data & candidate_data)
         boost::shared_ptr<Mutable_Feature_Set> encoded
             = classifier_fs->encode(features, *our_fs, mapping);
 
-        score = classifier.impl->predict(1, *encoded, opt_info);
-        
+        float score = classifier.impl->predict(1, *encoded, opt_info);
         entries[i].score = score;
     }
     
@@ -141,7 +246,7 @@ gen_candidates(int user_id, const Data & data, Candidate_Data & candidate_data)
     entries.sort();
 
     for (unsigned i = 0;  i < entries.size();  ++i)
-        entries[i].keep = i < max_entries && score >= min_prob;
+        entries[i].keep = i < max_entries && entries[i].score >= min_prob;
     
     return entries;
 }
@@ -157,8 +262,8 @@ struct Ancestors_Of_Watched_Source : public Candidate_Source {
     {
     }
 
-    virtual IdSet candidates(int user_id, const Data & data,
-                             Candidate_Data & candidate_data) const
+    virtual Ranked candidate_set(int user_id, const Data & data,
+                                 Candidate_Data & candidate_data) const
     {
         const User & user = data.users[user_id];
 
@@ -185,8 +290,8 @@ struct Children_Of_Watched_Source : public Candidate_Source {
     {
     }
 
-    virtual IdSet candidates(int user_id, const Data & data,
-                             Candidate_Data & candidate_data) const
+    virtual Ranked candidate_set(int user_id, const Data & data,
+                                 Candidate_Data & candidate_data) const
     {
         const User & user = data.users[user_id];
 
@@ -213,8 +318,8 @@ struct Cooc_Source : public Candidate_Source {
     {
     }
 
-    virtual IdSet candidates(int user_id, const Data & data,
-                             Candidate_Data & candidate_data) const
+    virtual Ranked candidate_set(int user_id, const Data & data,
+                                 Candidate_Data & candidate_data) const
     {
         const User & user = data.users[user_id];
 
@@ -289,8 +394,8 @@ struct In_Cluster_Repo_Source : public Candidate_Source {
     {
     }
 
-    virtual IdSet candidates(int user_id, const Data & data,
-                             Candidate_Data & candidate_data) const
+    virtual Ranked candidate_set(int user_id, const Data & data,
+                                 Candidate_Data & candidate_data) const
     {
         const User & user = data.users[user_id];
 
@@ -355,8 +460,8 @@ struct In_Cluster_User_Source : public Candidate_Source {
     {
     }
 
-    virtual IdSet candidates(int user_id, const Data & data,
-                             Candidate_Data & candidate_data) const
+    virtual Ranked candidate_set(int user_id, const Data & data,
+                                 Candidate_Data & candidate_data) const
     {
         const User & user = data.users[user_id];
 
@@ -407,8 +512,8 @@ struct In_Id_Range_Source : public Candidate_Source {
     {
     }
 
-    virtual IdSet candidates(int user_id, const Data & data,
-                             Candidate_Data & candidate_data) const
+    virtual Ranked candidate_set(int user_id, const Data & data,
+                                 Candidate_Data & candidate_data) const
     {
         const User & user = data.users[user_id];
 
@@ -432,8 +537,8 @@ struct Parents_Of_Watched_Source : public Candidate_Source {
     {
     }
 
-    virtual IdSet candidates(int user_id, const Data & data,
-                             Candidate_Data & candidate_data) const
+    virtual Ranked candidate_set(int user_id, const Data & data,
+                                 Candidate_Data & candidate_data) const
     {
         const User & user = data.users[user_id];
 
@@ -461,8 +566,8 @@ struct By_Watched_Author_Source : public Candidate_Source {
     {
     }
 
-    virtual IdSet candidates(int user_id, const Data & data,
-                             Candidate_Data & candidate_data) const
+    virtual Ranked candidate_set(int user_id, const Data & data,
+                                 Candidate_Data & candidate_data) const
     {
         const User & user = data.users[user_id];
 
@@ -472,8 +577,8 @@ struct By_Watched_Author_Source : public Candidate_Source {
                  it = user.watching.begin(),
                  end = user.watching.end();
              it != end;  ++it)
-            if (*it != -1)
-                authors_of_watched_repos.insert(*it);
+            if (data.repos[*it].author != -1)
+                authors_of_watched_repos.insert(data.repos[*it].author);
         
         // Find all other repos by authors of watched repos
         IdSet repos_by_watched_authors;
@@ -481,10 +586,12 @@ struct By_Watched_Author_Source : public Candidate_Source {
         for (IdSet::const_iterator
                  it = authors_of_watched_repos.begin(),
                  end = authors_of_watched_repos.end();
-             it != end;  ++it)
+             it != end;  ++it) {
+            
             repos_by_watched_authors
                 .insert(data.authors[*it].repositories.begin(),
                         data.authors[*it].repositories.end());
+        }
 
         return repos_by_watched_authors;
     }
@@ -497,8 +604,8 @@ struct By_Collaborator_Source : public Candidate_Source {
     {
     }
 
-    virtual IdSet candidates(int user_id, const Data & data,
-                             Candidate_Data & candidate_data) const
+    virtual Ranked candidate_set(int user_id, const Data & data,
+                                 Candidate_Data & candidate_data) const
     {
         // Collaborators are users that watch at least one of our repos whilst
         // we watch at least one of theirs.  Only works where we were able to
@@ -537,8 +644,8 @@ struct Same_Name_Source : public Candidate_Source {
     {
     }
 
-    virtual IdSet candidates(int user_id, const Data & data,
-                             Candidate_Data & candidate_data) const
+    virtual Ranked candidate_set(int user_id, const Data & data,
+                                 Candidate_Data & candidate_data) const
     {
         const User & user = data.users[user_id];
 
@@ -563,14 +670,14 @@ struct Same_Name_Source : public Candidate_Source {
     }
 };
 
-struct Most_Popular_Source : public Candidate_Source {
-    Most_Popular_Source()
-        : Candidate_Source("most_popular", 9)
+struct Most_Watched_Source : public Candidate_Source {
+    Most_Watched_Source()
+        : Candidate_Source("most_watched", 9)
     {
     }
 
-    virtual IdSet candidates(int user_id, const Data & data,
-                             Candidate_Data & candidate_data) const
+    virtual Ranked candidate_set(int user_id, const Data & data,
+                                 Candidate_Data & candidate_data) const
     {
         set<int> top_n
             = data.get_most_popular_repos(max_entries);
@@ -588,11 +695,14 @@ struct Most_Popular_Source : public Candidate_Source {
 /*****************************************************************************/
 
 boost::shared_ptr<Candidate_Source>
-get_candidate_source(const ML::Configuration & config,
+get_candidate_source(const ML::Configuration & config_,
                      const std::string & name)
 {
     Configuration config(config_, name, Configuration::PREFIX_APPEND);
 
+    cerr << "config.prefix = " << config_.prefix() << endl;
+    cerr << "name = " << name << endl;
+    
     string type;
     config.require(type, "type");
     
@@ -604,7 +714,7 @@ get_candidate_source(const ML::Configuration & config,
     else if (type == "children_of_watched") {
         result.reset(new Children_Of_Watched_Source());
     }
-    else if (type == "cooc") {
+    else if (type == "coocs") {
         result.reset(new Cooc_Source());
     }
     else if (type == "in_cluster_repo") {
@@ -619,14 +729,14 @@ get_candidate_source(const ML::Configuration & config,
     else if (type == "parents_of_watched") {
         result.reset(new Parents_Of_Watched_Source());
     }
-    else if (type == "by_watched_author") {
+    else if (type == "by_watched_authors") {
         result.reset(new By_Watched_Author_Source());
     }
     else if (type == "same_name") {
         result.reset(new Same_Name_Source());
     }
-    else if (type == "most_popular") {
-        result.reset(new Most_Popular_Source());
+    else if (type == "most_watched") {
+        result.reset(new Most_Watched_Source());
     }
     else throw Exception("Source of type " + type + " doesn't exist");
 

@@ -1012,6 +1012,7 @@ calc_author_stats()
                  it = inferred_authors.begin(),
                  end = inferred_authors.end();
              it != end;  ++it) {
+            if (it->first == -1) continue;
             user.inferred_authors.insert(it->first);
             authors[it->first].possible_users.insert(i);
         }

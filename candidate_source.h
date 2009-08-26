@@ -16,16 +16,6 @@
 
 #include <map>
 
-struct Candidate_Data {
-    virtual ~Candidate_Data()
-    {
-    }
-
-    // Information about each candidate source from each repo
-    // Access with: info[repo_id][source_id]
-    std::map<int, std::map<int, Ranked_Entry> > info;
-};
-
 struct Ranked_Entry {
     Ranked_Entry()
         : index(-1), repo_id(-1), score(0.0), min_rank(-1), max_rank(-1),
@@ -43,7 +33,20 @@ struct Ranked_Entry {
 };
 
 struct Ranked : std::vector<Ranked_Entry> {
+    Ranked() {}
+    Ranked(const IdSet & idset);
     void sort();
+};
+
+
+struct Candidate_Data {
+    virtual ~Candidate_Data()
+    {
+    }
+
+    // Information about each candidate source from each repo
+    // Access with: info[repo_id][source_id]
+    std::map<int, std::map<int, Ranked_Entry> > info;
 };
 
 /*****************************************************************************/
@@ -76,17 +79,23 @@ struct Candidate_Source {
     static ML::Dense_Feature_Space
     common_feature_space();
 
-    /// Feature space containing features specific to this candidate source
-    virtual ML::Dense_Feature_Space specific_feature_space();
+    static void
+    common_features(distribution<float> & result,
+                    int user_id, int repo_id, const Data & data,
+                    Candidate_Data & candidate_data);
 
-    virtual Ranked
-    gen_candidates(int user_id, const Data & data,
+    /// Feature space containing features specific to this candidate source
+    virtual ML::Dense_Feature_Space specific_feature_space() const;
+
+    virtual void
+    gen_candidates(Ranked & result, int user_id, const Data & data,
                    Candidate_Data & candidate_data) const;
 
     /// Generate the very basic set of candidates with features but no
     /// ranking information
-    virtual Ranked candidate_set(int user_id, const Data & data,
-                                 Candidate_Data & candidate_data) const;
+    virtual void
+    candidate_set(Ranked & results, int user_id, const Data & data,
+                  Candidate_Data & candidate_data) const = 0;
 
     std::string name_;
     std::string type_;
@@ -106,7 +115,13 @@ struct Candidate_Source {
 };
 
 
+/*****************************************************************************/
+/* FACTORY                                                                   */
+/*****************************************************************************/
 
+boost::shared_ptr<Candidate_Source>
+get_candidate_source(const ML::Configuration & config,
+                     const std::string & name);
 
 
 #endif /* __github__candidate_source_h__ */

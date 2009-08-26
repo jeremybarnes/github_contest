@@ -43,12 +43,12 @@ configure(const ML::Configuration & config_,
 
     vector<string> source_names = split(sources, ',');
 
-    sources.clear();
+    this->sources.clear();
 
     for (unsigned i = 0;  i < source_names.size();  ++i) {
         boost::shared_ptr<Candidate_Source> source
-            = get_candidate_source(config, name);
-        sources.push_back(source);
+            = get_candidate_source(config, source_names[i]);
+        this->sources.push_back(source);
     }
 }
 
@@ -68,12 +68,14 @@ feature_space() const
     boost::shared_ptr<ML::Dense_Feature_Space> result;
     result.reset(new ML::Dense_Feature_Space());
 
-    boost::shared_ptr<ML::Dense_Feature_Space> common_feature_space
+    ML::Dense_Feature_Space common_feature_space
         = Candidate_Source::common_feature_space();
-    result->add(*common_feature_space);
+    result->add(common_feature_space);
 
+#if 0  // do we include child features?
     for (unsigned i = 0;  i < sources.size();  ++i)
         result->add(*sources[i]->ranker_feature_space());
+#endif
     
     return result;
 }  
@@ -98,29 +100,17 @@ feature_space() const
 std::vector<ML::distribution<float> >
 Candidate_Generator::
 features(int user_id,
-         const std::vector<Candidate> & candidates,
+         const Ranked & candidates,
          const Candidate_Data & candidate_data,
          const Data & data) const
 {
+    // We just copy them over...
     vector<distribution<float> > results(candidates.size());
 
     for (unsigned i = 0;  i < candidates.size();  ++i) {
-        const Candidate & candidate = candidates[i];
+        const Ranked_Entry & candidate = candidates[i];
         distribution<float> & result = results[i];
-
-        result.push_back(candidate.parent_of_watched);
-        result.push_back(candidate.by_author_of_watched_repo);
-        result.push_back(candidate.ancestor_of_watched);
-        result.push_back(candidate.same_name);
-        result.push_back(candidate.repo_id);
-        
-        const Repo & repo = data.repos[candidate.repo_id];
-        result.push_back(repo.popularity_rank);
-        result.push_back(repo.watchers.size());
-
-        result.push_back(candidate.child_of_watched);
-        result.push_back(candidate.watched_by_cluster_user);
-        result.push_back(candidate.in_cluster_repo);
+        result = candidate.features;
     }
 
     return results;
@@ -208,13 +198,11 @@ insert_choices(IdSet & possible_choices, const Set & s,
     st.max_size = std::max(st.max_size, filtered_choices.size());
 }
 
-std::pair<std::vector<Candidate>,
+std::pair<Ranked,
           boost::shared_ptr<Candidate_Data> >
 Candidate_Generator::
 candidates(const Data & data, int user_id) const
 {
-    const User & user = data.users[user_id];
-
     boost::shared_ptr<Candidate_Data> data_ptr(new Candidate_Data());
     Candidate_Data & candidate_data = *data_ptr;
 
@@ -228,7 +216,7 @@ candidates(const Data & data, int user_id) const
         Ranked & source_entries = source_ranked[i];
 
         source_entries
-            = sources[i]->gen_candidates(data, user_id, candidate_data);
+            = sources[i]->gen_candidates(user_id, data, candidate_data);
 
         num_kept[i] = source_entries.size();
 
@@ -259,7 +247,7 @@ candidates(const Data & data, int user_id) const
             }
 
             candidate_data.info[source_entries[j].repo_id][i]
-                = source_entries;
+                = source_entries[j];
         }
     }
 
@@ -277,7 +265,7 @@ candidates(const Data & data, int user_id) const
         float total_score = 0.0, min_score = 2.0, max_score = -1.0;
 
         // Go for each source
-        for (unsigned j = 0;  j < source_entries.size();  ++j) {
+        for (unsigned j = 0;  j < sources.size();  ++j) {
             if (!info_entry.count(j)) {
                 features.push_back(1000);   // rank
                 features.push_back(-1.0);   // score
@@ -321,48 +309,6 @@ candidates(const Data & data, int user_id) const
 /*****************************************************************************/
 /* RANKER                                                                    */
 /*****************************************************************************/
-
-struct Compare_Ranked_Entries {
-    bool operator () (const Ranked_Entry & e1,
-                      const Ranked_Entry & e2)
-    {
-        return less_all(e2.score, e1.score,
-                        e2.repo_id, e1.repo_id);
-    }
-};
-
-void Ranked::sort()
-{
-    std::sort(begin(), end(), Compare_Ranked_Entries());
-
-    // Put in the rank
-    float last_score = INFINITY;
-    int start_with_score = -1;
-
-    for (unsigned i = 0;  i < size();  ++i) {
-        Ranked_Entry & entry = operator [] (i);
-        
-        if (entry.score == last_score) {
-            // same score
-            entry.min_rank = start_with_score;
-        }
-        else {
-            assert(entry.score < last_score);
-            // Fill in max rank
-            for (int j = start_with_score;  j < i && j > 0;  ++j)
-                operator [] (j).max_rank = i;
-
-            // Start of a range of scores
-            last_score = entry.score;
-            start_with_score = i;
-            entry.min_rank = start_with_score;
-        }
-    }
-
-    // Fill in max rank for those at the end
-    for (int j = start_with_score;  j < size() && j > 0;  ++j)
-        operator [] (j).max_rank = size();
-}
 
 Ranker::~Ranker()
 {
@@ -496,7 +442,7 @@ feature_space() const
 std::vector<ML::distribution<float> >
 Ranker::
 features(int user_id,
-         const std::vector<Candidate> & candidates,
+         const Ranked & candidates,
          const Candidate_Data & candidate_data,
          const Data & data) const
 {
@@ -778,14 +724,17 @@ features(int user_id,
 Ranked
 Ranker::
 rank(int user_id,
-     const std::vector<Candidate> & candidates,
+     const Ranked & candidates,
      const Candidate_Data & candidate_data,
      const Data & data) const
 {
-    Ranked result;
+    Ranked result = candidates;
 
+    return result;
+
+#if 0 // old heuristic score
     for (unsigned i = 0;  i < candidates.size();  ++i) {
-        const Candidate & c = candidates[i];
+        const Ranked_Entry & c = candidates[i];
 
         int repo_id = c.repo_id;
         const Repo & repo = data.repos[repo_id];
@@ -811,6 +760,7 @@ rank(int user_id,
 
         result.push_back(entry);
     }
+#endif
 
     return result;
 }
@@ -881,7 +831,7 @@ feature_space() const
 std::vector<ML::distribution<float> >
 Classifier_Ranker::
 features(int user_id,
-         const std::vector<Candidate> & candidates,
+         const Ranked & candidates,
          const Candidate_Data & candidate_data,
          const Data & data) const
 {
@@ -891,7 +841,7 @@ features(int user_id,
 Ranked
 Classifier_Ranker::
 classify(int user_id,
-         const std::vector<Candidate> & candidates,
+         const Ranked & candidates,
          const Candidate_Data & candidate_data,
          const Data & data,
          const std::vector<ML::distribution<float> > & features) const
@@ -899,7 +849,7 @@ classify(int user_id,
     Ranked result;
 
     for (unsigned i = 0;  i < candidates.size();  ++i) {
-        const Candidate & c = candidates[i];
+        const Ranked_Entry & c = candidates[i];
         int repo_id = c.repo_id;
 
         boost::shared_ptr<Mutable_Feature_Set> encoded
@@ -933,7 +883,7 @@ classify(int user_id,
 Ranked
 Classifier_Ranker::
 rank(int user_id,
-     const std::vector<Candidate> & candidates,
+     const Ranked & candidates,
      const Candidate_Data & candidate_data,
      const Data & data) const
 {
@@ -995,7 +945,7 @@ feature_space() const
 std::vector<ML::distribution<float> >
 Classifier_Reranker::
 features(int user_id,
-         const std::vector<Candidate> & candidates,
+         const Ranked & candidates,
          const Candidate_Data & candidate_data,
          const Data & data) const
 {
@@ -1038,7 +988,7 @@ features(int user_id,
 Ranked
 Classifier_Reranker::
 rank(int user_id,
-     const std::vector<Candidate> & candidates,
+     const Ranked & candidates,
      const Candidate_Data & candidate_data,
      const Data & data) const
 {
@@ -1052,7 +1002,7 @@ rank(int user_id,
 Ranked
 Classifier_Reranker::
 classify(int user_id,
-         const std::vector<Candidate> & candidates,
+         const Ranked & candidates,
          const Candidate_Data & candidate_data,
          const Data & data,
          const std::vector<ML::distribution<float> > & features) const
@@ -1062,7 +1012,7 @@ classify(int user_id,
     hash_map<int, vector<pair<int, float> > > rank_per_author;
 
     for (unsigned i = 0;  i < candidates.size();  ++i) {
-        const Candidate & c = candidates[i];
+        const Ranked_Entry & c = candidates[i];
         int repo_id = c.repo_id;
 
         float score = features[i][features[i].size() - 3];
@@ -1077,7 +1027,7 @@ classify(int user_id,
         sort_on_second_descending(it->second);
 
     for (unsigned i = 0;  i < candidates.size();  ++i) {
-        const Candidate & c = candidates[i];
+        const Ranked_Entry & c = candidates[i];
         int repo_id = c.repo_id;
 
         float score;
