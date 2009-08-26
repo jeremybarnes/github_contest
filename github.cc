@@ -292,7 +292,7 @@ int main(int argc, char ** argv)
         correct_repo = answers_tested.back();
         watching = &user.watching;
 
-        vector<Candidate> candidates;
+        Ranked candidates;
         boost::shared_ptr<Candidate_Data> candidate_data;
         boost::tie(candidates, candidate_data)
             = generator->candidates(data, user_id);

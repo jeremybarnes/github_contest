@@ -8,12 +8,31 @@
 #include "keywords.h"
 #include "utils/vector_utils.h"
 #include "utils/hash_map.h"
+#include "utils/hash_set.h"
 #include <boost/tuple/tuple.hpp>
+#include "utils/parse_context.h"
 
 #include "svdlibc/svdlib.h"
 
 using namespace std;
 using namespace ML;
+
+const std::hash_set<std::string> & get_stopwords()
+{
+    static std::hash_set<std::string> results;
+
+    if (results.empty()) {
+        Parse_Context context("stop_words.txt");
+
+        while (context) {
+            string word = context.expect_text('\n');
+            results.insert(word);
+            context.expect_eol();
+        }
+    }
+
+    return results;
+}
 
 std::vector<std::string> uncamelcase(const std::string & str)
 {
@@ -88,6 +107,8 @@ void analyze_keywords(Data & data)
 
     int num_valid_repos = 0;
 
+    const std::hash_set<std::string> & stopwords = get_stopwords();
+
     for (unsigned i = 0;  i < data.repos.size();  ++i) {
         if (data.repos[i].invalid()) continue;
         ++num_valid_repos;
@@ -107,6 +128,9 @@ void analyze_keywords(Data & data)
 
         for (unsigned j = 0;  j < tokens.size();  ++j) {
             string token = tokens[j];
+
+            // filter stopwords
+            if (stopwords.count(token)) continue;
 
             // Insert or find vocabulary entry
             hash_map<string, int>::iterator it;

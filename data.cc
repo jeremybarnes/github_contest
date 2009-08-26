@@ -968,8 +968,10 @@ calc_author_stats()
     // characteristics of the provided GitHub dataset to infer a
     // correspondence between users and authors.
 
-    for (unsigned i = 0;  i < authors.size();  ++i)
+    for (unsigned i = 0;  i < authors.size();  ++i) {
         authors[i].num_watchers = 0;
+        authors[i].possible_users.clear();
+    }
     
     for (unsigned i = 0;  i < repos.size();  ++i) {
         if (repos[i].invalid()) continue;
@@ -1009,8 +1011,10 @@ calc_author_stats()
         for (hash_map<int, int>::const_iterator
                  it = inferred_authors.begin(),
                  end = inferred_authors.end();
-             it != end;  ++it)
+             it != end;  ++it) {
             user.inferred_authors.insert(it->first);
+            authors[it->first].possible_users.insert(i);
+        }
     }
 
     for (Repo_Name_To_Repos::iterator

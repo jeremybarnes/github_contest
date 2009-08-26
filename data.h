@@ -284,6 +284,8 @@ struct Author {
     std::set<int> repositories;
     size_t num_watchers;
 
+    IdSet possible_users;
+
     boost::gregorian::date date;
     int num_followers;
     int num_following;

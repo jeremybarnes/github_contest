@@ -33,15 +33,32 @@ Candidate_Generator::
 
 void
 Candidate_Generator::
-configure(const ML::Configuration & config,
+configure(const ML::Configuration & config_,
           const std::string & name)
 {
+    Configuration config(config_, name, Configuration::PREFIX_APPEND);
+
+    string sources;
+    config.require(sources, "sources");
+
+    vector<string> source_names = split(sources, ',');
+
+    sources.clear();
+
+    for (unsigned i = 0;  i < source_names.size();  ++i) {
+        boost::shared_ptr<Candidate_Source> source
+            = get_candidate_source(config, name);
+        sources.push_back(source);
+    }
 }
 
 void
 Candidate_Generator::
 init()
 {
+
+    for (unsigned i = 0;  i < sources.size();  ++i)
+        sources[i]->init();
 }
 
 boost::shared_ptr<const ML::Dense_Feature_Space>
@@ -51,6 +68,17 @@ feature_space() const
     boost::shared_ptr<ML::Dense_Feature_Space> result;
     result.reset(new ML::Dense_Feature_Space());
 
+    boost::shared_ptr<ML::Dense_Feature_Space> common_feature_space
+        = Candidate_Source::common_feature_space();
+    result->add(*common_feature_space);
+
+    for (unsigned i = 0;  i < sources.size();  ++i)
+        result->add(*sources[i]->ranker_feature_space());
+    
+    return result;
+}  
+
+#if 0
     // repo id?
     result->add_feature("parent_of_watched", Feature_Info::BOOLEAN);
     result->add_feature("by_author_of_watched_repo", Feature_Info::BOOLEAN);
@@ -64,9 +92,8 @@ feature_space() const
     result->add_feature("in_cluster_repo", Feature_Info::REAL);
     // also watched min repos
     // also watched average repos
+#endif
 
-    return result;
-}
 
 std::vector<ML::distribution<float> >
 Candidate_Generator::
@@ -188,269 +215,106 @@ candidates(const Data & data, int user_id) const
 {
     const User & user = data.users[user_id];
 
-    vector<Candidate> candidates;
     boost::shared_ptr<Candidate_Data> data_ptr(new Candidate_Data());
     Candidate_Data & candidate_data = *data_ptr;
 
     IdSet possible_choices;
     
-    /* Like everyone else, see which parents and ancestors weren't
-       watched */
-    IdSet & parents_of_watched = candidate_data.parents_of_watched;
-    IdSet & ancestors_of_watched = candidate_data.ancestors_of_watched;
-    IdSet authors_of_watched_repos;
-    IdSet & repos_with_same_name
-        = candidate_data.repos_with_same_name;
-    hash_map<int, int> also_watched_by_people_who_watched;
-    IdSet & children_of_watched_repos
-        = candidate_data.children_of_watched_repos;
+    vector<Ranked> source_ranked(sources.size());
+    vector<int> num_kept(sources.size());
     
-    for (IdSet::const_iterator
-             it = user.watching.begin(),
-             end = user.watching.end();
-         it != end;  ++it) {
-        int watched_id = *it;
-        const Repo & watched = data.repos[watched_id];
-    
-        children_of_watched_repos.insert(watched.children.begin(),
-                                         watched.children.end());
-    
-        if (watched.author != -1)
-            authors_of_watched_repos.insert(watched.author);
-        
-        if (watched.parent != -1) {
-        
-            parents_of_watched.insert(watched.parent);
-            ancestors_of_watched.insert(watched.ancestors.begin(),
-                                        watched.ancestors.end());
-        }
-        
-        // Find repos with the same name
-        const vector<int> & with_same_name
-            = data.name_to_repos(watched.name);
-        for (unsigned j = 0;  j < with_same_name.size();  ++j)
-            if (with_same_name[j] != watched_id)
-                repos_with_same_name.insert(with_same_name[j]);
+    // First, generate a set of those that we want to keep
+    for (unsigned i = 0;  i < sources.size();  ++i) {
+        Ranked & source_entries = source_ranked[i];
+
+        source_entries
+            = sources[i]->gen_candidates(data, user_id, candidate_data);
+
+        num_kept[i] = source_entries.size();
+
+        IdSet to_keep;
+        for (unsigned j = 0;  j < source_entries.size();  ++j)
+            if (source_entries[j].keep)
+                to_keep.insert(source_entries[j].repo_id);
+
+        insert_choices(possible_choices, to_keep, sources[i]->name());
     }
 
-    // Find repos watched by other users in the same cluster
-    hash_map<int, int> watched_by_cluster_user;
-    IdSet & in_cluster_user = candidate_data.in_cluster_user;
+    Ranked result;
+    map<int, int> repo_to_result;
 
-    int clusterno = user.kmeans_cluster;
-    if (clusterno != -1) {
-        const Cluster & cluster = data.user_clusters[clusterno];
-        for (unsigned i = 0;  i < cluster.members.size();  ++i) {
-            int user_id = cluster.members[i];
-            const User & user = data.users[user_id];
-            
-            if (user.invalid()) continue;
+    // Add to the data all of the information that we need to keep about them,
+    for (unsigned i = 0;  i < sources.size();  ++i) {
+        const Ranked & source_entries = source_ranked[i];
 
-            for (IdSet::const_iterator
-                     it = user.watching.begin(),
-                     end = user.watching.end();
-                 it != end;  ++it) {
-                watched_by_cluster_user[*it] += 1;
+        for (unsigned j = 0;  j < source_entries.size();  ++j) {
+            int repo_id = source_entries[j].repo_id;
+
+            if (!possible_choices.count(repo_id)) continue;
+
+            if (!repo_to_result.count(repo_id)) {
+                repo_to_result[repo_id] = result.size();
+                result.push_back(Ranked_Entry());
+                result.back().repo_id = repo_id;
             }
+
+            candidate_data.info[source_entries[j].repo_id][i]
+                = source_entries;
         }
-
-        vector<pair<int, int> > ranked;
-
-        for (hash_map<int, int>::const_iterator
-                 it = watched_by_cluster_user.begin(),
-                 end = watched_by_cluster_user.end();
-             it != end;  ++it) {
-            if (it->second > 1)
-                ranked.push_back(*it);
-        }
-
-        sort_on_second_descending(ranked);
-        
-        for (unsigned i = 0;  i < 200 && i < ranked.size();  ++i)
-            in_cluster_user.insert(ranked[i].first);
     }
 
-    IdSet & in_cluster_repo = candidate_data.in_cluster_repo;
+    // Finally, go through and calculate the features
+    for (unsigned i = 0;  i < result.size();  ++i) {
+        Ranked_Entry & entry = result[i];
+        int repo_id = entry.repo_id;
 
-    for (IdSet::const_iterator
-             it = user.watching.begin(),
-             end = user.watching.end();
-         it != end;  ++it) {
-        int repo_id = *it;
-        const Repo & repo = data.repos[repo_id];
-        int cluster_id = repo.kmeans_cluster;
+        distribution<float> & features = entry.features;
 
-        if (cluster_id == -1) continue;
+        map<int, Ranked_Entry> & info_entry
+            = candidate_data.info[repo_id];
 
-        IdSet repo_ids;
+        int total_rank = 0, min_rank = 10000, max_rank = 0, num_in = 0;
+        float total_score = 0.0, min_score = 2.0, max_score = -1.0;
 
-        const Cluster & cluster = data.repo_clusters[cluster_id];
-        for (unsigned i = 0;  i < cluster.top_members.size() && i < 100;  ++i) {
-            int repo_id = cluster.top_members[i];
-            if (data.repos[repo_id].invalid()) continue;
-            repo_ids.insert(repo_id);
-        }
-
-        // Rank by popularity
-        vector<pair<int, int> > ranked;
-        for (IdSet::const_iterator
-                 it = repo_ids.begin(),
-                 end = repo_ids.end();
-             it != end;  ++it) {
-            ranked.push_back(make_pair(*it, data.repos[*it].repo_prob));
-        }
-
-        sort_on_second_descending(ranked);
-
-        for (unsigned i = 0;  i < 100 && i < ranked.size();  ++i)
-            in_cluster_repo.insert(ranked[i].first);
-    }
-
-    vector<pair<int, int> > ranked2;
-    for (IdSet::const_iterator
-             it = in_cluster_repo.begin(),
-             end = in_cluster_repo.end();
-         it != end;  ++it) {
-        ranked2.push_back(make_pair(*it, data.repos[*it].repo_prob));
-    }
-
-    sort_on_second_descending(ranked2);
-
-    in_cluster_repo.clear();
-
-    for (unsigned i = 0;  i < 200 && i < ranked2.size();  ++i)
-        in_cluster_repo.insert(ranked2[i].first);
-
-    // Find all other repos by authors of watched repos
-    IdSet & repos_by_watched_authors
-        = candidate_data.repos_by_watched_authors;
-    for (IdSet::const_iterator
-             it = authors_of_watched_repos.begin(),
-             end = authors_of_watched_repos.end();
-         it != end;  ++it)
-        repos_by_watched_authors
-            .insert(data.authors[*it].repositories.begin(),
-                    data.authors[*it].repositories.end());
-
-    IdSet & in_id_range = candidate_data.in_id_range;
-
-    // Find which of the repos could match up
-    for (int r = user.min_repo;  r <= user.max_repo;  ++r) {
-        if (r == -1) break;
-        const Repo & repo = data.repos[r];
-        if (repo.invalid()) continue;
-        in_id_range.insert(r);
-    }
-
-    // Find cooccurring with the most specicivity
-
-    IdSet & coocs = candidate_data.coocs;
-
-    {
-        hash_map<int, float> coocs_map;
-        
-        for (IdSet::const_iterator
-                 it = user.watching.begin(),
-                 end = user.watching.end();
-             it != end;  ++it) {
-            int repo_id = *it;
-            const Repo & repo = data.repos[repo_id];
-            
-            const Cooccurrences & cooc = repo.cooc;
-            
-            for (Cooccurrences::const_iterator
-                     jt = cooc.begin(), end = cooc.end();
-                 jt != end;  ++jt) {
-                if (data.repos[jt->with].watchers.size() < 2) continue;
-                coocs_map[jt->with] += jt->score;
+        // Go for each source
+        for (unsigned j = 0;  j < source_entries.size();  ++j) {
+            if (!info_entry.count(j)) {
+                features.push_back(1000);   // rank
+                features.push_back(-1.0);   // score
+                total_rank += num_kept[j] + 1;
+                continue;
             }
+
+            Ranked_Entry & source_entry = info_entry[j];
+            ++num_in;
+            total_rank += source_entry.min_rank;
+            min_rank = std::min(min_rank, source_entry.min_rank);
+            max_rank = std::max(max_rank, source_entry.min_rank);
+            total_score += source_entry.score;
+            min_score = std::min(min_score, source_entry.score);
+            max_score = std::max(max_score, source_entry.score);
+
+            features.push_back(source_entry.min_rank);
+            features.push_back(source_entry.score);
         }
 
-        vector<pair<int, float> > coocs_sorted(coocs_map.begin(), coocs_map.end());
-        
-        sort_on_second_descending(coocs_sorted);
+        features.push_back(total_rank);
+        features.push_back(min_rank);
+        features.push_back(max_rank);
+        features.push_back(num_in);
+        features.push_back(1.0 * total_rank / num_in);
+        features.push_back(total_score);
+        features.push_back(min_score);
+        features.push_back(max_score);
+        features.push_back(1.0 * total_score / num_in);
 
-        for (unsigned i = 0;  i < 100 && i < coocs_sorted.size();  ++i)
-            coocs.insert(coocs_sorted[i].first);
+        entry.score = total_score;
     }
 
-    {
-        hash_map<int, float> coocs_map;
-        
-        for (IdSet::const_iterator
-                 it = user.watching.begin(),
-                 end = user.watching.end();
-             it != end;  ++it) {
-            int repo_id = *it;
-            const Repo & repo = data.repos[repo_id];
-            
-            const Cooccurrences & cooc = repo.cooc2;
-            
-            for (Cooccurrences::const_iterator
-                     jt = cooc.begin(), end = cooc.end();
-                 jt != end;  ++jt) {
-                if (data.repos[jt->with].watchers.size() < 2) continue;
-                coocs_map[jt->with] += jt->score;
-            }
-        }
+    // Sort them so that they're in a reasonable order
+    result.sort();
 
-        vector<pair<int, float> > coocs_sorted(coocs_map.begin(), coocs_map.end());
-        
-        sort_on_second_descending(coocs_sorted);
-
-        for (unsigned i = 0;  i < 100 && i < coocs_sorted.size();  ++i)
-            coocs.insert(coocs_sorted[i].first);
-    }
-
-    set<int> top_twenty
-        = data.get_most_popular_repos(20);
-
-    insert_choices(possible_choices, parents_of_watched,
-                   "parents_of_watched");
-    insert_choices(possible_choices, ancestors_of_watched,
-                   "ancestors_of_watched");
-    insert_choices(possible_choices, repos_by_watched_authors,
-                   "repos_by_watched_authors");
-    insert_choices(possible_choices, repos_with_same_name,
-                   "repos_with_same_name");
-    insert_choices(possible_choices, children_of_watched_repos,
-                   "children_of_watched_repos");
-    insert_choices(possible_choices, in_cluster_user,
-                   "in_cluster_user");
-    insert_choices(possible_choices, in_cluster_repo,
-                   "in_cluster_repo");
-    insert_choices(possible_choices, in_id_range,
-                   "in_id_range");
-    insert_choices(possible_choices, coocs,
-                   "coocs");
-    insert_choices(possible_choices, top_twenty,
-                   "top_twenty");
-
-    candidates.reserve(possible_choices.size());
-
-    for (IdSet::const_iterator
-             it = possible_choices.begin(),
-             end = possible_choices.end();
-         it != end;  ++it) {
-
-        int repo_id = *it;
-        Candidate c(repo_id);
-
-        c.parent_of_watched = parents_of_watched.count(repo_id);
-        c.by_author_of_watched_repo = repos_by_watched_authors.count(repo_id);
-        c.ancestor_of_watched = ancestors_of_watched.count(repo_id);
-        c.same_name = repos_with_same_name.count(repo_id);
-        c.child_of_watched = children_of_watched_repos.count(repo_id);
-        c.watched_by_cluster_user = watched_by_cluster_user[repo_id];
-        c.in_cluster_repo = in_cluster_repo.count(repo_id);
-        c.in_id_range = in_id_range.count(repo_id);
-  
-        c.top_ten = data.repos[repo_id].popularity_rank < 10;
-
-        candidates.push_back(c);
-    }
-
-    return make_pair(candidates, data_ptr);
+    return make_pair(result, data_ptr);
 }
 
 

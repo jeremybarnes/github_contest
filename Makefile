@@ -36,7 +36,8 @@ LIBGITHUB_SOURCES := \
 	data.cc \
 	ranker.cc \
 	decompose.cc \
-	keywords.cc
+	keywords.cc \
+	candidate_source.cc
 
 LIBGITHUB_LINK := \
 	utils ACE boost_date_time-mt db arch boosting svdlibc

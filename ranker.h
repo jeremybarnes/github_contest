@@ -10,63 +10,20 @@
 #define __github__ranker_h__
 
 #include "data.h"
+#include "candidate_source.h"
 #include "utils/configuration.h"
 
 #include "boosting/dense_features.h"
 #include "boosting/classifier.h"
 
-// Records a candidate for ranking
-struct Candidate {
-
-    Candidate(int repo_id = -1)
-        : repo_id(repo_id),
-          parent_of_watched(false),
-          by_author_of_watched_repo(false),
-          ancestor_of_watched(false),
-          same_name(false),
-          top_ten(false),
-          child_of_watched(false),
-          watched_by_cluster_user(0),
-          in_cluster_repo(0),
-          in_id_range(0)
-    {
-    }
-
-    int repo_id;
-
-    // Where does this come from?
-    bool parent_of_watched;
-    bool by_author_of_watched_repo;
-    bool ancestor_of_watched;
-    bool same_name;
-    bool top_ten;
-    bool child_of_watched;
-    int  watched_by_cluster_user;
-    bool in_cluster_repo; 
-    bool in_id_range;
-};
-
-struct Candidate_Data {
-
-    IdSet parents_of_watched;
-    IdSet ancestors_of_watched;
-    IdSet repos_by_watched_authors;
-    IdSet repos_with_same_name;
-    IdSet children_of_watched;
-    IdSet children_of_watched_repos;
-    IdSet in_cluster_user;
-    IdSet in_cluster_repo;
-    IdSet in_id_range;
-    IdSet coocs;
-
-    virtual ~Candidate_Data()
-    {
-    }
-};
-
 // Global variables for statistics
 extern int correct_repo;
 extern const IdSet * watching;
+
+
+/*****************************************************************************/
+/* CANDIDATE_GENERATOR                                                       */
+/*****************************************************************************/
 
 // Base class for a candidate generator
 struct Candidate_Generator {
@@ -83,34 +40,21 @@ struct Candidate_Generator {
 
     virtual std::vector<ML::distribution<float> >
     features(int user_id,
-             const std::vector<Candidate> & candidates,
+             const Ranked & candidates,
              const Candidate_Data & candidate_data,
              const Data & data) const;
 
     /// Generates a set of candidates to be ranked for the given user
-    virtual std::pair<std::vector<Candidate>,
-                      boost::shared_ptr<Candidate_Data> >
+    virtual std::pair<Ranked, boost::shared_ptr<Candidate_Data> >
     candidates(const Data & data, int user_id) const;
+
+    std::vector<boost::shared_ptr<Candidate_Source> > sources;
 };
 
-struct Ranked_Entry {
-    Ranked_Entry()
-        : index(-1), repo_id(-1), score(0.0), min_rank(-1), max_rank(-1),
-          filtered(false)
-    {
-    }
 
-    int index;
-    int repo_id;
-    float score;
-    int min_rank;
-    int max_rank;
-    bool filtered;
-};
-
-struct Ranked : std::vector<Ranked_Entry> {
-    void sort();
-};
+/*****************************************************************************/
+/* RANKER                                                                    */
+/*****************************************************************************/
 
 /// Base class for a candidate ranker
 struct Ranker {
@@ -128,13 +72,13 @@ struct Ranker {
 
     virtual std::vector<ML::distribution<float> >
     features(int user_id,
-             const std::vector<Candidate> & candidates,
+             const Ranked & candidates,
              const Candidate_Data & candidate_data,
              const Data & data) const;
 
     virtual Ranked
     rank(int user_id,
-         const std::vector<Candidate> & candidates,
+         const Ranked & candidates,
          const Candidate_Data & candidate_data,
          const Data & data) const;
 
@@ -155,20 +99,20 @@ struct Classifier_Ranker : public Ranker {
 
     virtual std::vector<ML::distribution<float> >
     features(int user_id,
-             const std::vector<Candidate> & candidates,
+             const Ranked & candidates,
              const Candidate_Data & candidate_data,
              const Data & data) const;
 
     virtual Ranked
     classify(int user_id,
-             const std::vector<Candidate> & candidates,
+             const Ranked & candidates,
              const Candidate_Data & candidate_data,
              const Data & data,
              const std::vector<ML::distribution<float> > & features) const;
     
     virtual Ranked
     rank(int user_id,
-         const std::vector<Candidate> & candidates,
+         const Ranked & candidates,
          const Candidate_Data & candidate_data,
          const Data & data) const;
 
@@ -195,19 +139,19 @@ struct Classifier_Reranker : public Classifier_Ranker {
 
     virtual std::vector<ML::distribution<float> >
     features(int user_id,
-             const std::vector<Candidate> & candidates,
+             const Ranked & candidates,
              const Candidate_Data & candidate_data,
              const Data & data) const;
 
     virtual Ranked
     rank(int user_id,
-         const std::vector<Candidate> & candidates,
+         const Ranked & candidates,
          const Candidate_Data & candidate_data,
          const Data & data) const;
 
     virtual Ranked
     classify(int user_id,
-             const std::vector<Candidate> & candidates,
+             const Ranked & candidates,
              const Candidate_Data & candidate_data,
              const Data & data,
              const std::vector<ML::distribution<float> > & features) const;
@@ -216,6 +160,10 @@ struct Classifier_Reranker : public Classifier_Ranker {
 };
 
 // Factory methods
+
+boost::shared_ptr<Candidate_Source>
+get_candidate_source(const ML::Configuration & config,
+                     const std::string & name);
 
 boost::shared_ptr<Candidate_Generator>
 get_candidate_generator(const ML::Configuration & config,
