@@ -318,8 +318,8 @@ int main(int argc, char ** argv)
 
             Candidate_Data candidate_data;
 
-            Ranked candidates
-                = source->candidate_set(user_id, data, candidate_data);
+            Ranked candidates;
+            source->candidate_set(candidates, user_id, data, candidate_data);
 
             if (candidates.empty()) continue;
 
@@ -399,9 +399,9 @@ int main(int argc, char ** argv)
                     << (repo_id == correct_repo_id) << " ";
 
                 // Get the common features
-                distribution<float> features
-                    = Candidate_Source::common_features(user_id, repo_id, data,
-                                                        candidate_data);
+                distribution<float> features;
+                Candidate_Source::common_features(features, user_id, repo_id,
+                                                  data, candidate_data);
                 
                 features.insert(features.end(),
                                 candidate.features.begin(),
@@ -425,19 +425,17 @@ int main(int argc, char ** argv)
         
         // Not doing source training
         Ranked candidates;
-        boost::shared_ptr<Candidate_Data> candidate_data;
-        boost::tie(candidates, candidate_data)
-            = generator->candidates(data, user_id);
+        Candidate_Data candidate_data;
+        generator->candidates(candidates, candidate_data, data, user_id);
 
         set<int> possible_choices;
         for (unsigned j = 0;  j < candidates.size();  ++j)
             possible_choices.insert(candidates[j].repo_id);
 
-        Ranked ranked;
         if (!dump_merger_data || train_discriminative) {
-            ranked = ranker->rank(user_id, candidates, *candidate_data,
-                                  data);
-            ranked.sort();
+            ranker->rank(candidates, user_id, candidate_data,
+                         data);
+            candidates.sort();
         }
 
         // A for loop with one iteration so we can use break
@@ -465,8 +463,8 @@ int main(int argc, char ** argv)
             
             if (train_discriminative) {
                 // Find the highest 10 incorrect examples from the ranked set
-                for (unsigned i = 0;  i < ranked.size() && incorrect.size() < 10;  ++i) {
-                    int repo_id = ranked[i].repo_id;
+                for (unsigned i = 0;  i < candidates.size() && incorrect.size() < 10;  ++i) {
+                    int repo_id = candidates[i].repo_id;
                     bool correct = (user.watching.count(repo_id)
                                     || repo_id == correct_repo_id);
                     if (correct) continue;
@@ -514,9 +512,9 @@ int main(int argc, char ** argv)
             correct.insert(correct_repo_id);
             
             // Generate features
-            vector<distribution<float> > features
-                = ranker->features(user_id, candidates, *candidate_data,
-                                   data);
+            vector<distribution<float> > features;
+            ranker->features(features, user_id, candidates, candidate_data,
+                             data);
             
             // Go through and dump those selected
             for (unsigned j = 0;  j < candidates.size();  ++j) {
@@ -577,8 +575,8 @@ int main(int argc, char ** argv)
             
             if (train_discriminative) {
                 // Find the highest 10 incorrect examples from the ranked set
-                for (unsigned i = 0;  i < ranked.size() && incorrect.size() < 10;  ++i) {
-                    int repo_id = ranked[i].repo_id;
+                for (unsigned i = 0;  i < candidates.size() && incorrect.size() < 10;  ++i) {
+                    int repo_id = candidates[i].repo_id;
                     bool correct = (user.watching.count(repo_id)
                                     || repo_id == correct_repo_id);
                     if (correct) continue;
@@ -626,9 +624,9 @@ int main(int argc, char ** argv)
             correct.insert(correct_repo_id);
             
             // Generate features
-            vector<distribution<float> > features
-                = ranker->features(user_id, candidates, *candidate_data,
-                                   data);
+            vector<distribution<float> > features;
+            ranker->features(features, user_id, candidates, candidate_data,
+                             data);
             
             // Go through and dump those selected
             for (unsigned j = 0;  j < candidates.size();  ++j) {
@@ -694,8 +692,8 @@ int main(int argc, char ** argv)
 
             out << " rank    score   c  prank repoid watch name" << endl;
 
-            for (unsigned j = 0;  j < ranked.size();  ++j) {
-                int repo_id = ranked[j].repo_id;
+            for (unsigned j = 0;  j < candidates.size();  ++j) {
+                int repo_id = candidates[j].repo_id;
 
                 bool correct = (correct_repo_id == repo_id
                                 || user.watching.count(repo_id));
@@ -707,7 +705,7 @@ int main(int argc, char ** argv)
                 
                 ++num_done;
 
-                out << format("%5d %8.6f %c %d %6d %6d %5d ", j, ranked[j].score,
+                out << format("%5d %8.6f %c %d %6d %6d %5d ", j, candidates[j].score,
                               (correct_repo_id == repo_id ? '*' : ' '),
                               correct,
                               data.repos[repo_id].popularity_rank,
@@ -738,20 +736,20 @@ int main(int argc, char ** argv)
 
         int dumped = 0;
 
-        for (unsigned j = 0;  j < ranked.size(); ++j) {
-            int repo_id = ranked[j].repo_id;
+        for (unsigned j = 0;  j < candidates.size(); ++j) {
+            int repo_id = candidates[j].repo_id;
 
             if (user.watching.count(repo_id)) continue;  // already watched
             if (user_results.size() < 10)
                 user_results.insert(repo_id);
-            if (ranked[j].score > 0.0)
+            if (candidates[j].score > 0.0)
                 nz.insert(repo_id);
 
             if (dump_results && dumped < 100) {
                 if (dumped != 0)
                     out << ",";
                 ++dumped;
-                out << "{" << repo_id << "," << format("%.4f", ranked[j].score) << "}";
+                out << "{" << repo_id << "," << format("%.4f", candidates[j].score) << "}";
             }
         }
         if (dump_results) out << endl;

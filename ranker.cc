@@ -97,23 +97,22 @@ feature_space() const
 #endif
 
 
-std::vector<ML::distribution<float> >
+void
 Candidate_Generator::
-features(int user_id,
+features(std::vector<ML::distribution<float> > & results,
+         int user_id,
          const Ranked & candidates,
          const Candidate_Data & candidate_data,
          const Data & data) const
 {
+    results.resize(candidates.size());
     // We just copy them over...
-    vector<distribution<float> > results(candidates.size());
 
     for (unsigned i = 0;  i < candidates.size();  ++i) {
         const Ranked_Entry & candidate = candidates[i];
         distribution<float> & result = results[i];
         result = candidate.features;
     }
-
-    return results;
 }
 
 namespace {
@@ -198,25 +197,24 @@ insert_choices(IdSet & possible_choices, const Set & s,
     st.max_size = std::max(st.max_size, filtered_choices.size());
 }
 
-std::pair<Ranked,
-          boost::shared_ptr<Candidate_Data> >
+void
 Candidate_Generator::
-candidates(const Data & data, int user_id) const
+candidates(Ranked & candidates, Candidate_Data & candidate_data,
+           const Data & data, int user_id) const
 {
-    boost::shared_ptr<Candidate_Data> data_ptr(new Candidate_Data());
-    Candidate_Data & candidate_data = *data_ptr;
-
     IdSet possible_choices;
     
     vector<Ranked> source_ranked(sources.size());
     vector<int> num_kept(sources.size());
     
+    candidates.clear();
+
     // First, generate a set of those that we want to keep
     for (unsigned i = 0;  i < sources.size();  ++i) {
         Ranked & source_entries = source_ranked[i];
 
-        source_entries
-            = sources[i]->gen_candidates(user_id, data, candidate_data);
+        sources[i]->gen_candidates(source_entries, user_id, data,
+                                   candidate_data);
 
         num_kept[i] = source_entries.size();
 
@@ -228,7 +226,6 @@ candidates(const Data & data, int user_id) const
         insert_choices(possible_choices, to_keep, sources[i]->name());
     }
 
-    Ranked result;
     map<int, int> repo_to_result;
 
     // Add to the data all of the information that we need to keep about them,
@@ -241,9 +238,9 @@ candidates(const Data & data, int user_id) const
             if (!possible_choices.count(repo_id)) continue;
 
             if (!repo_to_result.count(repo_id)) {
-                repo_to_result[repo_id] = result.size();
-                result.push_back(Ranked_Entry());
-                result.back().repo_id = repo_id;
+                repo_to_result[repo_id] = candidates.size();
+                candidates.push_back(Ranked_Entry());
+                candidates.back().repo_id = repo_id;
             }
 
             candidate_data.info[source_entries[j].repo_id][i]
@@ -252,8 +249,8 @@ candidates(const Data & data, int user_id) const
     }
 
     // Finally, go through and calculate the features
-    for (unsigned i = 0;  i < result.size();  ++i) {
-        Ranked_Entry & entry = result[i];
+    for (unsigned i = 0;  i < candidates.size();  ++i) {
+        Ranked_Entry & entry = candidates[i];
         int repo_id = entry.repo_id;
 
         distribution<float> & features = entry.features;
@@ -300,9 +297,7 @@ candidates(const Data & data, int user_id) const
     }
 
     // Sort them so that they're in a reasonable order
-    result.sort();
-
-    return make_pair(result, data_ptr);
+    candidates.sort();
 }
 
 
@@ -439,19 +434,18 @@ feature_space() const
     return result;
 }
 
-std::vector<ML::distribution<float> >
+void
 Ranker::
-features(int user_id,
+features(std::vector<ML::distribution<float> > & results,
+         int user_id,
          const Ranked & candidates,
          const Candidate_Data & candidate_data,
          const Data & data) const
 {
-    vector<distribution<float> > results;
+    generator->features(results, user_id, candidates, candidate_data, data);
     
-    results = (*generator).features(user_id, candidates, candidate_data, data);
-    
-    Ranked heuristic
-        = Ranker::rank(user_id, candidates, candidate_data, data);
+    Ranked heuristic = candidates;
+    Ranker::rank(heuristic, user_id, candidate_data, data);
     heuristic.sort();
 
     const User & user = data.users[user_id];
@@ -717,20 +711,17 @@ features(int user_id,
             result.push_back(repo.keywords_idf_2norm);
         }
     }
-
-    return results;
 }
 
-Ranked
+void
 Ranker::
-rank(int user_id,
-     const Ranked & candidates,
+rank(Ranked & candidates,
+     int user_id,
      const Candidate_Data & candidate_data,
      const Data & data) const
 {
-    Ranked result = candidates;
-
-    return result;
+    // Assume that the score is OK
+    return;
 
 #if 0 // old heuristic score
     for (unsigned i = 0;  i < candidates.size();  ++i) {
@@ -761,8 +752,6 @@ rank(int user_id,
         result.push_back(entry);
     }
 #endif
-
-    return result;
 }
 
 
@@ -828,69 +817,51 @@ feature_space() const
     return Ranker::feature_space();
 }
 
-std::vector<ML::distribution<float> >
+void
 Classifier_Ranker::
-features(int user_id,
+features(std::vector<ML::distribution<float> > & features,
+         int user_id,
          const Ranked & candidates,
          const Candidate_Data & candidate_data,
          const Data & data) const
 {
-    return Ranker::features(user_id, candidates, candidate_data, data);
+    Ranker::features(features, user_id, candidates, candidate_data, data);
 }
 
-Ranked
+void
 Classifier_Ranker::
-classify(int user_id,
-         const Ranked & candidates,
+classify(Ranked & candidates,
+         int user_id,
          const Candidate_Data & candidate_data,
          const Data & data,
          const std::vector<ML::distribution<float> > & features) const
 {
-    Ranked result;
-
     for (unsigned i = 0;  i < candidates.size();  ++i) {
-        const Ranked_Entry & c = candidates[i];
-        int repo_id = c.repo_id;
+        Ranked_Entry & entry = candidates[i];
+        int repo_id = entry.repo_id;
 
         boost::shared_ptr<Mutable_Feature_Set> encoded
             = classifier_fs->encode(features[i], *ranker_fs, mapping);
 
-        //cerr << "features = " << features << endl;
-
-        //cerr << "features.size() = " << features.size() << endl;
-        //cerr << "encoded->size() = " << encoded->size() << endl;
-
-        //for (Mutable_Feature_Set::const_iterator it = encoded->begin();
-        //     it != encoded->end();  ++it) {
-        //    cerr << "feature " << it->first << " value "
-        //         << it->second << endl;
-        //}
-
-
         float score = classifier.impl->predict(1, *encoded, opt_info);
 
-        Ranked_Entry entry;
         entry.index = i;
         entry.repo_id = repo_id;
         entry.score = score;
-
-        result.push_back(entry);
     }
-
-    return result;
 }
 
-Ranked
+void
 Classifier_Ranker::
-rank(int user_id,
-     const Ranked & candidates,
+rank(Ranked & candidates,
+     int user_id,
      const Candidate_Data & candidate_data,
      const Data & data) const
 {
-    vector<distribution<float> > features
-        = this->features(user_id, candidates, candidate_data, data);
+    vector<distribution<float> > features;
+    this->features(features, user_id, candidates, candidate_data, data);
 
-    return classify(user_id, candidates, candidate_data, data, features);
+    classify(candidates, user_id, candidate_data, data, features);
 }
 
 
@@ -942,19 +913,19 @@ feature_space() const
     return result;
 }
 
-std::vector<ML::distribution<float> >
+void
 Classifier_Reranker::
-features(int user_id,
+features(std::vector<ML::distribution<float> > & result,
+         int user_id,
          const Ranked & candidates,
          const Candidate_Data & candidate_data,
          const Data & data) const
 {
-    std::vector<ML::distribution<float> > result
-        = phase1.features(user_id, candidates, candidate_data, data);
+    phase1.features(result, user_id, candidates, candidate_data, data);
 
     // First, we rank with the phase 1 classifier
-    Ranked ranked = phase1.classify(user_id, candidates, candidate_data, data,
-                                    result);
+    Ranked ranked = candidates;
+    phase1.classify(ranked, user_id, candidate_data, data, result);
     ranked.sort();
 
 #if 0
@@ -981,39 +952,36 @@ features(int user_id,
         fv.push_back((ranked[i].min_rank + ranked[i].max_rank) * 0.5);
         fv.push_back(fv.back() / ranked.size());
     }
-
-    return result;
 }
 
-Ranked
+void
 Classifier_Reranker::
-rank(int user_id,
-     const Ranked & candidates,
+rank(Ranked & candidates,
+     int user_id,
      const Candidate_Data & candidate_data,
      const Data & data) const
 {
-    if (!load_data || true)
-        return phase1.rank(user_id, candidates, candidate_data, data);
+    if (!load_data || true) {
+        phase1.rank(candidates, user_id, candidate_data, data);
+        return;
+    }
 
-    return Classifier_Ranker::rank(user_id, candidates,
-                                   candidate_data, data);
+    Classifier_Ranker::rank(candidates, user_id, candidate_data, data);
 }
 
-Ranked
+void
 Classifier_Reranker::
-classify(int user_id,
-         const Ranked & candidates,
+classify(Ranked & candidates,
+         int user_id,
          const Candidate_Data & candidate_data,
          const Data & data,
          const std::vector<ML::distribution<float> > & features) const
 {
-    Ranked result;
-
     hash_map<int, vector<pair<int, float> > > rank_per_author;
 
     for (unsigned i = 0;  i < candidates.size();  ++i) {
-        const Ranked_Entry & c = candidates[i];
-        int repo_id = c.repo_id;
+        Ranked_Entry & entry = candidates[i];
+        int repo_id = entry.repo_id;
 
         float score = features[i][features[i].size() - 3];
 
@@ -1027,8 +995,7 @@ classify(int user_id,
         sort_on_second_descending(it->second);
 
     for (unsigned i = 0;  i < candidates.size();  ++i) {
-        const Ranked_Entry & c = candidates[i];
-        int repo_id = c.repo_id;
+        Ranked_Entry & entry = candidates[i];
 
         float score;
 
@@ -1057,16 +1024,8 @@ classify(int user_id,
         if (found) score = features[i][features[i].size() - 3];
         else score = 0.0;
 #endif
-
-        Ranked_Entry entry;
-        entry.index = i;
-        entry.repo_id = repo_id;
         entry.score = score;
-
-        result.push_back(entry);
     }
-
-    return result;
 }
 
 

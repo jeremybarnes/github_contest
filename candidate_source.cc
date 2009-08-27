@@ -7,6 +7,7 @@
 
 #include "candidate_source.h"
 #include "utils/less.h"
+#include "math/xdiv.h"
 
 using namespace std;
 using namespace ML;
@@ -177,19 +178,20 @@ feature_space() const
     return result;
 }
 
-distribution<float>
+void
 Candidate_Source::
-common_features(int user_id, int repo_id, const Data & data,
+common_features(distribution<float> & result,
+                int user_id, int repo_id, const Data & data,
                 Candidate_Data & candidate_data)
 {
     const User & user = data.users[user_id];
     const Repo & repo = data.repos[repo_id];
 
-    distribution<float> result;
+    result.clear();
 
     result.push_back(data.density(user_id, repo_id));
     result.push_back(user_id);
-    result.push_back(user_id * 1.0 / repo_id);
+    result.push_back(xdiv<float>(user_id, repo_id));
 
     result.push_back(user.watching.size());
     result.push_back(repo.watchers.size());
@@ -213,28 +215,26 @@ common_features(int user_id, int repo_id, const Data & data,
         result.push_back(data.repos[repo.parent].children.size());
         result.push_back(data.repos[repo.parent].watchers.size());
     }
-
-    return result;
 }
 
-Ranked
+void
 Candidate_Source::
-gen_candidates(int user_id, const Data & data,
+gen_candidates(Ranked & entries, int user_id, const Data & data,
                Candidate_Data & candidate_data) const
 {
     // Get them, unranked
-    Ranked entries = candidate_set(user_id, data, candidate_data);
+    candidate_set(entries, user_id, data, candidate_data);
 
     // For each, get the features and run the classifier
     for (unsigned i = 0;  i < entries.size();  ++i) {
-        distribution<float> features
-            = common_features(user_id, entries[i].repo_id, data,
-                              candidate_data);
+        distribution<float> features;
+        common_features(features, user_id, entries[i].repo_id, data,
+                        candidate_data);
 
         features.insert(features.end(),
                         entries[i].features.begin(),
                         entries[i].features.end());
-        
+       
         boost::shared_ptr<Mutable_Feature_Set> encoded
             = classifier_fs->encode(features, *our_fs, mapping);
 
@@ -247,8 +247,6 @@ gen_candidates(int user_id, const Data & data,
 
     for (unsigned i = 0;  i < entries.size();  ++i)
         entries[i].keep = i < max_entries && entries[i].score >= min_prob;
-    
-    return entries;
 }
 
 
@@ -262,12 +260,12 @@ struct Ancestors_Of_Watched_Source : public Candidate_Source {
     {
     }
 
-    virtual Ranked candidate_set(int user_id, const Data & data,
-                                 Candidate_Data & candidate_data) const
+    virtual void candidate_set(Ranked & result, int user_id, const Data & data,
+                               Candidate_Data & candidate_data) const
     {
         const User & user = data.users[user_id];
 
-        IdSet result;
+        IdSet ancestors;
 
         for (IdSet::const_iterator
                  it = user.watching.begin(),
@@ -276,11 +274,11 @@ struct Ancestors_Of_Watched_Source : public Candidate_Source {
             int watched_id = *it;
             const Repo & watched = data.repos[watched_id];
             if (watched.parent == -1) continue;
-            result.insert(watched.all_ancestors.begin(),
-                          watched.all_ancestors.end());
+            ancestors.insert(watched.all_ancestors.begin(),
+                             watched.all_ancestors.end());
         }
 
-        return result;
+        result = ancestors;
     }
 };
 
@@ -290,12 +288,12 @@ struct Children_Of_Watched_Source : public Candidate_Source {
     {
     }
 
-    virtual Ranked candidate_set(int user_id, const Data & data,
-                                 Candidate_Data & candidate_data) const
+    virtual void candidate_set(Ranked & result, int user_id, const Data & data,
+                               Candidate_Data & candidate_data) const
     {
         const User & user = data.users[user_id];
 
-        IdSet result;
+        IdSet watched_children;
 
         for (IdSet::const_iterator
                  it = user.watching.begin(),
@@ -304,11 +302,11 @@ struct Children_Of_Watched_Source : public Candidate_Source {
             int watched_id = *it;
             const Repo & watched = data.repos[watched_id];
     
-            result.insert(watched.children.begin(),
-                          watched.children.end());
+            watched_children.insert(watched.children.begin(),
+                                    watched.children.end());
         }
 
-        return result;
+        result = watched_children;
     }
 };
 
@@ -318,15 +316,13 @@ struct Cooc_Source : public Candidate_Source {
     {
     }
 
-    virtual Ranked candidate_set(int user_id, const Data & data,
-                                 Candidate_Data & candidate_data) const
+    virtual void candidate_set(Ranked & result, int user_id, const Data & data,
+                               Candidate_Data & candidate_data) const
     {
         const User & user = data.users[user_id];
-
+        IdSet coocs;
 
         // Find cooccurring with the most specicivity
-
-        IdSet coocs;
 
         {
             hash_map<int, float> coocs_map;
@@ -384,7 +380,7 @@ struct Cooc_Source : public Candidate_Source {
                 coocs.insert(coocs_sorted[i].first);
         }
 
-        return coocs;
+        result = coocs;
     }
 };
  
@@ -394,11 +390,11 @@ struct In_Cluster_Repo_Source : public Candidate_Source {
     {
     }
 
-    virtual Ranked candidate_set(int user_id, const Data & data,
-                                 Candidate_Data & candidate_data) const
+    virtual void candidate_set(Ranked & result,
+                               int user_id, const Data & data,
+                               Candidate_Data & candidate_data) const
     {
         const User & user = data.users[user_id];
-
         IdSet in_cluster_repo;
 
         for (IdSet::const_iterator
@@ -414,7 +410,9 @@ struct In_Cluster_Repo_Source : public Candidate_Source {
             IdSet repo_ids;
 
             const Cluster & cluster = data.repo_clusters[cluster_id];
-            for (unsigned i = 0;  i < cluster.top_members.size() && i < 100;  ++i) {
+            for (unsigned i = 0;
+                 i < cluster.top_members.size() && i < 100;
+                 ++i) {
                 int repo_id = cluster.top_members[i];
                 if (data.repos[repo_id].invalid()) continue;
                 repo_ids.insert(repo_id);
@@ -450,7 +448,7 @@ struct In_Cluster_Repo_Source : public Candidate_Source {
         for (unsigned i = 0;  i < 200 && i < ranked2.size();  ++i)
             in_cluster_repo.insert(ranked2[i].first);
 
-        return in_cluster_repo;
+        result = in_cluster_repo;
     }
 };
 
@@ -460,14 +458,15 @@ struct In_Cluster_User_Source : public Candidate_Source {
     {
     }
 
-    virtual Ranked candidate_set(int user_id, const Data & data,
-                                 Candidate_Data & candidate_data) const
+    virtual void candidate_set(Ranked & result, int user_id,
+                               const Data & data,
+                               Candidate_Data & candidate_data) const
     {
         const User & user = data.users[user_id];
+        IdSet in_cluster_user;
 
         // Find repos watched by other users in the same cluster
         hash_map<int, int> watched_by_cluster_user;
-        IdSet in_cluster_user;
 
         int clusterno = user.kmeans_cluster;
         if (clusterno != -1) {
@@ -502,7 +501,7 @@ struct In_Cluster_User_Source : public Candidate_Source {
                 in_cluster_user.insert(ranked[i].first);
         }
 
-        return in_cluster_user;
+        result = in_cluster_user;
     }
 };
 
@@ -512,8 +511,8 @@ struct In_Id_Range_Source : public Candidate_Source {
     {
     }
 
-    virtual Ranked candidate_set(int user_id, const Data & data,
-                                 Candidate_Data & candidate_data) const
+    virtual void candidate_set(Ranked & result, int user_id, const Data & data,
+                               Candidate_Data & candidate_data) const
     {
         const User & user = data.users[user_id];
 
@@ -527,7 +526,7 @@ struct In_Id_Range_Source : public Candidate_Source {
             in_id_range.insert(r);
         }
 
-        return in_id_range;
+        result = in_id_range;
     }
 };
 
@@ -537,8 +536,8 @@ struct Parents_Of_Watched_Source : public Candidate_Source {
     {
     }
 
-    virtual Ranked candidate_set(int user_id, const Data & data,
-                                 Candidate_Data & candidate_data) const
+    virtual void candidate_set(Ranked & result, int user_id, const Data & data,
+                               Candidate_Data & candidate_data) const
     {
         const User & user = data.users[user_id];
 
@@ -556,7 +555,7 @@ struct Parents_Of_Watched_Source : public Candidate_Source {
             parents_of_watched.insert(watched.parent);
         }
 
-        return parents_of_watched;
+        result = parents_of_watched;
     }
 };
 
@@ -566,8 +565,8 @@ struct By_Watched_Author_Source : public Candidate_Source {
     {
     }
 
-    virtual Ranked candidate_set(int user_id, const Data & data,
-                                 Candidate_Data & candidate_data) const
+    virtual void candidate_set(Ranked & result, int user_id, const Data & data,
+                               Candidate_Data & candidate_data) const
     {
         const User & user = data.users[user_id];
 
@@ -593,7 +592,7 @@ struct By_Watched_Author_Source : public Candidate_Source {
                         data.authors[*it].repositories.end());
         }
 
-        return repos_by_watched_authors;
+        result = repos_by_watched_authors;
     }
 };
 
@@ -604,8 +603,8 @@ struct By_Collaborator_Source : public Candidate_Source {
     {
     }
 
-    virtual Ranked candidate_set(int user_id, const Data & data,
-                                 Candidate_Data & candidate_data) const
+    virtual void candidate_set(Ranked & result, int user_id, const Data & data,
+                               Candidate_Data & candidate_data) const
     {
         // Collaborators are users that watch at least one of our repos whilst
         // we watch at least one of theirs.  Only works where we were able to
@@ -644,8 +643,8 @@ struct Same_Name_Source : public Candidate_Source {
     {
     }
 
-    virtual Ranked candidate_set(int user_id, const Data & data,
-                                 Candidate_Data & candidate_data) const
+    virtual void candidate_set(Ranked & result, int user_id, const Data & data,
+                               Candidate_Data & candidate_data) const
     {
         const User & user = data.users[user_id];
 
@@ -666,7 +665,7 @@ struct Same_Name_Source : public Candidate_Source {
                     repos_with_same_name.insert(with_same_name[j]);
         }
 
-        return repos_with_same_name;
+        result = repos_with_same_name;
     }
 };
 
@@ -676,16 +675,17 @@ struct Most_Watched_Source : public Candidate_Source {
     {
     }
 
-    virtual Ranked candidate_set(int user_id, const Data & data,
-                                 Candidate_Data & candidate_data) const
+    virtual void candidate_set(Ranked & result, int user_id, const Data & data,
+                               Candidate_Data & candidate_data) const
     {
         set<int> top_n
             = data.get_most_popular_repos(max_entries);
 
-        IdSet result;
-        result.insert(top_n.begin(), top_n.end());
+        IdSet result_set;
+        result_set.insert(top_n.begin(), top_n.end());
 
-        return result;
+
+        result = result_set;
     }
 };
 
