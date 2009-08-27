@@ -116,7 +116,7 @@ void Data::load()
             throw Exception("invalid repo number " + ostream_format(repo.id));
         
         repos[repo.id] = repo;
-        repo_name_to_repos[repo.name].push_back(repo.id);
+        repo_name_to_repos[repo.name].insert(repo.id);
 
         full_repo_name_to_index[author_name + "/" + repo.name] = repo.id;
     }
@@ -1230,6 +1230,7 @@ refine_mapping(Data & data, int last_repo, int curr_repo,
     }
 
     cerr << "at end: u = " << u << endl;
+    }
 #endif
 }
 
@@ -1422,6 +1423,77 @@ infer_from_ids()
     
     exit(0);  // for now...
 }
+
+#if 0
+void
+Data::
+find_collaborators()
+{
+    /*
+      
+
+
+     */
+    for (unsigned i = 0;  i < users.size();  ++i) {
+        const User & user = users[i];
+        if (user.invalid()) continue;
+
+        if (user.inferred_authors.empty()) continue;
+
+        // All authors that we watch
+        IdSet watched_authors;
+
+        for (IdSet::const_iterator
+                 it = user.watching.begin(),
+                 end = user.watching.end();
+             it != end;  ++it) {
+            if (repos[*it].author != -1)
+                watched_authors.insert(repos[*it].author);
+        }
+
+        IdSet watching_authors;
+
+        // For each author that we could be
+        for (IdSet::const_iterator
+                 it = user.inferred_authors.begin(),
+                 end = user.inferred_authors.end();
+             it != end;  ++it) {
+
+            // For each repo by this author
+            const IdSet & repos = data.authors[*it].repositories;
+
+            for (IdSet::const_iterator jt = repos.begin(), jend = repos.end();
+                 jt != jend;  ++jt) {
+
+                const Repo & repo = repos[*jt];
+
+                // For each watcher of this repo
+                for (IdSet::const_iterator
+                         kt = repo.watchers.begin(), 
+                         kend = repo.watchers.end();
+                     kt != kend;  ++kt) {
+                    if (*kt == i) continue;
+                    const User & user = users[*kt];
+
+                    // For each author for this watcher
+                    for (IdSet::const_iterator
+                             lt = user.possible_authors.begin(),
+                             lend = user.possible_authors.end();
+                         lt != lend;  ++lt) {
+                        if ();
+                    }
+
+                    watching_authors.insert(user.watching.begin(),
+                                            user.watching.end());
+                }
+            }
+        }
+        
+        // Find all authors of repos that this user watches
+    }
+    
+}    
+#endif
 
 void
 Data::

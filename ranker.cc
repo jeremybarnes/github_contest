@@ -13,14 +13,17 @@
 #include "arch/exception.h"
 #include "math/xdiv.h"
 #include "stats/distribution_simd.h"
-#include <backward/hash_map>
+#include "utils/hash_map.h"
 
 #include "boosting/dense_features.h"
-
+#include <limits>
 
 using namespace std;
 using namespace ML;
 
+namespace {
+const float NaN = numeric_limits<float>::quiet_NaN();
+};
 
 /*****************************************************************************/
 /* CANDIDATE_GENERATOR                                                       */
@@ -59,6 +62,14 @@ init()
 
     for (unsigned i = 0;  i < sources.size();  ++i)
         sources[i]->init();
+
+    source_num_features.resize(sources.size());
+
+    for (unsigned i = 0;  i < sources.size();  ++i) {
+        Dense_Feature_Space source_fs
+            = sources[i]->specific_feature_space();
+        source_num_features[i] = source_fs.variable_count();
+    }
 }
 
 boost::shared_ptr<const ML::Dense_Feature_Space>
@@ -73,9 +84,10 @@ feature_space() const
     result->add(common_feature_space);
 
     for (unsigned i = 0;  i < sources.size();  ++i) {
-        // Do we add rule-specific features?
-        //result->add(*sources[i]->ranker_feature_space());
         string name = sources[i]->name();
+        Dense_Feature_Space source_fs
+            = sources[i]->specific_feature_space();
+        result->add(source_fs, name + "_");
         result->add_feature(name + "_rank", Feature_Info::REAL);
         result->add_feature(name + "_percentile", Feature_Info::REAL);
         result->add_feature(name + "_score", Feature_Info::REAL);
@@ -265,6 +277,7 @@ candidates(Ranked & candidates, Candidate_Data & candidate_data,
         // Go for each source
         for (unsigned j = 0;  j < sources.size();  ++j) {
             if (!info_entry.count(j)) {
+                features.insert(features.end(), source_num_features[j], NaN);
                 features.push_back(1000);   // rank
                 features.push_back(2.0);    // percentile
                 features.push_back(-1.0);   // score
@@ -281,6 +294,13 @@ candidates(Ranked & candidates, Candidate_Data & candidate_data,
             min_score = std::min(min_score, source_entry.score);
             max_score = std::max(max_score, source_entry.score);
 
+            if (source_entry.features.size() != source_num_features[j])
+                throw Exception("num features for " + sources[j]->name()
+                                + " doesn't match");
+
+            features.insert(features.end(),
+                            source_entry.features.begin(),
+                            source_entry.features.end());
             features.push_back(source_entry.min_rank);
             features.push_back(1.0f * source_entry.min_rank
                                / source_ranked[j].size());

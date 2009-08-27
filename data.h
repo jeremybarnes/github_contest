@@ -273,6 +273,12 @@ struct User {
 
     int min_repo, max_repo;
 
+    /// Collaborators.  Two users A and B are collaborators if and only if:
+    /// 1.  Both users can be mapped to authors;
+    /// 2.  User A watches at least one of user B's repos
+    /// 3.  User B watches at least one of user A's repos
+    IdSet collaborators;
+
     bool invalid() const { return id == -1; }
 };
 
@@ -281,7 +287,7 @@ struct Author {
 
     int id;
     std::string name;
-    std::set<int> repositories;
+    IdSet repositories;
     size_t num_watchers;
 
     IdSet possible_users;
@@ -314,7 +320,7 @@ struct Data {
     // Two density matrices offset by 1/2
     boost::multi_array<unsigned, 2> density1, density2;
 
-    struct Name_Info : public std::vector<int> {
+    struct Name_Info : public IdSet {
         Name_Info() : num_watchers(0) {}
         size_t num_watchers;
     };
@@ -340,6 +346,8 @@ struct Data {
     void calc_cooccurrences();
 
     void infer_from_ids();
+
+    void find_collaborators();
 
     float density(int user_id, int repo_id) const;
 

@@ -565,6 +565,26 @@ struct By_Watched_Author_Source : public Candidate_Source {
     {
     }
 
+    virtual ML::Dense_Feature_Space
+    specific_feature_space() const
+    {
+        Dense_Feature_Space result;
+        result.add_feature("author_already_watched_num", Feature_Info::REAL);
+        result.add_feature("author_unwatched_num", Feature_Info::REAL);
+        result.add_feature("author_already_watched_prop",
+                           Feature_Info::REAL);
+        result.add_feature("author_num_watchers_already",
+                           Feature_Info::REAL);
+        result.add_feature("author_prop_watchers_already",
+                           Feature_Info::REAL);
+        result.add_feature("author_abs_rank", Feature_Info::REAL);
+        result.add_feature("author_abs_percentile", Feature_Info::REAL);
+        result.add_feature("author_unwatched_rank", Feature_Info::REAL);
+        result.add_feature("author_unwatched_percentile", Feature_Info::REAL);
+
+        return result;
+    }
+
     virtual void candidate_set(Ranked & result, int user_id, const Data & data,
                                Candidate_Data & candidate_data) const
     {
@@ -579,20 +599,65 @@ struct By_Watched_Author_Source : public Candidate_Source {
             if (data.repos[*it].author != -1)
                 authors_of_watched_repos.insert(data.repos[*it].author);
         
-        // Find all other repos by authors of watched repos
-        IdSet repos_by_watched_authors;
+        result.clear();
 
         for (IdSet::const_iterator
                  it = authors_of_watched_repos.begin(),
                  end = authors_of_watched_repos.end();
              it != end;  ++it) {
+
+            const Author & author = data.authors[*it];
+
+            size_t author_num_watchers = author.num_watchers;
             
-            repos_by_watched_authors
-                .insert(data.authors[*it].repositories.begin(),
-                        data.authors[*it].repositories.end());
+            int n_already_watched = 0, watchers_already_watched = 0,
+                n_unwatched = 0;
+
+            Ranked author_entries;
+
+            for (IdSet::const_iterator
+                     jt = author.repositories.begin(),
+                     jend = author.repositories.end();
+                 jt != jend;  ++jt) {
+
+                int nwatchers = data.repos[*jt].watchers.size();
+                
+                if (user.watching.count(*jt)) {
+                    ++n_already_watched;
+                    watchers_already_watched += nwatchers;
+                }
+                else ++n_unwatched;
+
+                author_entries.push_back(Ranked_Entry());
+                Ranked_Entry & entry = author_entries.back();
+                entry.score = nwatchers;
+                entry.repo_id = *jt;
+            }
+
+            author_entries.sort();
+
+            int rank = 0;
+            for (unsigned i = 0;  i < author_entries.size();  ++i) {
+                if (user.watching.count(author_entries[i].repo_id))
+                    continue;
+
+                result.push_back(author_entries[i]);
+                Ranked_Entry & entry = result.back();
+                entry.index = result.size() - 1;
+                entry.features.push_back(n_already_watched);
+                entry.features.push_back(n_unwatched);
+                entry.features.push_back(xdiv<float>(n_already_watched, author.repositories.size()));
+                entry.features.push_back(author_num_watchers);
+                entry.features.push_back(xdiv<float>(watchers_already_watched, author_num_watchers));
+                entry.features.push_back(entry.min_rank);
+                entry.features.push_back(xdiv<float>(entry.min_rank, author_entries.size()));
+                entry.features.push_back(rank);
+                entry.features.push_back(xdiv<float>(rank, n_unwatched));
+                
+                ++rank;
+            }
         }
 
-        result = repos_by_watched_authors;
     }
 };
 
@@ -643,12 +708,29 @@ struct Same_Name_Source : public Candidate_Source {
     {
     }
 
+    virtual ML::Dense_Feature_Space
+    specific_feature_space() const
+    {
+        Dense_Feature_Space result;
+        result.add_feature("same_name_already_watched_num", Feature_Info::REAL);
+        result.add_feature("same_name_already_watched_prop",
+                           Feature_Info::REAL);
+        result.add_feature("same_name_num_watchers_already",
+                           Feature_Info::REAL);
+        result.add_feature("same_name_prop_watchers_already",
+                           Feature_Info::REAL);
+        result.add_feature("same_name_rank", Feature_Info::REAL);
+        result.add_feature("same_name_percentile", Feature_Info::REAL);
+
+        return result;
+    }
+
     virtual void candidate_set(Ranked & result, int user_id, const Data & data,
                                Candidate_Data & candidate_data) const
     {
         const User & user = data.users[user_id];
 
-        IdSet repos_with_same_name;
+        set<string> name_set;
 
         for (IdSet::const_iterator
                  it = user.watching.begin(),
@@ -657,15 +739,54 @@ struct Same_Name_Source : public Candidate_Source {
             int watched_id = *it;
             const Repo & watched = data.repos[watched_id];
             
-            // Find repos with the same name
-            const vector<int> & with_same_name
-                = data.name_to_repos(watched.name);
-            for (unsigned j = 0;  j < with_same_name.size();  ++j)
-                if (with_same_name[j] != watched_id)
-                    repos_with_same_name.insert(with_same_name[j]);
+            name_set.insert(watched.name);
         }
 
-        result = repos_with_same_name;
+        result.clear();
+
+        for (set<string>::const_iterator
+                 it = name_set.begin(),
+                 end = name_set.end();
+             it != end;  ++it) {
+
+            const Data::Name_Info & with_same_name
+                = data.name_to_repos(*it);
+            
+            size_t name_num_watchers = with_same_name.num_watchers;
+            
+            int n_already_watched = 0, watchers_already_watched = 0;
+
+            Ranked name_entries;
+
+            for (Data::Name_Info::const_iterator
+                     jt = with_same_name.begin(),
+                     jend = with_same_name.end();
+                 jt != jend;  ++jt) {
+                if (user.watching.count(*jt)) continue;
+                ++n_already_watched;
+                int nwatchers = data.repos[*jt].watchers.size();
+                watchers_already_watched += nwatchers;
+
+                name_entries.push_back(Ranked_Entry());
+                Ranked_Entry & entry = name_entries.back();
+                entry.score = nwatchers;
+                entry.repo_id = *jt;
+            }
+
+            name_entries.sort();
+
+            for (unsigned i = 0;  i < name_entries.size();  ++i) {
+                result.push_back(name_entries[i]);
+                Ranked_Entry & entry = result.back();
+                entry.index = result.size() - 1;
+                entry.features.push_back(n_already_watched);
+                entry.features.push_back(xdiv<float>(n_already_watched, with_same_name.size()));
+                entry.features.push_back(name_num_watchers);
+                entry.features.push_back(xdiv<float>(watchers_already_watched, name_num_watchers));
+                entry.features.push_back(entry.min_rank);
+                entry.features.push_back(entry.min_rank / with_same_name.size());
+            }
+        }
     }
 };
 

@@ -51,6 +51,7 @@ struct Candidate_Generator {
                const Data & data, int user_id) const;
 
     std::vector<boost::shared_ptr<Candidate_Source> > sources;
+    std::vector<int> source_num_features;
 };
 
 

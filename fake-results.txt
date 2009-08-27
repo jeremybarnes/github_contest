@@ -1,5 +1,5 @@
 fake test results: 
-     total:      real: 2924/4788 =  61.07%  poss: 3629/4788 =  75.79%  avg num: 399.8
+     total:      real: 2948/4788 =  61.57%  poss: 3699/4788 =  77.26%  avg num: 401.0
 non-zero scores: 
-     total:      real: 2924/4788 =  61.07%  poss: 3629/4788 =  75.79%  avg num: 399.8
+     total:      real: 2948/4788 =  61.57%  poss: 3699/4788 =  77.26%  avg num: 401.0
 
