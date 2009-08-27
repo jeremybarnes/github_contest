@@ -700,8 +700,8 @@ get_candidate_source(const ML::Configuration & config_,
 {
     Configuration config(config_, name, Configuration::PREFIX_APPEND);
 
-    cerr << "config.prefix = " << config_.prefix() << endl;
-    cerr << "name = " << name << endl;
+    //cerr << "config.prefix = " << config_.prefix() << endl;
+    //cerr << "name = " << name << endl;
     
     string type;
     config.require(type, "type");

@@ -72,30 +72,27 @@ feature_space() const
         = Candidate_Source::common_feature_space();
     result->add(common_feature_space);
 
-#if 0  // do we include child features?
-    for (unsigned i = 0;  i < sources.size();  ++i)
-        result->add(*sources[i]->ranker_feature_space());
-#endif
-    
+    for (unsigned i = 0;  i < sources.size();  ++i) {
+        // Do we add rule-specific features?
+        //result->add(*sources[i]->ranker_feature_space());
+        string name = sources[i]->name();
+        result->add_feature(name + "_rank", Feature_Info::REAL);
+        result->add_feature(name + "_percentile", Feature_Info::REAL);
+        result->add_feature(name + "_score", Feature_Info::REAL);
+    }
+
+    result->add_feature("gen_total_rank", Feature_Info::REAL);
+    result->add_feature("gen_min_rank", Feature_Info::REAL);
+    result->add_feature("gen_max_rank", Feature_Info::REAL);
+    result->add_feature("gen_num_in", Feature_Info::REAL);
+    result->add_feature("gen_avg_rank", Feature_Info::REAL);
+    result->add_feature("gen_total_score", Feature_Info::REAL);
+    result->add_feature("gen_min_score", Feature_Info::REAL);
+    result->add_feature("gen_max_score", Feature_Info::REAL);
+    result->add_feature("gen_avg_score", Feature_Info::REAL);
+
     return result;
 }  
-
-#if 0
-    // repo id?
-    result->add_feature("parent_of_watched", Feature_Info::BOOLEAN);
-    result->add_feature("by_author_of_watched_repo", Feature_Info::BOOLEAN);
-    result->add_feature("ancestor_of_watched", Feature_Info::BOOLEAN);
-    result->add_feature("same_name", Feature_Info::BOOLEAN);
-    result->add_feature("repo_id", Feature_Info::REAL);
-    result->add_feature("repo_rank", Feature_Info::REAL);
-    result->add_feature("repo_watchers", Feature_Info::REAL);
-    result->add_feature("child_of_watched", Feature_Info::BOOLEAN);
-    result->add_feature("watched_by_cluster_user", Feature_Info::REAL);
-    result->add_feature("in_cluster_repo", Feature_Info::REAL);
-    // also watched min repos
-    // also watched average repos
-#endif
-
 
 void
 Candidate_Generator::
@@ -203,10 +200,10 @@ candidates(Ranked & candidates, Candidate_Data & candidate_data,
            const Data & data, int user_id) const
 {
     IdSet possible_choices;
-    
+
     vector<Ranked> source_ranked(sources.size());
     vector<int> num_kept(sources.size());
-    
+
     candidates.clear();
 
     // First, generate a set of those that we want to keep
@@ -258,6 +255,10 @@ candidates(Ranked & candidates, Candidate_Data & candidate_data,
         map<int, Ranked_Entry> & info_entry
             = candidate_data.info[repo_id];
 
+        features.clear();
+        Candidate_Source::common_features(features, user_id, repo_id,
+                                          data, candidate_data);
+
         int total_rank = 0, min_rank = 10000, max_rank = 0, num_in = 0;
         float total_score = 0.0, min_score = 2.0, max_score = -1.0;
 
@@ -265,6 +266,7 @@ candidates(Ranked & candidates, Candidate_Data & candidate_data,
         for (unsigned j = 0;  j < sources.size();  ++j) {
             if (!info_entry.count(j)) {
                 features.push_back(1000);   // rank
+                features.push_back(2.0);    // percentile
                 features.push_back(-1.0);   // score
                 total_rank += num_kept[j] + 1;
                 continue;
@@ -280,6 +282,8 @@ candidates(Ranked & candidates, Candidate_Data & candidate_data,
             max_score = std::max(max_score, source_entry.score);
 
             features.push_back(source_entry.min_rank);
+            features.push_back(1.0f * source_entry.min_rank
+                               / source_ranked[j].size());
             features.push_back(source_entry.score);
         }
 
@@ -298,6 +302,11 @@ candidates(Ranked & candidates, Candidate_Data & candidate_data,
 
     // Sort them so that they're in a reasonable order
     candidates.sort();
+
+    for (unsigned i = 0;  i < candidates.size();  ++i) {
+        Ranked_Entry & entry = candidates[i];
+        entry.index = i;
+    }
 }
 
 
@@ -334,32 +343,8 @@ feature_space() const
     result->add_feature("heuristic_rank",  Feature_Info::REAL);
     result->add_feature("heuristic_percentile", Feature_Info::REAL);
 
-    result->add_feature("density", Feature_Info::REAL);
-    result->add_feature("user_id", Feature_Info::REAL);
-    
-    result->add_feature("user_repo_id_ratio", Feature_Info::REAL);
-    
-    result->add_feature("user_watched_repos", Feature_Info::REAL);
-
     result->add_feature("language_dprod", Feature_Info::REAL);
     result->add_feature("language_cosine", Feature_Info::REAL);
-
-    result->add_feature("repo_lines_of_code", Feature_Info::REAL);
-
-    result->add_feature("user_prob", Feature_Info::REAL);
-    result->add_feature("user_prob_rank", Feature_Info::REAL);
-
-    result->add_feature("repo_prob", Feature_Info::REAL);
-    result->add_feature("repo_prob_rank", Feature_Info::REAL);
-
-    result->add_feature("user_repo_prob", Feature_Info::REAL);
-
-    result->add_feature("repo_has_parent", Feature_Info::REAL);
-    result->add_feature("repo_num_children", Feature_Info::REAL);
-    result->add_feature("repo_num_ancestors", Feature_Info::REAL);
-    result->add_feature("repo_num_siblings", Feature_Info::REAL);
-
-    result->add_feature("repo_parent_watchers", Feature_Info::REAL);
 
     result->add_feature("user_repo_singular_dp", Feature_Info::REAL);
     result->add_feature("user_repo_singular_unscaled_dp", Feature_Info::REAL);
@@ -443,7 +428,7 @@ features(std::vector<ML::distribution<float> > & results,
          const Data & data) const
 {
     generator->features(results, user_id, candidates, candidate_data, data);
-    
+
     Ranked heuristic = candidates;
     Ranker::rank(heuristic, user_id, candidate_data, data);
     heuristic.sort();
@@ -478,12 +463,6 @@ features(std::vector<ML::distribution<float> > & results,
         result.push_back((heuristic[i].min_rank + heuristic[i].max_rank) * 0.5);
         result.push_back(result.back() / heuristic.size());
 
-        result.push_back(data.density(user_id, repo_id));
-        result.push_back(user_id);
-        result.push_back(user_id * 1.0 / repo_id);
-
-        result.push_back(user.watching.size());
-
         float dp = repo.language_vec.dotprod(user.language_vec);
 
         result.push_back(dp);
@@ -496,28 +475,6 @@ features(std::vector<ML::distribution<float> > & results,
             cerr << "u = " << user.language_vec << endl;
             cerr << "r2 = " << repo.language_2norm << endl;
             cerr << "u2 = " << user.language_2norm << endl;
-        }
-
-        result.push_back(log(repo.total_loc + 1));
-
-        result.push_back(user.user_prob);
-        result.push_back(user.user_prob_rank);
-        result.push_back(repo.repo_prob);
-        result.push_back(repo.repo_prob_rank);
-
-        result.push_back(user.user_prob * repo.repo_prob);
-
-        result.push_back(repo.parent != -1);
-        result.push_back(repo.children.size());
-        result.push_back(repo.ancestors.size());
-
-        if (repo.parent == -1) {
-            result.push_back(0);
-            result.push_back(-1);
-        }
-        else {
-            result.push_back(data.repos[repo.parent].children.size());
-            result.push_back(data.repos[repo.parent].watchers.size());
         }
 
         dp = (repo.singular_vec * data.singular_values)
@@ -772,9 +729,6 @@ configure(const ML::Configuration & config_,
 
     Configuration config(config_, name, Configuration::PREFIX_APPEND);
 
-    cerr << "name = " << name << " config.prefix() = " << config.prefix()
-         << " config_.prefix() = " << config_.prefix() << endl;
-
     config.require(classifier_file, "classifier_file");
 
     load_data = true;
@@ -788,9 +742,6 @@ init(boost::shared_ptr<Candidate_Generator> generator)
     Ranker::init(generator);
 
     ranker_fs = feature_space();
-
-    cerr << "classifier_ranker of type " << typeid(*this).name()
-         << " load_data = " << load_data << endl;
 
     if (!load_data) return;
 

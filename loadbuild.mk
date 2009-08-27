@@ -119,7 +119,6 @@ data/ranker-fv.txt.gz: $(PHASE1_FILES)
 		--output-file $@~ \
 		ranker.load_data=false \
 		--tranches=01 \
-		--discriminative \
 	2>&1 | tee $@.log
 	mv $@~ $@
 
