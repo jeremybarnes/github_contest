@@ -19,36 +19,47 @@ KAPPA                     =  1.00E-06
 NUMBER OF LANCZOS STEPS   =    185
 RITZ VALUES STABILIZED    =     55
 SINGULAR VALUES FOUND     =     50
-SVD elapsed: elapsed: [11.71s cpu, 27881.9500 mticks, 12.33s wall]
+SVD elapsed: elapsed: [12.09s cpu, 28305.5654 mticks, 12.52s wall]
 done repos
 doing keywords
 86298 vocab entries
 num_gt_two = 29964
 done keywords
+candidate source name=coocs source = 1
+candidate source name=coocs2 source = 2
 processing 4788 users...
 
 0%   10   20   30   40   50   60   70   80   90   100%
 |----|----|----|----|----|----|----|----|----|----|
 ***************************************************
-elapsed: elapsed: [176.49s cpu, 411546.8132 mticks, 182.02s wall]
+elapsed: elapsed: [512.49s cpu, 1174945.4857 mticks, 519.66s wall]
 done
 
 calculating test result... done.
 fake test results: 
-     total:      real:    0/4788 =   0.00%  poss:    0/4788 =   0.00%  avg num: 418.8
+     total:      real:    0/4788 =   0.00%  poss:    0/4788 =   0.00%  avg num: 428.0
 non-zero scores: 
-     total:      real:    0/4788 =   0.00%  poss:    0/4788 =   0.00%  avg num: 418.8
+     total:      real:    0/4788 =   0.00%  poss:    0/4788 =   0.00%  avg num: 428.0
 
+cooc source coocs
+called 4788 times
+total coocs 12703818
+avg coocs 2653.26 coocs
+cooc source coocs2
+called 4788 times
+total coocs 30510866
+avg coocs 6372.36 coocs
 generator                        fired   corr 
-ancestors_of_watched              2833     0( 0.00%)    4108(   1.45)     0( 0.00%)     260(   0.09)      36
+ancestors_of_watched               240     0( 0.00%)     261(   1.09)     0( 0.00%)     261(   1.09)       5
 by_watched_authors                3756     0( 0.00%)  316581(  84.29)     0( 0.00%)  316184(  84.18)     200
 children_of_watched               3490     0( 0.00%)  214058(  61.33)     0( 0.00%)   85978(  24.64)     100
-coocs                             3920     0( 0.00%)  314644(  80.27)     0( 0.00%)  200815(  51.23)     100
+coocs                             4002     0( 0.00%)  291568(  72.86)     0( 0.00%)  171095(  42.75)     100
+coocs2                            4038     0( 0.00%)  314560(  77.90)     0( 0.00%)   81524(  20.19)     100
 in_cluster_repo                   4786     0( 0.00%)  460250(  96.17)     0( 0.00%)  415223(  86.76)     100
 in_cluster_user                   4788     0( 0.00%)  459321(  95.93)     0( 0.00%)  446767(  93.31)     100
 in_id_range                       4788     0( 0.00%)   43042(   8.99)     0( 0.00%)   42259(   8.83)      46
-most_watched                      4788     0( 0.00%)  468814(  97.91)     0( 0.00%)  233648(  48.80)     100
+most_watched                      4788     0( 0.00%)  468814(  97.91)     0( 0.00%)  226024(  47.21)     100
 parents_of_watched                2833     0( 0.00%)    3851(   1.36)     0( 0.00%)    3851(   1.36)      35
-same_name                         4340     0( 0.00%)  265694(  61.22)     0( 0.00%)  260082(  59.93)     100
-195.80user 0.99system 3:23.82elapsed 96%CPU (0avgtext+0avgdata 0maxresident)k
-0inputs+12904outputs (0major+141177minor)pagefaults 0swaps
+same_name                         4340     0( 0.00%)  265694(  61.22)     0( 0.00%)  260081(  59.93)     100
+531.92user 1.25system 9:01.27elapsed 98%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+13008outputs (0major+141620minor)pagefaults 0swaps

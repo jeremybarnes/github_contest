@@ -80,6 +80,17 @@ public:
             vals.erase(it);
     }
 
+    void erase(const IdSet & other)
+    {
+        if (!sorted) sort();
+        std::vector<int> new_vals;
+        new_vals.reserve(vals.size());
+        std::set_difference(vals.begin(), vals.end(),
+                            other.begin(), other.end(),
+                            back_inserter(new_vals));
+        vals.swap(new_vals);
+    }
+
     void clear() const
     {
         vals.clear();

@@ -266,6 +266,17 @@ struct Ancestors_Of_Watched_Source : public Candidate_Source {
         const User & user = data.users[user_id];
 
         IdSet ancestors;
+        IdSet parents;
+
+        for (IdSet::const_iterator
+                 it = user.watching.begin(),
+                 end = user.watching.end();
+             it != end;  ++it) {
+            int watched_id = *it;
+            const Repo & watched = data.repos[watched_id];
+            if (watched.parent == -1) continue;
+            parents.insert(watched.parent);
+        }
 
         for (IdSet::const_iterator
                  it = user.watching.begin(),
@@ -277,6 +288,8 @@ struct Ancestors_Of_Watched_Source : public Candidate_Source {
             ancestors.insert(watched.all_ancestors.begin(),
                              watched.all_ancestors.end());
         }
+
+        ancestors.erase(parents);
 
         result = ancestors;
     }
@@ -312,75 +325,113 @@ struct Children_Of_Watched_Source : public Candidate_Source {
 
 struct Cooc_Source : public Candidate_Source {
     Cooc_Source()
-        : Candidate_Source("cooc", 2)
+        : Candidate_Source("cooc", 2), source(1)
     {
+        called = total_coocs = max_coocs = 0;
     }
+
+    ~Cooc_Source()
+    {
+        cerr << "cooc source " << name() << endl;
+        cerr << "called " << called << " times" << endl;
+        cerr << "total coocs " << total_coocs << endl;
+        cerr << "avg coocs " << 1.0 * total_coocs / called << " coocs"
+             << endl;
+    }
+
+    int source;
+    mutable int called, total_coocs, max_coocs;
+
+    virtual void configure(const ML::Configuration & config_,
+                           const std::string & name)
+    {
+        Candidate_Source::configure(config_, name);
+
+        Configuration config(config_, name, Configuration::PREFIX_APPEND);
+        source = 1;
+        config.get(source, "source");
+
+        cerr << "candidate source name=" << this->name() << " source = "
+             << source << endl;
+    }
+
+    virtual ML::Dense_Feature_Space
+    specific_feature_space() const
+    {
+        Dense_Feature_Space result;
+        result.add_feature("cooc_total_score", Feature_Info::REAL);
+        result.add_feature("cooc_max_score", Feature_Info::REAL);
+        result.add_feature("cooc_avg_score", Feature_Info::REAL);
+        result.add_feature("cooc_num_scores", Feature_Info::REAL);
+        return result;
+    }
+
+    struct Cooc_Info {
+        Cooc_Info()
+            : total_score(0.0f), max_score(0.0f), n(0)
+        {
+        }
+
+        float total_score;
+        float max_score;
+        int n;
+
+        void operator += (float other_score)
+        {
+            n += 1;
+            total_score += other_score;
+            max_score = std::max(max_score, other_score);
+        }
+    };
 
     virtual void candidate_set(Ranked & result, int user_id, const Data & data,
                                Candidate_Data & candidate_data) const
     {
         const User & user = data.users[user_id];
-        IdSet coocs;
+
+        ++called;
 
         // Find cooccurring with the most specicivity
 
-        {
-            hash_map<int, float> coocs_map;
+        hash_map<int, Cooc_Info> coocs_map;
         
-            for (IdSet::const_iterator
-                     it = user.watching.begin(),
-                     end = user.watching.end();
-                 it != end;  ++it) {
-                int repo_id = *it;
-                const Repo & repo = data.repos[repo_id];
+        for (IdSet::const_iterator
+                 it = user.watching.begin(),
+                 end = user.watching.end();
+             it != end;  ++it) {
+            int repo_id = *it;
+            const Repo & repo = data.repos[repo_id];
             
-                const Cooccurrences & cooc = repo.cooc;
+            const Cooccurrences & cooc
+                = (source == 1 ? repo.cooc : repo.cooc2);
             
-                for (Cooccurrences::const_iterator
-                         jt = cooc.begin(), end = cooc.end();
-                     jt != end;  ++jt) {
-                    if (data.repos[jt->with].watchers.size() < 2) continue;
-                    coocs_map[jt->with] += jt->score;
-                }
+            for (Cooccurrences::const_iterator
+                     jt = cooc.begin(), end = cooc.end();
+                 jt != end;  ++jt) {
+                //if (data.repos[jt->with].watchers.size() < 2) continue;
+                coocs_map[jt->with] += jt->score;
             }
-
-            vector<pair<int, float> > coocs_sorted(coocs_map.begin(), coocs_map.end());
-        
-            sort_on_second_descending(coocs_sorted);
-
-            for (unsigned i = 0;  i < 100 && i < coocs_sorted.size();  ++i)
-                coocs.insert(coocs_sorted[i].first);
         }
 
-        {
-            hash_map<int, float> coocs_map;
-        
-            for (IdSet::const_iterator
-                     it = user.watching.begin(),
-                     end = user.watching.end();
-                 it != end;  ++it) {
-                int repo_id = *it;
-                const Repo & repo = data.repos[repo_id];
-            
-                const Cooccurrences & cooc = repo.cooc2;
-            
-                for (Cooccurrences::const_iterator
-                         jt = cooc.begin(), end = cooc.end();
-                     jt != end;  ++jt) {
-                    if (data.repos[jt->with].watchers.size() < 2) continue;
-                    coocs_map[jt->with] += jt->score;
-                }
-            }
+        result.reserve(coocs_map.size());
 
-            vector<pair<int, float> > coocs_sorted(coocs_map.begin(), coocs_map.end());
-        
-            sort_on_second_descending(coocs_sorted);
+        for (hash_map<int, Cooc_Info>::const_iterator
+                 it = coocs_map.begin(),
+                 end = coocs_map.end();
+             it != end;  ++it) {
+            result.push_back(Ranked_Entry());
 
-            for (unsigned i = 0;  i < 100 && i < coocs_sorted.size();  ++i)
-                coocs.insert(coocs_sorted[i].first);
+            Ranked_Entry & entry = result.back();
+            entry.repo_id = it->first;
+            entry.features.reserve(4);
+            entry.features.push_back(it->second.total_score);
+            entry.features.push_back(it->second.max_score);
+            entry.features.push_back(it->second.total_score / it->second.n);
+            entry.features.push_back(it->second.n);
         }
 
-        result = coocs;
+        total_coocs += coocs_map.size();
+        max_coocs = std::max<int>(max_coocs, coocs_map.size());
     }
 };
  
