@@ -17,6 +17,10 @@
 using namespace std;
 using namespace ML;
 
+enum {
+    NUM_CLUSTERS_USER = 1000,
+    NUM_CLUSTERS_REPO = 1000
+};
 
 void
 Decomposition::
@@ -301,7 +305,7 @@ void
 Decomposition::
 kmeans_repos(Data & data)
 {
-    int nclusters = 200;
+    int nclusters = NUM_CLUSTERS_REPO;
     
     vector<Cluster> repo_clusters;
     vector<int> repo_in_cluster;
@@ -391,7 +395,7 @@ void
 Decomposition::
 kmeans_users(Data & data)
 {
-    int nclusters = 200;
+    int nclusters = NUM_CLUSTERS_USER;
     
     vector<Cluster> user_clusters;
     vector<int> user_in_cluster;
@@ -430,7 +434,7 @@ load_kmeans_users(const std::string & filename, Data & data)
     Parse_Context context(filename);
 
     data.user_clusters.clear();
-    data.user_clusters.reserve(200);
+    data.user_clusters.reserve(NUM_CLUSTERS_USER);
 
     while (context) {
         int user_id = context.expect_int();
@@ -480,7 +484,7 @@ load_kmeans_repos(const std::string & filename, Data & data)
     Parse_Context context(filename);
 
     data.repo_clusters.clear();
-    data.repo_clusters.reserve(200);
+    data.repo_clusters.reserve(NUM_CLUSTERS_REPO);
 
     while (context) {
         int repo_id = context.expect_int();

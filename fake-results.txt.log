@@ -23,7 +23,7 @@ KAPPA                     =  1.00E-06
 NUMBER OF LANCZOS STEPS   =    185
 RITZ VALUES STABILIZED    =     54
 SINGULAR VALUES FOUND     =     50
-SVD elapsed: elapsed: [11.19s cpu, 25845.7495 mticks, 11.43s wall]
+SVD elapsed: elapsed: [11.55s cpu, 32124.1249 mticks, 14.21s wall]
 done repos
 doing keywords
 86298 vocab entries
@@ -36,28 +36,20 @@ processing 4788 users...
 0%   10   20   30   40   50   60   70   80   90   100%
 |----|----|----|----|----|----|----|----|----|----|
 ***************************************************
-elapsed: elapsed: [404.92s cpu, 958501.2523 mticks, 423.93s wall]
+elapsed: elapsed: [367.88s cpu, 856339.3966 mticks, 378.74s wall]
 done
 
 calculating test result... done.
-cooc source coocs
-called 4788 times
-total coocs 9915205
-avg coocs 2070.84 coocs
-cooc source coocs2
-called 4788 times
-total coocs 24308132
-avg coocs 5076.89 coocs
 generator                        fired   corr 
 ancestors_of_watched               246     3( 1.22%)     264(   1.07)     3( 1.22%)     264(   1.07)       4
 by_watched_authors                3426  1233(35.99%)  265847(  77.60)  1096(31.99%)  265512(  77.50)     200
 children_of_watched               3080   164( 5.32%)  182070(  59.11)     7( 0.23%)   69443(  22.55)     100
-coocs                             3722  1296(34.82%)  255004(  68.51)   130( 3.49%)  143509(  38.56)     100
-coocs2                            3754  1386(36.92%)  275257(  73.32)    59( 1.57%)   69956(  18.64)     100
-in_cluster_repo                   4788   679(14.18%)  477770(  99.78)   104( 2.17%)  435446(  90.95)     100
-in_cluster_user                   4788  1344(28.07%)  478800( 100.00)   645(13.47%)  465371(  97.20)     100
-in_id_range                       4788   340( 7.10%)   41247(   8.61)   104( 2.17%)   40617(   8.48)      57
-most_watched                      4788   795(16.60%)  471046(  98.38)    24( 0.50%)  212581(  44.40)     100
+coocs                             3722   898(24.13%)  268347(  72.10)   241( 6.48%)  243032(  65.30)     100
+coocs2                            3754  1382(36.81%)  275313(  73.34)   299( 7.96%)  151700(  40.41)     100
+in_cluster_repo                   4788   498(10.40%)  463680(  96.84)   138( 2.88%)  434830(  90.82)     100
+in_cluster_user                   4782   136( 2.84%)  474018(  99.13)    67( 1.40%)  467339(  97.73)     100
+in_id_range                       4788   340( 7.10%)   41247(   8.61)    98( 2.05%)   40781(   8.52)      57
+most_watched                      4788   795(16.60%)  471046(  98.38)   130( 2.72%)  352065(  73.53)     100
 parents_of_watched                2971  1458(49.07%)    3448(   1.16)  1458(49.07%)    3448(   1.16)      16
 same_name                         4242  1606(37.86%)  246959(  58.22)   120( 2.83%)  241763(  56.99)     100
 candidate source      nfired  correct already      nentries maxsz
@@ -66,12 +58,12 @@ by_watched_authors                3426  1245(36.34%)     0  562516( 164.19)  0.2
 children_of_watched               3080   175( 5.68%)  5072 1078146( 350.05)  0.4867       0
 coocs                             3722  2103(56.50%) 40747 9915205(2663.95)  0.4322       0
 coocs2                            3754  2552(67.98%) 48276 24308132(6475.26)  0.2091       0
-in_cluster_repo                   4788  1300(27.15%)     0 2318617( 484.26)  0.0561       0
-in_cluster_user                   4788  1982(41.40%)     0 2391605( 499.50)  0.0829       0
+in_cluster_repo                   4788  1224(25.56%)     0 2084430( 435.34)  0.0587       0
+in_cluster_user                   4782  1981(41.43%)     0 2062551( 431.32)  0.0960       0
 in_id_range                       4788   340( 7.10%)  2219   43466(   9.08)  5.8874       0
 most_watched                      4788   795(16.60%)  7754  478800( 100.00)  1.7855       0
 parents_of_watched                2971  1458(49.07%)  4695    8143(   2.74) 75.5618       0
 same_name                         4242  1617(38.12%)     0 1470496( 346.65)  0.1100       0
 
-425.64user 1.04system 7:27.78elapsed 95%CPU (0avgtext+0avgdata 0maxresident)k
-0inputs+8outputs (0major+141860minor)pagefaults 0swaps
+388.64user 1.02system 6:43.46elapsed 96%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+8outputs (0major+142604minor)pagefaults 0swaps

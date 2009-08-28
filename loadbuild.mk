@@ -21,6 +21,7 @@ data/$(1)-fv.txt.gz: data/kmeans_users.txt data/kmeans_repos.txt
 		--tranches=10 \
 		--output-file $$@~ \
 		generator.load_data=false \
+		ranker.load_data=false \
 	2>&1 | tee $$@.log
 	mv $$@~ $$@
 
