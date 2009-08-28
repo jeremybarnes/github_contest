@@ -228,6 +228,7 @@ gen_candidates(Ranked & entries, int user_id, const Data & data,
     // For each, get the features and run the classifier
     for (unsigned i = 0;  i < entries.size();  ++i) {
         distribution<float> features;
+        features.reserve(our_fs->variable_count());
         common_features(features, user_id, entries[i].repo_id, data,
                         candidate_data);
 
@@ -235,10 +236,9 @@ gen_candidates(Ranked & entries, int user_id, const Data & data,
                         entries[i].features.begin(),
                         entries[i].features.end());
        
-        boost::shared_ptr<Mutable_Feature_Set> encoded
-            = classifier_fs->encode(features, *our_fs, mapping);
-
-        float score = classifier.impl->predict(1, *encoded, opt_info);
+        float encoded[classifier_fs->variable_count()];
+        classifier_fs->encode(&features[0], encoded, *our_fs, mapping);
+        float score = classifier.impl->predict(1, encoded, opt_info);
         entries[i].score = score;
     }
     
@@ -509,6 +509,23 @@ struct In_Cluster_User_Source : public Candidate_Source {
     {
     }
 
+    virtual ML::Dense_Feature_Space
+    specific_feature_space() const
+    {
+        Dense_Feature_Space result;
+        return result;
+    }
+
+    struct Rank_Info {
+        Rank_Info()
+            : num_watched(0), watched_score(0.0f)
+        {
+        }
+
+        int num_watched;
+        float watched_score;
+    };
+
     virtual void candidate_set(Ranked & result, int user_id,
                                const Data & data,
                                Candidate_Data & candidate_data) const
@@ -517,42 +534,43 @@ struct In_Cluster_User_Source : public Candidate_Source {
         IdSet in_cluster_user;
 
         // Find repos watched by other users in the same cluster
-        hash_map<int, int> watched_by_cluster_user;
+        hash_map<int, Rank_Info> watched_by_cluster_user;
 
         int clusterno = user.kmeans_cluster;
-        if (clusterno != -1) {
-            const Cluster & cluster = data.user_clusters[clusterno];
-            for (unsigned i = 0;  i < cluster.members.size();  ++i) {
-                int user_id = cluster.members[i];
-                const User & user = data.users[user_id];
+
+        if (clusterno == -1) return;
+
+        const Cluster & cluster = data.user_clusters[clusterno];
+
+        for (unsigned i = 0;  i < cluster.members.size();  ++i) {
+            int user_id = cluster.members[i];
+            const User & user = data.users[user_id];
             
-                if (user.invalid()) continue;
-
-                for (IdSet::const_iterator
-                         it = user.watching.begin(),
-                         end = user.watching.end();
-                     it != end;  ++it) {
-                    watched_by_cluster_user[*it] += 1;
-                }
-            }
-
-            vector<pair<int, int> > ranked;
-
-            for (hash_map<int, int>::const_iterator
-                     it = watched_by_cluster_user.begin(),
-                     end = watched_by_cluster_user.end();
+            if (user.invalid()) continue;
+            
+            for (IdSet::const_iterator
+                     it = user.watching.begin(),
+                     end = user.watching.end();
                  it != end;  ++it) {
-                if (it->second > 1)
-                    ranked.push_back(*it);
+                Rank_Info & entry = watched_by_cluster_user[*it];
+                entry.num_watched += 1;
+                entry.watched_score += 1.0 / user.watching.size();
             }
-
-            sort_on_second_descending(ranked);
-        
-            for (unsigned i = 0;  i < 200 && i < ranked.size();  ++i)
-                in_cluster_user.insert(ranked[i].first);
         }
+        
+        result.reserve(watched_by_cluster_user.size());
 
-        result = in_cluster_user;
+        for (hash_map<int, Rank_Info>::const_iterator
+                 it = watched_by_cluster_user.begin(),
+                 end = watched_by_cluster_user.end();
+             it != end;  ++it) {
+            result.push_back(Ranked_Entry());
+            Ranked_Entry & entry = result.back();
+            entry.repo_id = it->first;
+            entry.features.reserve(2);
+            entry.features.push_back(it->second.num_watched);
+            entry.features.push_back(it->second.watched_score);
+        }
     }
 };
 

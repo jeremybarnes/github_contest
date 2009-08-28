@@ -811,10 +811,9 @@ classify(Ranked & candidates,
         Ranked_Entry & entry = candidates[i];
         int repo_id = entry.repo_id;
 
-        boost::shared_ptr<Mutable_Feature_Set> encoded
-            = classifier_fs->encode(features[i], *ranker_fs, mapping);
-
-        float score = classifier.impl->predict(1, *encoded, opt_info);
+        float encoded[classifier_fs->variable_count()];
+        classifier_fs->encode(&features[i][0], encoded, *ranker_fs, mapping);
+        float score = classifier.impl->predict(1, encoded, opt_info);
 
         entry.index = i;
         entry.repo_id = repo_id;
@@ -974,10 +973,10 @@ classify(Ranked & candidates,
         int rank = features[i][features[i].size() - 2];
         if (rank > 200) score = 0.0;
         else {
-            boost::shared_ptr<Mutable_Feature_Set> encoded
-                = classifier_fs->encode(features[i], *ranker_fs, mapping);
-
-            score = classifier.impl->predict(1, *encoded, opt_info);
+            float encoded[classifier_fs->variable_count()];
+            classifier_fs->encode(&features[i][0], encoded, *ranker_fs,
+                                  mapping);
+            score = classifier.impl->predict(1, encoded, opt_info);
         }
 #else
 
