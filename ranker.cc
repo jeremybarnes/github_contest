@@ -244,6 +244,12 @@ candidates(Ranked & candidates, Candidate_Data & candidate_data,
         for (unsigned j = 0;  j < source_entries.size();  ++j) {
             int repo_id = source_entries[j].repo_id;
 
+            if (repo_id == -1 || repo_id >= data.repos.size()
+                || data.repos[repo_id].invalid())
+                throw Exception("source " + sources[i]->name()
+                                + " produced invalid repo num "
+                                + ostream_format(repo_id));
+
             if (!possible_choices.count(repo_id)) continue;
 
             if (!repo_to_result.count(repo_id)) {

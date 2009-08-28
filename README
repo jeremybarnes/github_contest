@@ -42,13 +42,13 @@ The system architecture for prediction is as follows:
     - children of watched repositories
     - repos that are in the same cluster as a watched repo (see below)
     - repos of users that are in the same cluster as the user we are predicting (see below)
-    - the twenty most watched repositories
+    - popular repositories
 
-    Note that we try to reduce the number of possibilities added from each step, as it is expensive to process each of the candidate predictions later on.  On average, we end up with about 600 candidate predictions for each step.
+    Each of these is done by a candidate source, which will generate a large set of possible candidates and features to rank them with.  These features are then passed to a classifier which identifies a subset to be passed through to the next step.
 
-2.  We run each candidate prediction through a classifier, which predicts the probability that the candidate is correct.  The training of the classifier and the features that are used are described below.
+2.  We run each candidate prediction through a ranking classifier, which predicts the probability that the candidate is correct.  The training of the classifier and the features that are used are described below.
 
-3.  We filter out predictions for already watched repos, sort by the score, and take the 10 top predictions.
+3.  We filter out predictions for already watched repos, sort by the score, and take the 10 top predictions for the output file.
 
 
 Algorithms
@@ -197,6 +197,7 @@ Future things that I will or may try:
 * Diversity: don't allow all of the predictions to come from the same set.  Penalize those that are too similar to the previous source.
 * Cheating: hill-climb (using a Nelder-Mead or similar multivariate optimization technique).  Guaranteed to win, but not at all useful.
 * Why is repo.author == -1 in some cases?
+* Find and use collaborators (two users that watch each other's repositories)
 
 Jeremy Barnes
 24 August 2009

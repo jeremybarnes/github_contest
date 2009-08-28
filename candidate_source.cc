@@ -445,7 +445,16 @@ struct In_Cluster_Repo_Source : public Candidate_Source {
     specific_feature_space() const
     {
         Dense_Feature_Space result;
-        result.add_feature("ucluster_num_watchers", Feature_Info::REAL);
+        result.add_feature("rcluster_num_watched_in_cluster",
+                           Feature_Info::REAL);
+        result.add_feature("rcluster_prop_watched_in_cluster",
+                           Feature_Info::REAL);
+        result.add_feature("rcluster_rank_in_cluster",
+                           Feature_Info::REAL);
+        result.add_feature("rcluster_best_dp_in_cluster",
+                           Feature_Info::REAL);
+        result.add_feature("rcluster_best_norm_dp_in_cluster",
+                           Feature_Info::REAL);
         return result;
     }
 
@@ -456,7 +465,7 @@ struct In_Cluster_Repo_Source : public Candidate_Source {
         const User & user = data.users[user_id];
 
         // Number of entries for this user in each cluster
-        hash_map<int, int> clusters;
+        hash_map<int, IdSet> clusters;
 
         for (IdSet::const_iterator
                  it = user.watching.begin(),
@@ -467,65 +476,54 @@ struct In_Cluster_Repo_Source : public Candidate_Source {
             int cluster_id = repo.kmeans_cluster;
 
             if (cluster_id == -1) continue;
-            clusters[cluster_id] += 1;
+            clusters[cluster_id].insert(repo_id);
         }
 
-        hash_map<int, Rank_Info> info;
-
-        for (hash_map<int, int>::const_iterator
+        for (hash_map<int, IdSet>::const_iterator
                  it = clusters.begin(),
                  end = clusters.end();
              it != end;  ++it) {
 
-            int cluster_id = *it;
+            int cluster_id = it->first;
 
             const Cluster & cluster = data.repo_clusters[cluster_id];
 
-            for (unsigned i = 0;  i < cluster.members.size();  ++i) {
+            for (unsigned i = 0;  i < cluster.top_members.size();  ++i) {
                 int repo_id = cluster.members[i];
+                if (repo_id == -1) continue;
                 if (data.repos[repo_id].invalid()) continue;
+                if (user.watching.count(repo_id)) continue;
 
-                // ...
+                result.push_back(Ranked_Entry());
+                Ranked_Entry & entry = result.back();
+                entry.repo_id = repo_id;
+                entry.features.push_back(it->second.size());
+                entry.features.push_back(xdiv<float>(it->second.size(),
+                                                     user.watching.size()));
+                entry.features.push_back(i);
+
+                float best_dp = -2.0, best_dp_norm = -2.0;
+                // Find the best DP with a cluster member
+
+                const Repo & repo = data.repos[repo_id];
+
+                for (IdSet::const_iterator
+                         jt = it->second.begin(),
+                         jend = it->second.end();
+                     jt != jend;  ++jt) {
+                    if (*jt == -1) continue;
+                    const Repo & repo2 = data.repos[*jt];
+                    float dp = repo.singular_vec.dotprod(repo2.singular_vec);
+                    float dp_norm
+                        = xdiv(dp, repo.singular_2norm * repo2.singular_2norm);
+                    best_dp = max(best_dp, dp);
+                    best_dp_norm = max(best_dp_norm, dp_norm);
+                }
+
+                entry.features.push_back(best_dp);
+                entry.features.push_back(best_dp_norm);
             }
         }
-
-        for (IdSet::const_iterator
-                 it = clusters.begin(),
-                 end = clusters.end();
-
-            IdSet repo_ids;
-
-            // Rank by popularity
-            vector<pair<int, int> > ranked;
-            for (IdSet::const_iterator
-                     it = repo_ids.begin(),
-                     end = repo_ids.end();
-                 it != end;  ++it) {
-                ranked.push_back(make_pair(*it, data.repos[*it].repo_prob));
-            }
-
-            sort_on_second_descending(ranked);
-
-            for (unsigned i = 0;  i < 100 && i < ranked.size();  ++i)
-                in_cluster_repo.insert(ranked[i].first);
-        }
-
-        vector<pair<int, int> > ranked2;
-        for (IdSet::const_iterator
-                 it = in_cluster_repo.begin(),
-                 end = in_cluster_repo.end();
-             it != end;  ++it) {
-            ranked2.push_back(make_pair(*it, data.repos[*it].repo_prob));
-        }
-
-        sort_on_second_descending(ranked2);
-
-        in_cluster_repo.clear();
-
-        for (unsigned i = 0;  i < 200 && i < ranked2.size();  ++i)
-            in_cluster_repo.insert(ranked2[i].first);
-
-        result = in_cluster_repo;
     }
 };
 
@@ -548,14 +546,14 @@ struct In_Cluster_User_Source : public Candidate_Source {
 
     struct Rank_Info {
         Rank_Info()
-            : num_watched(0), watched_score(0.0f), highest_dp(0.0f),
-              highest_dp_norm(0.0f)
+            : num_watched(0), watched_score(0.0f), highest_dp(-2.0f),
+              highest_dp_norm(-2.0f)
         {
         }
 
         bool operator < (const Rank_Info & other) const
         {
-            return num_watched < other.num_watched;
+            return num_watched > other.num_watched;
         }
 
         int num_watched;
@@ -606,22 +604,23 @@ struct In_Cluster_User_Source : public Candidate_Source {
         vector<pair<int, Rank_Info> > ranked(watched_by_cluster_user.begin(),
                                              watched_by_cluster_user.end());
 
-        sort_on_second_descending(ranked);
+        sort_on_second_ascending(ranked);
         
-        result.reserve(min(500, watched_by_cluster_user.size()));
+        result.reserve(min<int>(500, ranked.size()));
 
         for (unsigned i = 0;
-             result.size() < 500 && i < watched_by_cluster_user.size();
+             result.size() < 500 && i < ranked.size();
              ++i) {
-            int repo_id = result[i].first;
-            const Rank_Info & info = result[i].second;
+            int repo_id = ranked[i].first;
+            if (repo_id == -1) continue;  // just in case...
+            const Rank_Info & info = ranked[i].second;
 
             if (user.watching.count(repo_id)) continue;
 
             result.push_back(Ranked_Entry());
             Ranked_Entry & entry = result.back();
-            entry.repo_id = it->first;
-            entry.features.reserve(2);
+            entry.repo_id = repo_id;
+            entry.features.reserve(4);
             entry.features.push_back(info.num_watched);
             entry.features.push_back(info.watched_score);
             entry.features.push_back(info.highest_dp);
@@ -745,6 +744,9 @@ struct By_Watched_Author_Source : public Candidate_Source {
                      jend = author.repositories.end();
                  jt != jend;  ++jt) {
 
+                if (*jt == -1) continue;
+                if (data.repos[*jt].invalid()) continue;
+
                 int nwatchers = data.repos[*jt].watchers.size();
                 
                 if (user.watching.count(*jt)) {
@@ -838,14 +840,18 @@ struct Same_Name_Source : public Candidate_Source {
     {
         Dense_Feature_Space result;
         result.add_feature("same_name_already_watched_num", Feature_Info::REAL);
+        result.add_feature("same_name_unwatched_num", Feature_Info::REAL);
         result.add_feature("same_name_already_watched_prop",
                            Feature_Info::REAL);
         result.add_feature("same_name_num_watchers_already",
                            Feature_Info::REAL);
         result.add_feature("same_name_prop_watchers_already",
                            Feature_Info::REAL);
-        result.add_feature("same_name_rank", Feature_Info::REAL);
-        result.add_feature("same_name_percentile", Feature_Info::REAL);
+        result.add_feature("same_name_abs_rank", Feature_Info::REAL);
+        result.add_feature("same_name_abs_percentile", Feature_Info::REAL);
+        result.add_feature("same_name_unwatched_rank", Feature_Info::REAL);
+        result.add_feature("same_name_unwatched_percentile",
+                           Feature_Info::REAL);
 
         return result;
     }
@@ -879,7 +885,8 @@ struct Same_Name_Source : public Candidate_Source {
             
             size_t name_num_watchers = with_same_name.num_watchers;
             
-            int n_already_watched = 0, watchers_already_watched = 0;
+            int n_already_watched = 0, watchers_already_watched = 0,
+                n_unwatched = 0;
 
             Ranked name_entries;
 
@@ -887,10 +894,13 @@ struct Same_Name_Source : public Candidate_Source {
                      jt = with_same_name.begin(),
                      jend = with_same_name.end();
                  jt != jend;  ++jt) {
-                if (user.watching.count(*jt)) continue;
-                ++n_already_watched;
+
                 int nwatchers = data.repos[*jt].watchers.size();
-                watchers_already_watched += nwatchers;
+
+                if (user.watching.count(*jt)) {
+                    ++n_already_watched;
+                    watchers_already_watched += nwatchers;
+                } else ++n_unwatched;
 
                 name_entries.push_back(Ranked_Entry());
                 Ranked_Entry & entry = name_entries.back();
@@ -900,16 +910,30 @@ struct Same_Name_Source : public Candidate_Source {
 
             name_entries.sort();
 
+            int rank = 0;
             for (unsigned i = 0;  i < name_entries.size();  ++i) {
+
+                if (user.watching.count(name_entries[i].repo_id))
+                    continue;
+
                 result.push_back(name_entries[i]);
+
                 Ranked_Entry & entry = result.back();
                 entry.index = result.size() - 1;
                 entry.features.push_back(n_already_watched);
-                entry.features.push_back(xdiv<float>(n_already_watched, with_same_name.size()));
+                entry.features.push_back(n_unwatched);
+                entry.features.push_back
+                    (xdiv<float>(n_already_watched, with_same_name.size()));
                 entry.features.push_back(name_num_watchers);
-                entry.features.push_back(xdiv<float>(watchers_already_watched, name_num_watchers));
+                entry.features.push_back
+                    (xdiv<float>(watchers_already_watched, name_num_watchers));
                 entry.features.push_back(entry.min_rank);
-                entry.features.push_back(entry.min_rank / with_same_name.size());
+                entry.features.push_back
+                    (xdiv<float>(entry.min_rank, with_same_name.size()));
+                entry.features.push_back(rank);
+                entry.features.push_back(xdiv<float>(rank, n_unwatched));
+                
+                ++rank;
             }
         }
     }

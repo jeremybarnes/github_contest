@@ -127,7 +127,7 @@ public:
         insert_sorted(first, last);
     }
 
-    size_t size() const { return vals.size(); }
+    size_t size() const { if (!sorted) sort(); return vals.size(); }
     bool empty() const { return vals.empty(); }
 };
 

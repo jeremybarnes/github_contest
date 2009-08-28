@@ -654,7 +654,10 @@ int main(int argc, char ** argv)
                 
                 // A comment so we know where this feature vector came from
                 out << " # repo " << repo_id << " "
-                    << data.authors[data.repos[repo_id].author].name << "/"
+                    << (data.repos[repo_id].author == -1
+                        ? "?????"
+                        : data.authors[data.repos[repo_id].author].name.c_str())
+                    << "/"
                     << data.repos[repo_id].name << endl;
             }
             
