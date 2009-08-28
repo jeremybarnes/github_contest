@@ -8,6 +8,8 @@
 #include "candidate_source.h"
 #include "utils/less.h"
 #include "math/xdiv.h"
+#include "ranker.h"
+
 
 using namespace std;
 using namespace ML;
@@ -217,6 +219,50 @@ common_features(distribution<float> & result,
     }
 }
 
+namespace {
+
+struct Source_Stats {
+    Source_Stats()
+        : total_size(0), n(0), correct(0), max_size(max_size)
+    {
+    }
+
+    size_t total_size;
+    size_t n;
+    size_t correct;
+    size_t max_size;
+    size_t already_watched;
+};
+
+map<string, Source_Stats> source_stats;
+
+struct PrintSourceStats {
+    ~PrintSourceStats()
+    {
+        cerr << "candidate source      nfired  correct already      nentries maxsz"
+             << endl;
+        for (map<string, Source_Stats>::const_iterator
+                 it = source_stats.begin(),
+                 end = source_stats.end();
+             it != end;  ++it) {
+            const Source_Stats & s = it->second;
+            cerr << format("%-30s %7zd %5zd(%5.2f%%) %5zd %7zd(%7.2f) %7.4f %7zd\n",
+                           it->first.c_str(),
+                           s.n,
+                           s.correct,
+                           100.0 * s.correct / s.n,
+                           s.already_watched,
+                           s.total_size,
+                           1.0 * s.total_size / s.n,
+                           100.0 * (s.correct + s.already_watched) / s.total_size,
+                           s.max_size);
+        }
+        cerr << endl;
+    }
+} print_source_stats;
+
+} // file scope
+
 void
 Candidate_Source::
 gen_candidates(Ranked & entries, int user_id, const Data & data,
@@ -225,8 +271,20 @@ gen_candidates(Ranked & entries, int user_id, const Data & data,
     // Get them, unranked
     candidate_set(entries, user_id, data, candidate_data);
 
+    Source_Stats & stats = source_stats[name()];
+
+    stats.total_size += entries.size();
+    if (!entries.empty())
+        ++stats.n;
+
     // For each, get the features and run the classifier
     for (unsigned i = 0;  i < entries.size();  ++i) {
+        
+        if (entries[i].repo_id == correct_repo)
+            ++stats.correct;
+        if (watching && watching->count(entries[i].repo_id))
+            ++stats.already_watched;
+        
         distribution<float> features;
         features.reserve(our_fs->variable_count());
         common_features(features, user_id, entries[i].repo_id, data,
@@ -332,11 +390,13 @@ struct Cooc_Source : public Candidate_Source {
 
     ~Cooc_Source()
     {
+#if 0
         cerr << "cooc source " << name() << endl;
         cerr << "called " << called << " times" << endl;
         cerr << "total coocs " << total_coocs << endl;
         cerr << "avg coocs " << 1.0 * total_coocs / called << " coocs"
              << endl;
+#endif
     }
 
     int source;
@@ -496,7 +556,9 @@ struct In_Cluster_Repo_Source : public Candidate_Source {
 
                 result.push_back(Ranked_Entry());
                 Ranked_Entry & entry = result.back();
+                entry.score = data.repos[repo_id].watchers.size();
                 entry.repo_id = repo_id;
+                entry.features.reserve(5);
                 entry.features.push_back(it->second.size());
                 entry.features.push_back(xdiv<float>(it->second.size(),
                                                      user.watching.size()));
@@ -524,6 +586,12 @@ struct In_Cluster_Repo_Source : public Candidate_Source {
                 entry.features.push_back(best_dp_norm);
             }
         }
+
+        // Add the top 500 only
+        result.sort();
+
+        if (result.size() > 500)
+            result.erase(result.begin() + 500, result.end());
     }
 };
 
