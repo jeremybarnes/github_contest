@@ -18,8 +18,8 @@ using namespace std;
 using namespace ML;
 
 enum {
-    NUM_CLUSTERS_USER = 1000,
-    NUM_CLUSTERS_REPO = 1000
+    NUM_CLUSTERS_USER = 200,
+    NUM_CLUSTERS_REPO = 200
 };
 
 void

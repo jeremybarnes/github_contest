@@ -223,7 +223,8 @@ namespace {
 
 struct Source_Stats {
     Source_Stats()
-        : total_size(0), n(0), correct(0), max_size(max_size)
+        : total_size(0), n(0), correct(0), max_size(0),
+          total_corr(0.0), total_incorr(0)
     {
     }
 
@@ -232,6 +233,7 @@ struct Source_Stats {
     size_t correct;
     size_t max_size;
     size_t already_watched;
+    double total_corr, total_incorr;
 };
 
 map<string, Source_Stats> source_stats;

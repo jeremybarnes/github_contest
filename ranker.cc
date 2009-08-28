@@ -442,6 +442,11 @@ feature_space() const
     result->add_feature("repo_keyword_factor", Feature_Info::REAL);
     result->add_feature("repo_keyword_idf_factor", Feature_Info::REAL);
 
+    result->add_feature("author_user_dp", Feature_Info::REAL);
+    result->add_feature("author_user_dp_norm", Feature_Info::REAL);
+    result->add_feature("max_dp_with_watched", Feature_Info::REAL);
+    result->add_feature("max_dp_with_watched_norm", Feature_Info::REAL);
+
     return result;
 }
 
@@ -693,6 +698,52 @@ features(std::vector<ML::distribution<float> > & results,
             result.push_back(repo.keywords_2norm);
             result.push_back(repo.keywords_idf_2norm);
         }
+
+        int author = repo.author;
+        if (author != -1) {
+            float best_dp = -2.0, best_dp_norm = -2.0;
+
+            for (IdSet::const_iterator
+                     jt = data.authors[author].possible_users.begin(),
+                     jend = data.authors[author].possible_users.end();
+                 jt != jend;  ++jt) {
+
+                if (*jt == -1) continue;
+
+                const User & user2 = data.users[*jt];
+
+                float dp = user.singular_vec.dotprod(user2.singular_vec);
+                float dp_norm
+                    = xdiv(dp, user.singular_2norm * user2.singular_2norm);
+                best_dp = max(best_dp, dp);
+                best_dp_norm = max(best_dp_norm, dp_norm);
+            }
+
+            result.push_back(best_dp);
+            result.push_back(best_dp_norm);
+        }
+        else {
+            result.push_back(NaN);
+            result.push_back(NaN);
+        }
+        
+        float best_dp = -2.0, best_dp_norm = -2.0;
+        
+        for (IdSet::const_iterator
+                 jt = user.watching.begin(),
+                 jend = user.watching.end();
+             jt != jend;  ++jt) {
+            if (*jt == -1) continue;
+            const Repo & repo2 = data.repos[*jt];
+            float dp = repo.singular_vec.dotprod(repo2.singular_vec);
+            float dp_norm
+                = xdiv(dp, repo.singular_2norm * repo2.singular_2norm);
+            best_dp = max(best_dp, dp);
+            best_dp_norm = max(best_dp_norm, dp_norm);
+        }
+
+        result.push_back(best_dp);
+        result.push_back(best_dp_norm);
     }
 }
 
