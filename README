@@ -14,9 +14,18 @@ Copying
 
 Feel free to browse my code and take my ideas for your system, if ever they are useful.  You can also use my results.txt however you like.
 
-I also have a file prob-results.txt which contains the top 100 repos predicted for each user as well as the probability associated with each of these predictions.  If you are doing blending experiments and want this file, please email me (I can't include it in the repo, as it takes about 6MB for each time I run an experiment).
-
 If ever you want to use my code, you can do so under the Affero GPL v3.  Note that getting it to work might be difficult; it relies on JML (Jeremy's Machine Learning Library) at http://bitbucket.org/jeremy_barnes/jml/.  This code needs to be downloaded and compiled and the jml symlink in the github repo set to point to it.  I build it on 32 and 64 bit Ubuntu 8.10/9.04 machines; anything else might be difficult.  There are also a *lot* of supporting libraries to install (all of which come with Ubuntu, but many of which aren't installed by default).
+
+
+For Blenders
+============
+
+I have included the following files for the benefit of blenders (in the blenders directory):
+* training-50-repos.txt: 50 results/user ranked for the held-out user set from Daniel Haran's repo;
+* testing-50-repos.txt: 50 results/user ranked for the official test set
+* prob-results.txt: 100 results/user + probability from the ranking classifier for the official test set
+
+Feel free to incorporate them any way you want to, though you should give credit.
 
 
 Features
@@ -25,7 +34,7 @@ Features
 The system that I have implemented has a few unique features that might be interesting.
 * Probabilistic predictions: the system provides probabilistic predictions of the score of the repos.  The major advantage of this is that we can see the confidence in our predictions.
 * Ability to explain predictions: using the explain functionality of the machine learning library (which has been designed and used commercially, but is not in the current version of the library), we can tell the user why we though that they would like a particular repo.
-* Practicality: it takes about 3 minutes to generate the predictions for all 4788 users on a single CPU core, which means that about 30 users/second/CPU core can be processed.  The training process takes about 20 minutes.
+* Practicality: it takes about 8 minutes to generate the predictions for all 4788 users on a single CPU core, which means that about 10 users/second/CPU core can be processed.  The training process takes about 35 minutes.
 * Malleability: there is essentially no hand-tuning that has been done on the system, and it is very easy to add extra features to take advantage of further information.  It would also be relatively easy to take out of the context of the competition and put into production.
 
 
@@ -82,29 +91,39 @@ I also have a file with the descriptions of (most of) the repositories in repo_d
 Candidate Source Feature Vector Contents
 ========================================
 
-TODO: finish (and explain better...)
+Each candidate source calculates a feature vector (which is a list of variables with values) for each of the candidates.  These candidate feature vectors are used to reduce the list of (potentially) 1000s of candidates into set of 100 or so *likely* candidates.
 
 The challenge here was to improve the diversity of the results.  For example, if the user already watched some repos by rails, then we didn't want to add another 200 rails/ repos at the expense of other repos from other authors (this could happen as the rails repos are all very popular).  By ranking the results within each set and providing features about this, the classifier was able to learn that we only need a few results per author from several authors rather than an exhaustive list from one single author.
 
+We also want each candidate source to provide different results; we don't just want all of them saying that "parents of watched repos are likely".
 
-    result.add_feature("density", Feature_Info::REAL);
-    result.add_feature("user_id", Feature_Info::REAL);
-    result.add_feature("user_repo_id_ratio", Feature_Info::REAL);
-    result.add_feature("user_watched_repos", Feature_Info::REAL);
-    result.add_feature("repo_watched_users", Feature_Info::REAL);
-    result.add_feature("repo_lines_of_code", Feature_Info::REAL);
-    result.add_feature("user_prob", Feature_Info::REAL);
-    result.add_feature("user_prob_rank", Feature_Info::REAL);
-    result.add_feature("repo_prob", Feature_Info::REAL);
-    result.add_feature("repo_prob_rank", Feature_Info::REAL);
-    result.add_feature("user_repo_prob", Feature_Info::REAL);
-    result.add_feature("repo_has_parent", Feature_Info::REAL);
-    result.add_feature("repo_num_children", Feature_Info::REAL);
-    result.add_feature("repo_num_ancestors", Feature_Info::REAL);
-    result.add_feature("repo_num_siblings", Feature_Info::REAL);
-    result.add_feature("repo_parent_watchers", Feature_Info::REAL);
+In order to deal with these challenges, we use a two-part feature vector.  
 
-Specific to coocs:
+- Features from an early attempt to trace the user/repo ID line; nearly useless:
+  * density of points in this part of the userid/repoid space
+  * the actual user ID
+  * the ratio of the user ID to the repo ID;
+
+- General features about the user/repo IDs:
+  * the number of repos that the user is watching
+  * the number of users watching the proposed repo
+  * the number of lines of code in the repo
+
+- Features from the stochastic random walk:
+  * the probability of the repo as determined by the stochastic random walk
+  * the rank of this probability over all repos
+  * the probability of the user as determined by the stochastic random walk
+  * the rank of this probability over all users
+  * the product of the user and the repo probabilities
+
+- Features about the family tree:
+  * does the repo have a parent?
+  * how many child repos does the repo have?
+  * how many ancestor repos does the repo have?
+  * how many sibling repos does the repo have?
+  * how many watchers does the parent repo have?
+
+Specific to coocs and coocs2:
 
         result.add_feature("cooc_total_score", Feature_Info::REAL);
         result.add_feature("cooc_max_score", Feature_Info::REAL);
@@ -164,10 +183,77 @@ Specific to in_cluster_user:
         result.add_feature("ucluster_highest_dp_norm", Feature_Info::REAL);
 
 
+Performance of Candidate Selection
+==================================
+
+For each candidate selection algorithm, I have two tables of statisics.
+
+The first provides statistics about generation of candidates by each of the candidate sources, before the candidate source classifiers (the generalized linear models) run:
+
+                     fired  nrcl   rcl%  watch  totalnum peruser    prec
+parents_of_watched    2971  1458(49.07%)  4695     8143(   2.74) 75.5618
+ancestors_of_watched   246     3( 1.22%)    24      288(   1.17)  9.3750
+by_watched_authors    3426  1245(36.34%)     0   562516( 164.19)  0.2213
+same_name             4242  1617(38.12%)     0  1470496( 346.65)  0.1100
+children_of_watched   3080   175( 5.68%)  5072  1078146( 350.05)  0.4867
+in_cluster_repo       4788  1300(27.15%)     0  2318617( 484.26)  0.0561
+in_cluster_user       4788  1982(41.40%)     0  2391605( 499.50)  0.0829
+in_id_range           4788   340( 7.10%)  2219    43466(   9.08)  5.8874
+coocs                 3722  2103(56.50%) 40747  9915205(2663.95)  0.4322
+coocs2                3754  2552(67.98%) 48276 24308132(6475.26)  0.2091
+most_watched          4788   795(16.60%)  7754   478800( 100.00)  1.7855
+
+The columns are:
+fired: number of the 2788 users for which at least one was generated
+nrcl:  number of held-out (target) examples that were produced
+rcl%:  which percentage of times it fired did it produce the correct answer?
+watch: how many of the results produced were already watched?
+totalnum: how many results were produced in total?
+peruser:  average number of candidates produced pre user
+prec:     (precision) how many of the results produced were either correct or already watched
+
+We can see that choosing parents of the watched algorithms was by far the most effective result.  We can also see that there is a *lot* of filtering necessary to reduce the average of 6475 candidates from the cooc source to a reasonable number, and to improve the small precision numbers.
+
+The next table is for after the results have been classified and the top 100 have been kept for each source.  Note that in this table the order is important, as the values in the incremental part only count *new* results that weren't already added by an earlier algorithm.
+
+                      --------- absolute ---------------  -------- incremental --------
+                     fired  corr   rcl%   nadded     avg   corr   rcl%   nadded     avg    maxsz   
+parents_of_watched    2971  1458(49.07%)    3448(   1.16)  1458(49.07%)    3448(   1.16)      16
+ancestors_of_watched   246     3( 1.22%)     264(   1.07)     3( 1.22%)     264(   1.07)       4
+by_watched_authors    3426  1233(35.99%)  265847(  77.60)  1096(31.99%)  265512(  77.50)     200
+same_name             4242  1606(37.86%)  246959(  58.22)   120( 2.83%)  241763(  56.99)     100
+children_of_watched   3080   164( 5.32%)  182070(  59.11)     7( 0.23%)   69443(  22.55)     100
+in_cluster_repo       4788   679(14.18%)  477770(  99.78)   104( 2.17%)  435446(  90.95)     100
+in_cluster_user       4788  1344(28.07%)  478800( 100.00)   645(13.47%)  465371(  97.20)     100
+in_id_range           4788   340( 7.10%)   41247(   8.61)   104( 2.17%)   40617(   8.48)      57
+coocs                 3722  1296(34.82%)  255004(  68.51)   130( 3.49%)  143509(  38.56)     100
+coocs2                3754  1386(36.92%)  275257(  73.32)    59( 1.57%)   69956(  18.64)     100
+most_watched          4788   795(16.60%)  471046(  98.38)    24( 0.50%)  212581(  44.40)     100
+
+The columns:
+fired:         number of times the rule fired
+corr:          number of times the held out value was in the set
+rcl%:          % of times where candidates produced that the held out value was there
+nadded:        total number of added candidates
+avg:           average number of candidates added per user where it fired
+
+It is interesting to look at the incremental results to see how the different candidate sources succeeded in adding diversity.  We can also look back to the previous table to see how much of the potential was removed by filtering down to 500 candidates.  For example, in the coocs2 source, we went from 67.98% to 36.92% after taking the top 100, and down to 1.57% when we exclude those that were added in previous rules.
+
+The in_cluster results are particularly disappointing as the GLZ for them actually hurts rather than helps (I kept it in anyway, but I have a heuristic pre-filtering stage that limits the damage).  This is probably due to the way that I generated the training data to train the generalized linear model.
+
+
 Ranker Feature Vector Contents
 ==============================
 
-The classifier includes about 160 features about all aspects of the models above and several more mundane features.  See in ranker.cc for a list of the names of the features and how they are calculated.
+The goal of the ranker feature vector is to take the 400 or so unique candidates that are left after the candidate sources are merged, and choose the 10 most likely to be correct.  In order to do this, we use very powerful features and a very high capacity classifier.
+
+The final results are pretty good (over a held-out set):
+fake test results:
+     total:      real: 2944/4788 =  61.49%  poss: 3750/4788 =  78.32%  avg num: 406.8
+
+So, by reducing the 406 candidates/user to 10, we keep 2944/3750 = 82.4% of the good answers.
+
+The features from all of the candidate sources are included in the feature vector.  To those, we add the following:
 
 - Heuristic feature, that calculates a heuristics score based upon the following:
   * First, add the parent repositories of repositories that the user is already watching, in order of popularity
