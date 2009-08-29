@@ -42,13 +42,20 @@ The system architecture for prediction is as follows:
     - children of watched repositories
     - repos that are in the same cluster as a watched repo (see below)
     - repos of users that are in the same cluster as the user we are predicting (see below)
+    - repos that were co-suggested with a watched repo by a given user
+    - repos that are watched by users that had co-suggested a watched repo (I guess I should include a picture)
+    - repos that have an ID in the range of the user-repo line (see below)
     - popular repositories
 
     Each of these is done by a candidate source, which will generate a large set of possible candidates and features to rank them with.  These features are then passed to a classifier which identifies a subset to be passed through to the next step.
 
-2.  We run each candidate prediction through a ranking classifier, which predicts the probability that the candidate is correct.  The training of the classifier and the features that are used are described below.
+2.  We merge all of the candidate predictions (normally the top 100) from each source, and take a superset of about 400 possible candidates to process further.
 
-3.  We filter out predictions for already watched repos, sort by the score, and take the 10 top predictions for the output file.
+3.  We run each candidate prediction through a ranking classifier, which predicts the probability that the candidate is correct.  The probability depends upon a lot of features that model all kinds of aspects of the process.  The training of the classifier and the features that are used are described below.
+
+4.  We filter out predictions for already watched repos, sort by the score, and dump the top 100 with their probabilities to prob-results.txt.
+
+5.  We take the 10 top predictions from this file for the results.txt, without the probabilities.
 
 
 Algorithms
@@ -59,8 +66,9 @@ The following algorithms are used:
 - k-means clustering in order to cluster the users and repos;
 - bagged boosted decision trees in order to generate the ranking classifier
 - a stochastic random walk process to determine a popularity ranking of the repos.  It mostly gives the same results as ranking by the number of watchers, though.
-- a language similarity model, which takes the cosine between normalized language vectors
+- a (programming) language similarity model, which takes the cosine between normalized language vectors
 - a cooccurrence model, where weight is awarded when two repositories are recommended together by the same user, or when two users both watch the same repository together. 
+- a keyword model, where tf and tf-idf vectors of the repository names and descriptions are used.
 
 
 Extra Information
@@ -68,15 +76,98 @@ Extra Information
 
 I downloaded information for each author about the date that the person joined and the number of followed and following people, as well as the original github ID (which is completely useless, and ignored).  It's in the authors.txt file, which anyone can feel free to use however they want.  Personally, I got nearly zero benefit from this information.
 
-I am also in the process of downloading the repository descriptions, in order to analyze the text in them.  I will also make this data available once it's ready.
+I also have a file with the descriptions of (most of) the repositories in repo_descriptions.txt.  I used this to generate fuller tf-idf vectors of the repository name.  Note that this file has a lot of syntax errors (escaping, ...) due to the not-ideally-robust nature of the scripts used to generate it.
 
 
-Feature Vector Contents
-=======================
+Candidate Source Feature Vector Contents
+========================================
 
-The classifier includes about 90 features about all aspects of the models above and several more mundane features.  See in ranker.cc for a list of the names of the features and how they are calculated.
+TODO: finish (and explain better...)
 
-(TODO: document them here)
+The challenge here was to improve the diversity of the results.  For example, if the user already watched some repos by rails, then we didn't want to add another 200 rails/ repos at the expense of other repos from other authors (this could happen as the rails repos are all very popular).  By ranking the results within each set and providing features about this, the classifier was able to learn that we only need a few results per author from several authors rather than an exhaustive list from one single author.
+
+
+    result.add_feature("density", Feature_Info::REAL);
+    result.add_feature("user_id", Feature_Info::REAL);
+    result.add_feature("user_repo_id_ratio", Feature_Info::REAL);
+    result.add_feature("user_watched_repos", Feature_Info::REAL);
+    result.add_feature("repo_watched_users", Feature_Info::REAL);
+    result.add_feature("repo_lines_of_code", Feature_Info::REAL);
+    result.add_feature("user_prob", Feature_Info::REAL);
+    result.add_feature("user_prob_rank", Feature_Info::REAL);
+    result.add_feature("repo_prob", Feature_Info::REAL);
+    result.add_feature("repo_prob_rank", Feature_Info::REAL);
+    result.add_feature("user_repo_prob", Feature_Info::REAL);
+    result.add_feature("repo_has_parent", Feature_Info::REAL);
+    result.add_feature("repo_num_children", Feature_Info::REAL);
+    result.add_feature("repo_num_ancestors", Feature_Info::REAL);
+    result.add_feature("repo_num_siblings", Feature_Info::REAL);
+    result.add_feature("repo_parent_watchers", Feature_Info::REAL);
+
+Specific to coocs:
+
+        result.add_feature("cooc_total_score", Feature_Info::REAL);
+        result.add_feature("cooc_max_score", Feature_Info::REAL);
+        result.add_feature("cooc_avg_score", Feature_Info::REAL);
+        result.add_feature("cooc_num_scores", Feature_Info::REAL);
+
+
+Specific to repos by same author:
+
+        result.add_feature("author_already_watched_num", Feature_Info::REAL);
+        result.add_feature("author_unwatched_num", Feature_Info::REAL);
+        result.add_feature("author_already_watched_prop",
+                           Feature_Info::REAL);
+        result.add_feature("author_num_watchers_already",
+                           Feature_Info::REAL);
+        result.add_feature("author_prop_watchers_already",
+                           Feature_Info::REAL);
+        result.add_feature("author_abs_rank", Feature_Info::REAL);
+        result.add_feature("author_abs_percentile", Feature_Info::REAL);
+        result.add_feature("author_unwatched_rank", Feature_Info::REAL);
+        result.add_feature("author_unwatched_percentile", Feature_Info::REAL);
+
+Specific to repos with same name:
+
+        result.add_feature("same_name_already_watched_num", Feature_Info::REAL);
+        result.add_feature("same_name_unwatched_num", Feature_Info::REAL);
+        result.add_feature("same_name_already_watched_prop",
+                           Feature_Info::REAL);
+        result.add_feature("same_name_num_watchers_already",
+                           Feature_Info::REAL);
+        result.add_feature("same_name_prop_watchers_already",
+                           Feature_Info::REAL);
+        result.add_feature("same_name_abs_rank", Feature_Info::REAL);
+        result.add_feature("same_name_abs_percentile", Feature_Info::REAL);
+        result.add_feature("same_name_unwatched_rank", Feature_Info::REAL);
+        result.add_feature("same_name_unwatched_percentile",
+                           Feature_Info::REAL);
+
+Specific to in_cluster_repo:
+
+        result.add_feature("rcluster_num_watched_in_cluster",
+                           Feature_Info::REAL);
+        result.add_feature("rcluster_prop_watched_in_cluster",
+                           Feature_Info::REAL);
+        result.add_feature("rcluster_rank_in_cluster",
+                           Feature_Info::REAL);
+        result.add_feature("rcluster_best_dp_in_cluster",
+                           Feature_Info::REAL);
+        result.add_feature("rcluster_best_norm_dp_in_cluster",
+                           Feature_Info::REAL);
+
+Specific to in_cluster_user:
+
+        result.add_feature("ucluster_num_watchers", Feature_Info::REAL);
+        result.add_feature("ucluster_watcher_score", Feature_Info::REAL);
+        result.add_feature("ucluster_highest_dp", Feature_Info::REAL);
+        result.add_feature("ucluster_highest_dp_norm", Feature_Info::REAL);
+
+
+Ranker Feature Vector Contents
+==============================
+
+The classifier includes about 160 features about all aspects of the models above and several more mundane features.  See in ranker.cc for a list of the names of the features and how they are calculated.
 
 - Heuristic feature, that calculates a heuristics score based upon the following:
   * First, add the parent repositories of repositories that the user is already watching, in order of popularity
@@ -86,6 +177,29 @@ The classifier includes about 90 features about all aspects of the models above 
 
 - Date features.  These features were nearly useless.
 - Author following/followed features.  These features were nearly useless.
+
+- The dot-product and normalized dot product between the programming language vectors for the user's watched repos and the suggested repo (in order to see if it's in a language that the user is interested in).  Worth about 2%.
+- Features based upon the name of the repo (note that these require us to match up authors of repos and users)
+  * Does the user's name include the repo's name?
+  * Does the repo's name include the user's name?
+
+- Features about the author and their repos, to get an idea of their popularity:
+  * How many repos does the author have?
+  * How many watchers does this author's repos have?
+  * How many repos are there with the same name?
+  * How many watchers does this author's repos have in total
+  * Were we able to infer an author for this user?
+  * Were we able to infer a unique author for this user?
+
+- Features about the cooccurrences, both using just a TF model (coocs) and an TF-IDF-like model (coocs2).  These were worth 1% or so.
+
+- Features based upon the SVD.  These could do with a better algorithm than SVD (for example, PLSA or one of the methods in Investigation of Various Matrix Factorization Methods for Large Recommender Systems):
+  * Dot products, normalized and unnormalized, between the user's topic space representation and the repo's tpoic space representation, and the highest value within the dot product
+  * Same between the repo and the user's average repo (in the topic space)
+
+- Features about the range of repo IDs that we though should be in this user id's set (see Side Channel Information).  Worth about 1.5%.
+
+- Features about keyword matches, both tf and tf-idf, between the user's repos and the repos.  These are based upon the repo descriptions in repo_descriptions.txt and the names of the repos (eg, rails-authentication-plugin becomes "rails authentication plugin").  Note that the Natural Language Processing used was extremely basic: no removal of punctuation, no contractions, no stemming, etc.  Note also that some kind of smoothing and some domain-specific tokenization (eg, RailsAuthenticationPlugin --> rails authentication plugin) could easily improve the information.
 
 
 Side Channel Information
@@ -122,10 +236,17 @@ Training
 
 The training process works roughly as follows:
 
-1.  Perform the (slow) k-means clustering to generate clusters of users and repos.
-2.  Generate a feature vector file for the classifier.
+1.  Perform the (slow) k-means clustering to generate clusters of users and repos.  We hold out 20,000 watches whilst doing the clustering so that we can train the rest on these without biasing.
 
-3.  Train a classifier on the feature vector file.
+2.  For each of the candidate sources:
+
+    2.a  Generate a feature vector file with the features about the possible candidate and whether it was correct or not.  We use 10,000 of the 20,000 held out watches for this.
+
+    2.b  Train a generalized linear model to provide a proability for the candidate
+
+2.  Generate a feature vector file for the ranking classifier, with entries for each user where we had the correct result somewhere in their candidate set.  Here we use more powerful but expensive features.  For each user we include the feature vector for the held-out repo (with label 1 and weight 1.0), and a random sample of 20 feature vectors for non-held-out (and so incorrect) repos, with a weight of 1/20.  We use the other 10,000 held-out watches for this.
+
+3.  Train a classifier on the feature vector file.  We use a much higher capacity classifier here (bagged boosted decision trees, with a tree depth of 3, 50 iterations of boosting and 5 bags).
 
 4.  Run the classifier over both a fake testing set to get non-official results, and the official testing set to get a results.txt file to submit.
 
@@ -148,7 +269,8 @@ The code is organized as follows:
 Compiling: (make or make -jx where x is number of cores on machine)
 github.cc: main driver program; --help shows main modes (or look in loadbuild.mk)
 data.{h,cc}: data structures to read the data and save the results of analysis
-ranker.{h,cc}: data structures and algorithms for the ranking of hypotheses
+candidate_source.{h,cc}: implementation of the base class and specializations for the candidate generators.
+ranker.{h,cc}: data structures and algorithms for the ranking of hypotheses received from the candidate_source.
 decompose.{h,cc}: algorithms for decomposition and clustering
 exception_hook.{h,cc}: simple file to cause a backtrace to be printed at the point where an exception is thrown
 keywords.{h,c}: functionality to process keywords in the repo names/descriptions
@@ -165,6 +287,41 @@ loadbuild.mk: makefile to generate results.txt (make -j2 loadbuild to generate a
 ranker-classifier-training-config.txt: configuration file for the classifier generator for the ranker
 config.txt: configuration file for the system; not many options have been put in it for the moment
 download/: contains the original data for the competition; not included in the repo (others will need to download it for themselves)
+authors.txt: information about repo authors, obtained from the API
+repo_descriptions.txt: descriptions of the repos, obtained from the API
+
+
+Bugs
+====
+
+Apart from the systematic biasing that gives me 10% more on my internal testing than on the official test set, there are also a few other bugs that I didn't manage to fix.
+
+The main one is that the candidate source classifiers for the cluster sources (in_cluster_user and in_cluster_repo) cause more harm than good, as the probabilizer on the output inverts the label classes.  I suspect that this is due to the baseline accuracy being too low; whatever the cause this means that when we reduce the 1000s of possibilities down to 100, we tend to take 100 *really bad* ones.  For this reason, I had to undo most of the improvements that I had made to this; it should be possible to do much better once this problem has been sorted out.  It's also possible that the problems are due to some kind of systematic biasing.
+
+
+Thoughts on the Contest
+=======================
+
+Firstly, thanks to GitHub for running the contest.
+
+What I liked about it:
+* It was nice to have a contest with a limited scope and duration; I avoided NetFlix precisely because I knew that it would become an obsession for several years, and real life (especially with a 2 1/2 year old) makes it difficult to deal with.  A 3 week contest (I spent about this time from go to whoa) on the other hand felt much more focused and was more fun.
+* It was nice to have a real dataset.  I hope that the held-out data will also be published.
+* It was nice to have a reasonable amount of data: not so much that one needed to spend a lot of time on data structures to fit it in memory, but not so little that there wasn't any rich structure to be found.
+* It was actually good to have some strong heuristics that could provide decent results without too much work.  It meant that people actually concentrated on understanding the data early on, rather than blindly applying the Machine Learning technique du jour.
+
+Now for the things that were unfortunate.  These are mostly obvious in hindsight, but it's worth enumerating them anyhow.
+
+* Possibilities to hill-climb.  NetFlix avoided this by requiring a submission of a large set of predictions, the score on only 1/2 of which was given when a submission was made.  The score on the other 1/2 was kept by NetFlix to evaluate the grand prize, which meant that someone who had overfitted would have a gap between their public scores and the internal NetFlix one.  Indeed, it seems that the team on top of the leaderboard had overfitted more than the second team, which lead to the second placed team being considered for the grand prize.  In GitHub, however, it would be possible to perform hill-climbing (overfitting) without any generalization improvement.  Unfortunately, looking at other submissions there seems to have been a degree of this happening.
+* Possibility to take other people's result files.  Blending is a valid approach and fine by me, but this means that the highest results will probably be useless in terms of creating a recommendation engine.  It would have been nice to have either a separate category or to have required co-operation rather than simply taking and using the top 20 on the leaderboard.
+* Possibility to model the dataset.  See above (Side Channel Information) for my description of how I modeled the user ID/repo ID generation process.  This part of my solution, while fun, was also completely irrelevant to the task of creating a good recommendation engine.
+* If there had have been a way to reduce the effect of the heuristics on the final score.  One way to do this (based upon the Boosting algorithm) would have been to keep track of a weight for each of the users, which would have increased as people submitted results that got that user wrong and decreased as people submitted results that got the user right.  Providing a weighted score like this would have encouraged systems that provided diverse results (not the same as the other systems).
+* Probably, in hindsight, anyone who wants to run a competition like this without a lot of experience should give themself a week in which they're allowed to change the rules, and then do so based upon what people come up with that's not in the hoped direction.
+
+Things that would have been nice:
+* To have included two held-out sets, so that blending algorithms could have been trained on one of them (rather than using the blind weighted approaches that seem to have been favored).
+* An official discussion forum or mailing list.
+* Publication of the code that was used to split the training and testing samples so that we could produce other held-out sets that would have had comparable performance.
 
 
 Credits
@@ -198,6 +355,8 @@ Future things that I will or may try:
 * Cheating: hill-climb (using a Nelder-Mead or similar multivariate optimization technique).  Guaranteed to win, but not at all useful.
 * Why is repo.author == -1 in some cases?
 * Find and use collaborators (two users that watch each other's repositories)
+* SVD on the keywords to smooth
+* More exploration!  I had time to implement a bunch of ideas, but not to follow them through to check that they worked as expected.
 
 Jeremy Barnes
-24 August 2009
+28 August 2009
