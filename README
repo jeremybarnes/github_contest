@@ -67,7 +67,7 @@ The following algorithms are used:
 - bagged boosted decision trees in order to generate the ranking classifier
 - a stochastic random walk process to determine a popularity ranking of the repos.  It mostly gives the same results as ranking by the number of watchers, though.
 - a (programming) language similarity model, which takes the cosine between normalized language vectors
-- a cooccurrence model, where weight is awarded when two repositories are recommended together by the same user, or when two users both watch the same repository together. 
+- a co-occurrence model, where weight is awarded when two repositories are recommended together by the same user, or when two users both watch the same repository together. 
 - a keyword model, where tf and tf-idf vectors of the repository names and descriptions are used.
 
 
@@ -322,7 +322,7 @@ Things that would have been nice:
 * To have included two held-out sets, so that blending algorithms could have been trained on one of them (rather than using the blind weighted approaches that seem to have been favored).
 * An official discussion forum or mailing list.
 * Publication of the code that was used to split the training and testing samples so that we could produce other held-out sets that would have had comparable performance.
-
+* It was a bit of a shame to see that hardly anyone tried any of the advanced techniques out there (I would have liked to try a deep siamese neural network and better matrix factorization models).  I guess that this is a combination of a) burnout from those who participated in NetFlix, b) the short timeframe and c) the relative power of heuristic techniques.
 
 Credits
 =======
