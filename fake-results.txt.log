@@ -23,7 +23,7 @@ KAPPA                     =  1.00E-06
 NUMBER OF LANCZOS STEPS   =    185
 RITZ VALUES STABILIZED    =     54
 SINGULAR VALUES FOUND     =     50
-SVD elapsed: elapsed: [11.85s cpu, 27542.7615 mticks, 12.18s wall]
+SVD elapsed: elapsed: [4.78s cpu, 12764.4391 mticks, 4.78s wall]
 done repos
 doing keywords
 86298 vocab entries
@@ -36,7 +36,7 @@ processing 4788 users...
 0%   10   20   30   40   50   60   70   80   90   100%
 |----|----|----|----|----|----|----|----|----|----|
 ***************************************************
-elapsed: elapsed: [418.91s cpu, 968344.5902 mticks, 428.28s wall]
+elapsed: elapsed: [240.42s cpu, 642533.3781 mticks, 240.40s wall]
 done
 
 calculating test result... done.
@@ -44,12 +44,12 @@ generator                        fired   corr
 ancestors_of_watched               246     3( 1.22%)     264(   1.07)     3( 1.22%)     264(   1.07)       4
 by_watched_authors                3426  1233(35.99%)  265847(  77.60)  1096(31.99%)  265512(  77.50)     200
 children_of_watched               3080   164( 5.32%)  182070(  59.11)     7( 0.23%)   69443(  22.55)     100
-coocs                             3722  1296(34.82%)  255004(  68.51)   130( 3.49%)  143509(  38.56)     100
-coocs2                            3754  1386(36.92%)  275257(  73.32)    59( 1.57%)   69956(  18.64)     100
-in_cluster_repo                   4788   679(14.18%)  477770(  99.78)   104( 2.17%)  435446(  90.95)     100
-in_cluster_user                   4788  1344(28.07%)  478800( 100.00)   645(13.47%)  465371(  97.20)     100
-in_id_range                       4788   340( 7.10%)   41247(   8.61)   104( 2.17%)   40617(   8.48)      57
-most_watched                      4788   795(16.60%)  471046(  98.38)    24( 0.50%)  212581(  44.40)     100
+coocs                             3722  1299(34.90%)  254929(  68.49)   502(13.49%)  223268(  59.99)     100
+coocs2                            3754  1382(36.81%)  275313(  73.34)   129( 3.44%)  102509(  27.31)     100
+in_cluster_repo                   4788    65( 1.36%)  477770(  99.78)    24( 0.50%)  441343(  92.18)     100
+in_cluster_user                   4788    64( 1.34%)  478800( 100.00)    39( 0.81%)  475402(  99.29)     100
+in_id_range                       4788   340( 7.10%)   41247(   8.61)   105( 2.19%)   40816(   8.52)      57
+most_watched                      4788   795(16.60%)  471046(  98.38)   110( 2.30%)  343372(  71.72)     100
 parents_of_watched                2971  1458(49.07%)    3448(   1.16)  1458(49.07%)    3448(   1.16)      16
 same_name                         4242  1606(37.86%)  246959(  58.22)   120( 2.83%)  241763(  56.99)     100
 candidate source      nfired  correct already      nentries maxsz
@@ -65,5 +65,5 @@ most_watched                      4788   795(16.60%)  7754  478800( 100.00)  1.7
 parents_of_watched                2971  1458(49.07%)  4695    8143(   2.74) 75.5618       0
 same_name                         4242  1617(38.12%)     0 1470496( 346.65)  0.1100       0
 
-439.44user 1.27system 7:30.96elapsed 97%CPU (0avgtext+0avgdata 0maxresident)k
-0inputs+8outputs (0major+141862minor)pagefaults 0swaps
+251.21user 0.19system 4:11.39elapsed 100%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+8outputs (0major+142369minor)pagefaults 0swaps

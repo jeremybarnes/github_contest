@@ -16,7 +16,6 @@
 */
 
 #include "data.h"
-#include "github_features.h"
 #include "boosting/perceptron.h"
 
 using namespace ML;
