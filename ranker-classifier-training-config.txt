@@ -100,7 +100,7 @@ bbs2 {
 }
 
 # Copy the one that we want to the given key
-phase1: bbdt {
+phase1: glz {
 }
 
 default: bbdt {
