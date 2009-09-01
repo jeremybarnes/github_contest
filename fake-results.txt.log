@@ -23,7 +23,7 @@ KAPPA                     =  1.00E-06
 NUMBER OF LANCZOS STEPS   =    185
 RITZ VALUES STABILIZED    =     54
 SINGULAR VALUES FOUND     =     50
-SVD elapsed: elapsed: [4.78s cpu, 12755.6783 mticks, 4.77s wall]
+SVD elapsed: elapsed: [4.75s cpu, 12725.3953 mticks, 4.76s wall]
 done repos
 doing keywords
 86298 vocab entries
@@ -36,7 +36,7 @@ processing 4788 users...
 0%   10   20   30   40   50   60   70   80   90   100%
 |----|----|----|----|----|----|----|----|----|----|
 ***************************************************
-elapsed: elapsed: [236.01s cpu, 630741.6742 mticks, 235.99s wall]
+elapsed: elapsed: [253.46s cpu, 677404.3226 mticks, 253.45s wall]
 done
 
 calculating test result... done.
@@ -44,12 +44,12 @@ generator                        fired   corr
 ancestors_of_watched               246     3( 1.22%)     264(   1.07)     3( 1.22%)     264(   1.07)       4
 by_watched_authors                3426  1233(35.99%)  265847(  77.60)  1096(31.99%)  265512(  77.50)     200
 children_of_watched               3080   164( 5.32%)  182070(  59.11)     7( 0.23%)   69443(  22.55)     100
-coocs                             3722  1301(34.95%)  254661(  68.42)   117( 3.14%)  139225(  37.41)     100
-coocs2                            3754  1413(37.64%)  274851(  73.22)    50( 1.33%)   64433(  17.16)     100
-in_cluster_repo                   4788   950(19.84%)  477770(  99.78)   122( 2.55%)  409969(  85.62)     100
-in_cluster_user                   4788  1344(28.07%)  478800( 100.00)   645(13.47%)  465372(  97.20)     100
-in_id_range                       4788   340( 7.10%)   41247(   8.61)   104( 2.17%)   40611(   8.48)      57
-most_watched                      4788   795(16.60%)  471046(  98.38)    21( 0.44%)  211197(  44.11)     100
+coocs                             3722  1301(34.95%)  254661(  68.42)   111( 2.98%)  128361(  34.49)     100
+coocs2                            3754  1413(37.64%)  274851(  73.22)    46( 1.23%)   59735(  15.91)     100
+in_cluster_repo                   4788   981(20.49%)  477770(  99.78)   115( 2.40%)  413990(  86.46)     100
+in_cluster_user                   4788  1331(27.80%)  478800( 100.00)   653(13.64%)  466341(  97.40)     100
+in_id_range                       4788   340( 7.10%)   41247(   8.61)   103( 2.15%)   40590(   8.48)      57
+most_watched                      4788   795(16.60%)  471046(  98.38)    18( 0.38%)  190178(  39.72)     100
 parents_of_watched                2971  1458(49.07%)    3448(   1.16)  1458(49.07%)    3448(   1.16)      16
 same_name                         4242  1606(37.86%)  246959(  58.22)   120( 2.83%)  241763(  56.99)     100
 candidate source      nfired  correct already      nentries maxsz
@@ -58,12 +58,12 @@ by_watched_authors                3426  1245(36.34%)     0  562516( 164.19)  0.2
 children_of_watched               3080   175( 5.68%)  5072 1078146( 350.05)  0.4867       0
 coocs                             3722  2103(56.50%) 40747 9915205(2663.95)  0.4322       0
 coocs2                            3754  2552(67.98%) 48276 24308132(6475.26)  0.2091       0
-in_cluster_repo                   4788  1300(27.15%)     0 2318617( 484.26)  0.0561       0
-in_cluster_user                   4788  1982(41.40%)     0 2391605( 499.50)  0.0829       0
+in_cluster_repo                   4788  1429(29.85%)     0 3268971( 682.74)  0.0437       0
+in_cluster_user                   4788  2548(53.22%)     0 8265274(1726.25)  0.0308       0
 in_id_range                       4788   340( 7.10%)  2219   43466(   9.08)  5.8874       0
 most_watched                      4788   795(16.60%)  7754  478800( 100.00)  1.7855       0
 parents_of_watched                2971  1458(49.07%)  4695    8143(   2.74) 75.5618       0
 same_name                         4242  1617(38.12%)     0 1470496( 346.65)  0.1100       0
 
-247.04user 0.23system 4:07.71elapsed 99%CPU (0avgtext+0avgdata 0maxresident)k
-18720inputs+8outputs (160major+141621minor)pagefaults 0swaps
+263.99user 0.46system 4:24.46elapsed 99%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+8outputs (0major+141775minor)pagefaults 0swaps

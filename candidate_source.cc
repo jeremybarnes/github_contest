@@ -592,7 +592,7 @@ struct In_Cluster_Repo_Source : public Candidate_Source {
         // Add the top 500 only
         result.sort();
 
-        if (result.size() > 500)
+        if (result.size() > 2000)
             result.erase(result.begin() + 500, result.end());
     }
 };
@@ -676,10 +676,10 @@ struct In_Cluster_User_Source : public Candidate_Source {
 
         sort_on_second_ascending(ranked);
         
-        result.reserve(min<int>(500, ranked.size()));
+        result.reserve(min<int>(2000, ranked.size()));
 
         for (unsigned i = 0;
-             result.size() < 500 && i < ranked.size();
+             result.size() < 2000 && i < ranked.size();
              ++i) {
             int repo_id = ranked[i].first;
             if (repo_id == -1) continue;  // just in case...
