@@ -237,6 +237,7 @@ struct Source_Stats {
 };
 
 map<string, Source_Stats> source_stats;
+Lock stats_lock;
 
 struct PrintSourceStats {
     ~PrintSourceStats()
@@ -273,19 +274,13 @@ gen_candidates(Ranked & entries, int user_id, const Data & data,
     // Get them, unranked
     candidate_set(entries, user_id, data, candidate_data);
 
-    Source_Stats & stats = source_stats[name()];
-
-    stats.total_size += entries.size();
-    if (!entries.empty())
-        ++stats.n;
+    int ncorrect = 0, nalready = 0;
 
     // For each, get the features and run the classifier
     for (unsigned i = 0;  i < entries.size();  ++i) {
         
-        if (entries[i].repo_id == correct_repo)
-            ++stats.correct;
-        if (watching && watching->count(entries[i].repo_id))
-            ++stats.already_watched;
+        if (entries[i].repo_id == correct_repo) ++ncorrect;
+        if (watching && watching->count(entries[i].repo_id)) ++nalready;
         
         distribution<float> features;
         features.reserve(our_fs->variable_count());
@@ -307,6 +302,16 @@ gen_candidates(Ranked & entries, int user_id, const Data & data,
 
     for (unsigned i = 0;  i < entries.size();  ++i)
         entries[i].keep = i < max_entries && entries[i].score >= min_prob;
+
+    Guard guard(stats_lock);
+    Source_Stats & stats = source_stats[name()];
+
+    stats.total_size += entries.size();
+    if (!entries.empty())
+        ++stats.n;
+
+    stats.correct += ncorrect;
+    stats.already_watched += nalready;
 }
 
 
@@ -589,11 +594,11 @@ struct In_Cluster_Repo_Source : public Candidate_Source {
             }
         }
 
-        // Add the top 500 only
+        // Add the top 2000 only
         result.sort();
 
         if (result.size() > 2000)
-            result.erase(result.begin() + 500, result.end());
+            result.erase(result.begin() + 2000, result.end());
     }
 };
 

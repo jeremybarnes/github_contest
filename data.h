@@ -30,6 +30,9 @@ class IdSet {
 
     void sort() const
     {
+        if (sorted == -1)
+            throw ML::Exception("accessed whilst sorting");
+        sorted = -1;
         ML::make_vector_set(vals);
         sorted = true;
     }
@@ -55,25 +58,25 @@ public:
 
     const_iterator begin() const
     {
-        if (!sorted) sort();
+        if (sorted != true) sort();
         return const_iterator(vals.begin());
     }
     
     const_iterator end() const
     {
-        if (!sorted) sort();
+        if (sorted != true) sort();
         return const_iterator(vals.end());
     }
 
     bool count(int id) const
     {
-        if (!sorted) sort();
+        if (sorted != true) sort();
         return std::binary_search(vals.begin(), vals.end(), id);
     }
     
     void erase(int id) const
     {
-        if (!sorted) sort();
+        if (sorted != true) sort();
         Vals::iterator it
             = std::lower_bound(vals.begin(), vals.end(), id);
         if (it != vals.end() && *it == id)
@@ -82,7 +85,7 @@ public:
 
     void erase(const IdSet & other)
     {
-        if (!sorted) sort();
+        if (sorted != true) sort();
         std::vector<int> new_vals;
         new_vals.reserve(vals.size());
         std::set_difference(vals.begin(), vals.end(),
@@ -127,7 +130,7 @@ public:
         insert_sorted(first, last);
     }
 
-    size_t size() const { if (!sorted) sort(); return vals.size(); }
+    size_t size() const { if (sorted != true) sort(); return vals.size(); }
     bool empty() const { return vals.empty(); }
 };
 

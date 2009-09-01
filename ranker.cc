@@ -143,6 +143,7 @@ struct Name_Stats {
 };
 
 map<string, Name_Stats> stats;
+Lock stats_lock;
 
 struct PrintStats {
     ~PrintStats()
@@ -172,8 +173,8 @@ struct PrintStats {
 
 }
 
-int correct_repo = -1;
-const IdSet * watching = 0;
+__thread int correct_repo = -1;
+__thread const IdSet * watching = 0;
 
 template<class Set>
 void
@@ -197,6 +198,7 @@ insert_choices(IdSet & possible_choices, const Set & s,
     bool correct_after = possible_choices.count(correct_repo);
     size_t after = possible_choices.size();
 
+    Guard guard(stats_lock);
     Name_Stats & st = stats[name];
     if (!s.empty()) ++st.n;
     st.total_size += filtered_choices.size();
