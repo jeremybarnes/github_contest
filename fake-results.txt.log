@@ -23,7 +23,11 @@ KAPPA                     =  1.00E-06
 NUMBER OF LANCZOS STEPS   =    185
 RITZ VALUES STABILIZED    =     53
 SINGULAR VALUES FOUND     =     50
+<<<<<<< HEAD:fake-results.txt.log
 SVD elapsed: elapsed: [12.01s cpu, 28192.0985 mticks, 12.47s wall]
+=======
+SVD elapsed: elapsed: [4.72s cpu, 12599.0099 mticks, 4.71s wall]
+>>>>>>> 2a9ab7c4aa39bcbe3d0dbafdf49044804f2822fb:fake-results.txt.log
 done repos
 doing keywords
 86298 vocab entries
@@ -36,11 +40,16 @@ processing 4788 users...
 0%   10   20   30   40   50   60   70   80   90   100%
 |----|----|----|----|----|----|----|----|----|----|
 ***************************************************
+<<<<<<< HEAD:fake-results.txt.log
 elapsed: elapsed: [456.41s cpu, 1053477.7147 mticks, 465.93s wall]
+=======
+elapsed: elapsed: [706.70s cpu, 1888700.4113 mticks, 706.66s wall]
+>>>>>>> 2a9ab7c4aa39bcbe3d0dbafdf49044804f2822fb:fake-results.txt.log
 done
 
 calculating test result... done.
 generator                        fired   corr 
+<<<<<<< HEAD:fake-results.txt.log
 ancestors_of_watched               246     1( 0.41%)     258(   1.05)     1( 0.41%)     258(   1.05)       6
 by_watched_authors                3460  1213(35.06%)  272127(  78.65)  1099(31.76%)  271813(  78.56)     200
 children_of_watched               3105   148( 4.77%)  184158(  59.31)     9( 0.29%)   76080(  24.50)     100
@@ -52,6 +61,19 @@ in_id_range                       4788   319( 6.66%)   41866(   8.74)    95( 1.9
 most_watched                      4788   808(16.88%)  470546(  98.28)    96( 2.01%)  340517(  71.12)     100
 parents_of_watched                2953  1451(49.14%)    3615(   1.22)  1451(49.14%)    3615(   1.22)      35
 same_name                         4251  1568(36.89%)  246994(  58.10)    96( 2.26%)  241587(  56.83)     100
+=======
+ancestors_of_watched               246     3( 1.22%)     264(   1.07)     3( 1.22%)     264(   1.07)       4
+by_watched_authors                3426  1233(35.99%)  265847(  77.60)  1096(31.99%)  265510(  77.50)     200
+children_of_watched               3080   158( 5.13%)  181531(  58.94)     6( 0.19%)   80728(  26.21)     100
+coocs                             3722  1338(35.95%)  254002(  68.24)   126( 3.39%)  142490(  38.28)     100
+coocs2                            3754  1482(39.48%)  265434(  70.71)    51( 1.36%)   67947(  18.10)     100
+in_cluster_repo                   4788   921(19.24%)  477770(  99.78)   133( 2.78%)  410846(  85.81)     100
+in_cluster_user                   4788  1352(28.24%)  478800( 100.00)   641(13.39%)  465681(  97.26)     100
+in_id_range                       4788   340( 7.10%)   41247(   8.61)   103( 2.15%)   40591(   8.48)      57
+most_watched                      4788   795(16.60%)  471046(  98.38)    25( 0.52%)  222966(  46.57)     100
+parents_of_watched                2971  1458(49.07%)    3448(   1.16)  1458(49.07%)    3448(   1.16)      16
+same_name                         4242  1608(37.91%)  246959(  58.22)   119( 2.81%)  241901(  57.03)     100
+>>>>>>> 2a9ab7c4aa39bcbe3d0dbafdf49044804f2822fb:fake-results.txt.log
 candidate source      nfired  correct already      nentries maxsz
 ancestors_of_watched               246     1( 0.41%)    32     290(   1.18) 11.3793       0
 by_watched_authors                3460  1230(35.55%)     0  603700( 174.48)  0.2037       0
@@ -65,5 +87,10 @@ most_watched                      4788   808(16.88%)  8254  478800( 100.00)  1.8
 parents_of_watched                2953  1451(49.14%)  4751    8366(   2.83) 74.1334       0
 same_name                         4251  1579(37.14%)     0 1538961( 362.02)  0.1026       0
 
+<<<<<<< HEAD:fake-results.txt.log
 476.96user 1.45system 8:08.67elapsed 97%CPU (0avgtext+0avgdata 0maxresident)k
 0inputs+8outputs (0major+142063minor)pagefaults 0swaps
+=======
+717.45user 0.21system 11:57.63elapsed 100%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+8outputs (0major+143158minor)pagefaults 0swaps
+>>>>>>> 2a9ab7c4aa39bcbe3d0dbafdf49044804f2822fb:fake-results.txt.log

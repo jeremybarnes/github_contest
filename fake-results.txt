@@ -1,5 +1,11 @@
 fake test results: 
+<<<<<<< HEAD:fake-results.txt
      total:      real: 2867/4788 =  59.88%  poss: 3592/4788 =  75.02%  avg num: 466.5
 non-zero scores: 
      total:      real: 2867/4788 =  59.88%  poss: 3592/4788 =  75.02%  avg num: 466.5
+=======
+     total:      real: 2909/4788 =  60.76%  poss: 3761/4788 =  78.55%  avg num: 405.7
+non-zero scores: 
+     total:      real: 2909/4788 =  60.76%  poss: 3761/4788 =  78.55%  avg num: 405.7
+>>>>>>> 2a9ab7c4aa39bcbe3d0dbafdf49044804f2822fb:fake-results.txt
 
