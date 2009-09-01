@@ -1,14 +1,14 @@
 loading data...full_repo_name_to_index.size() = 120827
-user inferring: valid 56521 inferred 35873 multiple 283 average 2.06714
+user inferring: valid 56521 inferred 35248 multiple 439 average 2.09112
 inferring from IDs
-found 21503/120867=17.79%, gap max 74 avg 5.74
-max_count = 604
+found 21052/120867=17.42%, gap max 74 avg 5.86
+max_count = 603
  done.
 running SVD
 SOLVING THE [A^TA] EIGENPROBLEM
-NO. OF ROWS               = 120867
+NO. OF ROWS               = 119310
 NO. OF COLUMNS            =  56519
-NO. OF NON-ZERO VALUES    = 440237
+NO. OF NON-ZERO VALUES    = 435449
 MATRIX DENSITY            =   0.01%
 MAX. NO. OF LANCZOS STEPS =  56519
 MAX. NO. OF EIGENPAIRS    =     50
@@ -17,9 +17,9 @@ RIGHT END OF THE INTERVAL =  1.00E-30
 KAPPA                     =  1.00E-06
 
 NUMBER OF LANCZOS STEPS   =    185
-RITZ VALUES STABILIZED    =     55
+RITZ VALUES STABILIZED    =     54
 SINGULAR VALUES FOUND     =     50
-SVD elapsed: elapsed: [12.50s cpu, 29400.8727 mticks, 13.00s wall]
+SVD elapsed: elapsed: [12.05s cpu, 28633.1267 mticks, 12.66s wall]
 done repos
 doing keywords
 86298 vocab entries
@@ -27,44 +27,44 @@ num_gt_two = 29964
 done keywords
 candidate source name=coocs source = 1
 candidate source name=coocs2 source = 2
-processing 4788 users...
+processing 9087 users...
 
 0%   10   20   30   40   50   60   70   80   90   100%
 |----|----|----|----|----|----|----|----|----|----|
 ***************************************************
-elapsed: elapsed: [437.19s cpu, 1023357.2418 mticks, 452.61s wall]
+elapsed: elapsed: [742.68s cpu, 1710214.5939 mticks, 756.40s wall]
 done
 
 calculating test result... done.
 fake test results: 
-     total:      real:    0/4788 =   0.00%  poss:    0/4788 =   0.00%  avg num: 429.7
+     total:      real:    0/9087 =   0.00%  poss:    0/9087 =   0.00%  avg num: 473.8
 non-zero scores: 
-     total:      real:    0/4788 =   0.00%  poss:    0/4788 =   0.00%  avg num: 429.7
+     total:      real:    0/9087 =   0.00%  poss:    0/9087 =   0.00%  avg num: 473.8
 
 generator                        fired   corr 
-ancestors_of_watched               240     0( 0.00%)     261(   1.09)     0( 0.00%)     261(   1.09)       5
-by_watched_authors                3756     0( 0.00%)  316581(  84.29)     0( 0.00%)  316184(  84.18)     200
-children_of_watched               3490     0( 0.00%)  214058(  61.33)     0( 0.00%)   82107(  23.53)     100
-coocs                             4002     0( 0.00%)  292026(  72.97)     0( 0.00%)  158035(  39.49)     100
-coocs2                            4038     0( 0.00%)  315168(  78.05)     0( 0.00%)   81332(  20.14)     100
-in_cluster_repo                   4786     0( 0.00%)  477649(  99.80)     0( 0.00%)  432931(  90.46)     100
-in_cluster_user                   4788     0( 0.00%)  478800( 100.00)     0( 0.00%)  462346(  96.56)     100
-in_id_range                       4788     0( 0.00%)   43042(   8.99)     0( 0.00%)   42280(   8.83)      46
-most_watched                      4788     0( 0.00%)  468814(  97.91)     0( 0.00%)  217984(  45.53)     100
-parents_of_watched                2833     0( 0.00%)    3851(   1.36)     0( 0.00%)    3851(   1.36)      35
-same_name                         4340     0( 0.00%)  265694(  61.22)     0( 0.00%)  259957(  59.90)     100
+ancestors_of_watched               399     0( 0.00%)     432(   1.08)     0( 0.00%)     432(   1.08)       5
+by_watched_authors                7362     0( 0.00%)  544190(  73.92)     0( 0.00%)  543561(  73.83)     200
+children_of_watched               6554     0( 0.00%)  378163(  57.70)     0( 0.00%)  149955(  22.88)     100
+coocs                             7546     0( 0.00%)  534422(  70.82)     0( 0.00%)  458217(  60.72)     100
+coocs2                            7626     0( 0.00%)  580996(  76.19)     0( 0.00%)  211148(  27.69)     100
+in_cluster_repo                   9085     0( 0.00%)  905871(  99.71)     0( 0.00%)  855433(  94.16)     100
+in_cluster_user                   9087     0( 0.00%)  908700( 100.00)     0( 0.00%)  902235(  99.29)     100
+in_id_range                       9087     0( 0.00%)   83728(   9.21)     0( 0.00%)   82373(   9.06)      57
+most_watched                      9087     0( 0.00%)  892160(  98.18)     0( 0.00%)  634113(  69.78)     100
+parents_of_watched                4870     0( 0.00%)    6211(   1.28)     0( 0.00%)    6211(   1.28)      35
+same_name                         7985     0( 0.00%)  471082(  59.00)     0( 0.00%)  461307(  57.77)     100
 candidate source      nfired  correct already      nentries maxsz
-ancestors_of_watched               240     0( 0.00%)    39     300(   1.25) 13.0000       0
-by_watched_authors                3756     0( 0.00%)     0  741156( 197.33)  0.0000       0
-children_of_watched               3490     0( 0.00%)  5289 1402558( 401.88)  0.3771       0
-coocs                             4002     0( 0.00%) 50851 12703818(3174.37)  0.4003       0
-coocs2                            4038     0( 0.00%) 59633 30510866(7555.94)  0.1954       0
-in_cluster_repo                   4786     0( 0.00%)     0 2320407( 484.83)  0.0000       0
-in_cluster_user                   4788     0( 0.00%)     0 2389897( 499.14)  0.0000       0
-in_id_range                       4788     0( 0.00%)  1962   45004(   9.40)  4.3596       0
-most_watched                      4788     0( 0.00%)  9986  478800( 100.00)  2.0856       0
-parents_of_watched                2833     0( 0.00%)  4954    8825(   3.12) 56.1360       0
-same_name                         4340     0( 0.00%)     0 1794583( 413.50)  0.0000       0
+ancestors_of_watched               399     0( 0.00%)    64     496(   1.24) 12.9032       0
+by_watched_authors                7362     0( 0.00%)     0 1234911( 167.74)  0.0000       0
+children_of_watched               6554     0( 0.00%)  9578 2333757( 356.08)  0.4104       0
+coocs                             7546     0( 0.00%) 85976 20936561(2774.52)  0.4107       0
+coocs2                            7626     0( 0.00%) 101538 50895223(6673.91)  0.1995       0
+in_cluster_repo                   9085     0( 0.00%)     0 4378356( 481.93)  0.0000       0
+in_cluster_user                   9087     0( 0.00%)     0 4538767( 499.48)  0.0000       0
+in_id_range                       9087     0( 0.00%)  3698   87426(   9.62)  4.2299       0
+most_watched                      9087     0( 0.00%) 16540  908700( 100.00)  1.8202       0
+parents_of_watched                4870     0( 0.00%)  8843   15074(   3.10) 58.6639       0
+same_name                         7985     0( 0.00%)     0 3019422( 378.14)  0.0000       0
 
-457.72user 1.09system 7:55.66elapsed 96%CPU (0avgtext+0avgdata 0maxresident)k
-0inputs+12984outputs (0major+141797minor)pagefaults 0swaps
+761.89user 1.48system 12:58.18elapsed 98%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+24888outputs (0major+146024minor)pagefaults 0swaps
