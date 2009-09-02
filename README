@@ -239,7 +239,7 @@ avg:           average number of candidates added per user where it fired
 
 It is interesting to look at the incremental results to see how the different candidate sources succeeded in adding diversity.  We can also look back to the previous table to see how much of the potential was removed by filtering down to 500 candidates.  For example, in the coocs2 source, we went from 67.98% to 36.92% after taking the top 100, and down to 1.57% when we exclude those that were added in previous rules.
 
-The in_cluster results are particularly disappointing as the GLZ for them actually hurts rather than helps (I kept it in anyway, but I have a heuristic pre-filtering stage that limits the damage).  This is probably due to the way that I generated the training data to train the generalized linear model.
+The in_cluster results are particularly disappointing as the GLZ for them actually hurts rather than helps (I kept it in anyway, but I have a heuristic pre-filtering stage that limits the damage).  This is probably due to the way that I generated the training data to train the generalized linear model.  (UPDATE: it's due to a bug in the optimization of the classifier.  It works properly when fixed, but doesn't make a huge difference to the results).
 
 
 Ranker Feature Vector Contents
@@ -255,7 +255,9 @@ So, by reducing the 406 candidates/user to 10, we keep 2944/3750 = 82.4% of the 
 
 The features from all of the candidate sources are included in the feature vector.  To those, we add the following:
 
-- Heuristic feature, that calculates a heuristics score based upon the following:
+- User features: we try to model the behaviour of the user: does the user follow popular repos or non-popular ones?  Does he tend to be one of the only watchers or does he watch repos that other people watch?  Does he tend to follow a few repos from lots of authors or lots of the repos of a few authors?  Does he tend to follow lots of forks of a project or a few forks of lots of projects?  These features provided a very small boost.
+
+- Heuristic features, that calculates a heuristics score based upon the following:
   * First, add the parent repositories of repositories that the user is already watching, in order of popularity
   * Then, those other repositories by the same author as the current one
   * Then, add ancestor repositories (ie, more than one parent away)
@@ -427,7 +429,7 @@ Future things that I will or may try:
 * Use a classifier instead of a heuristic to rank the set of potential repositories (this will help us where the user has a lot of watched repositories) (done)
 * Look at language matches (done)
 * Look at keywords in the repository names (eg, "rails" says a lot about which kind of repos that people like) (done)
-* Add a simple knn implementation based upon a dot product between repos to find new ones (will need pre-computation is it will be SLLOOOOWWWW!)
+* Add a simple knn implementation based upon a dot product between repos to find new ones (will need pre-computation is it will be SLLOOOOWWWW!) (done).  Only for cluster members.  Didn't provide that much of an improvement; we need a better matrix factorization.
 * EM on a graphical model to learn a smoothed user/repo matrix (done)
 * Embed both repositories and users into the same feature space using a deep neural network and use cosine similarity between embedded representations to learn similarity.
 * Potentially, other (simpler) matrix factorization models (done)
@@ -435,7 +437,7 @@ Future things that I will or may try:
 * Fix boosting/decision tree bug causing us to stick on language_cosine < 1 (done)
 * Find where dataset is biased between fake/real test sets
 * Do some reasonable processing of the keywords file
-* Multithreading to produce the results file
+* Multithreading to produce the results file and training (done)
 * Perform a SVD of the repo descriptions to smooth them
 * Diversity: don't allow all of the predictions to come from the same set.  Penalize those that are too similar to the previous source.
 * Cheating: hill-climb (using a Nelder-Mead or similar multivariate optimization technique).  Guaranteed to win, but not at all useful.
@@ -443,6 +445,7 @@ Future things that I will or may try:
 * Find and use collaborators (two users that watch each other's repositories)
 * SVD on the keywords to smooth
 * More exploration!  I had time to implement a bunch of ideas, but not to follow them through to check that they worked as expected.
+* Split the by_this_author rule from by_same_author to allow more precision (done).  Small improvement.
 
 Jeremy Barnes
 28 August 2009
