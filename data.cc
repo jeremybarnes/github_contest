@@ -367,6 +367,8 @@ void Data::load()
     stochastic_random_walk();
 
     frequency_stats();
+
+    finish();
 }
 
 struct FreqStats {
@@ -995,7 +997,7 @@ calc_author_stats()
                  it = user.watching.begin(),
                  end = user.watching.end();
              it != end;  ++it) {
-            const Repo & repo = repos[*it];
+            Repo & repo = repos[*it];
             if (repo.watchers.size() == 1)
                 inferred_authors[repo.author] += 1;
         }
@@ -1634,6 +1636,7 @@ setup_fake_test(int nusers, int seed)
     infer_from_ids();
     calc_cooccurrences();
     frequency_stats();
+    finish();
 }
 
 set<int>
@@ -1678,4 +1681,21 @@ Data::
 rank_repos_by_popularity(const std::set<int> & repos) const
 {
     return rank_repos_by_popularity(repos.begin(), repos.end());
+}
+
+void
+Data::
+finish()
+{
+    for (unsigned i = 0;  i < users.size();  ++i)
+        users[i].finish();
+    for (unsigned i = 0;  i < repos.size();  ++i)
+        repos[i].finish();
+    for (unsigned i = 0;  i < authors.size();  ++i)
+        authors[i].finish();
+    for (Repo_Name_To_Repos::iterator
+             it = repo_name_to_repos.begin(),
+             end = repo_name_to_repos.end();
+         it != end;  ++it)
+        it->second.finish();
 }

@@ -34,6 +34,9 @@ struct Compare_Ranked_Entries {
     bool operator () (const Ranked_Entry & e1,
                       const Ranked_Entry & e2)
     {
+        if (!isfinite(e1.score) || !isfinite(e2.score))
+            throw Exception("sorting non-finite values");
+
         return less_all(e2.score, e1.score,
                         e2.repo_id, e1.repo_id);
     }
@@ -356,6 +359,8 @@ struct Ancestors_Of_Watched_Source : public Candidate_Source {
 
         ancestors.erase(parents);
 
+        ancestors.finish();
+
         result = ancestors;
     }
 };
@@ -383,6 +388,8 @@ struct Children_Of_Watched_Source : public Candidate_Source {
             watched_children.insert(watched.children.begin(),
                                     watched.children.end());
         }
+
+        watched_children.finish();
 
         result = watched_children;
     }
@@ -546,7 +553,7 @@ struct In_Cluster_Repo_Source : public Candidate_Source {
             clusters[cluster_id].insert(repo_id);
         }
 
-        for (hash_map<int, IdSet>::const_iterator
+        for (hash_map<int, IdSet>::iterator
                  it = clusters.begin(),
                  end = clusters.end();
              it != end;  ++it) {
@@ -725,6 +732,8 @@ struct In_Id_Range_Source : public Candidate_Source {
             in_id_range.insert(r);
         }
 
+        in_id_range.finish();
+
         result = in_id_range;
     }
 };
@@ -753,6 +762,8 @@ struct Parents_Of_Watched_Source : public Candidate_Source {
         
             parents_of_watched.insert(watched.parent);
         }
+
+        parents_of_watched.finish();
 
         result = parents_of_watched;
     }
@@ -899,6 +910,8 @@ struct By_Collaborator_Source : public Candidate_Source {
                 .insert(data.authors[*it].repositories.begin(),
                         data.authors[*it].repositories.end());
 
+        repos_by_watched_authors.finish();
+
         return repos_by_watched_authors;
     }
 };
@@ -1029,6 +1042,7 @@ struct Most_Watched_Source : public Candidate_Source {
         IdSet result_set;
         result_set.insert(top_n.begin(), top_n.end());
 
+        result_set.finish();
 
         result = result_set;
     }

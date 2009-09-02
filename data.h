@@ -17,6 +17,7 @@
 #include <boost/multi_array.hpp>
 #include "stats/distribution.h"
 #include "utils/vector_utils.h"
+#include "utils/compact_vector.h"
 
 using ML::Stats::distribution;
 
@@ -24,17 +25,26 @@ using ML::Stats::distribution;
 class IdSet {
 
     // Note: not thread safe
-    typedef std::vector<int> Vals;
-    mutable Vals vals;
-    mutable int sorted;  // 1 = yes, 0 = no, -1 = in progress
+    typedef ML::compact_vector<int, 3, uint32_t> Vals;
+    //typedef std::vector<int> Vals;
+    Vals vals;
+    int sorted;  // 1 = yes, 0 = no, -1 = in progress
 
-    void sort() const
+    void sort()
     {
         if (sorted == -1)
             throw ML::Exception("accessed whilst sorting");
         sorted = -1;
         ML::make_vector_set(vals);
         sorted = true;
+    }
+
+    void check_sorted() const
+    {
+        if (sorted == -1)
+            throw ML::Exception("accessed whilst sorting");
+        if (sorted == false)
+            throw ML::Exception("accessed unsorted read-only");
     }
 
 public:
@@ -56,25 +66,43 @@ public:
 
     typedef Vals::pointer pointer;
 
-    const_iterator begin() const
+    const_iterator begin()
     {
         if (sorted != true) sort();
         return const_iterator(vals.begin());
     }
     
-    const_iterator end() const
+    const_iterator begin() const
+    {
+        check_sorted();
+        return const_iterator(vals.begin());
+    }
+    
+    const_iterator end()
     {
         if (sorted != true) sort();
         return const_iterator(vals.end());
     }
 
-    bool count(int id) const
+    const_iterator end() const
+    {
+        check_sorted();
+        return const_iterator(vals.end());
+    }
+
+    bool count(int id)
     {
         if (sorted != true) sort();
         return std::binary_search(vals.begin(), vals.end(), id);
     }
     
-    void erase(int id) const
+    bool count(int id) const
+    {
+        check_sorted();
+        return std::binary_search(vals.begin(), vals.end(), id);
+    }
+    
+    void erase(int id)
     {
         if (sorted != true) sort();
         Vals::iterator it
@@ -86,7 +114,7 @@ public:
     void erase(const IdSet & other)
     {
         if (sorted != true) sort();
-        std::vector<int> new_vals;
+        Vals new_vals;
         new_vals.reserve(vals.size());
         std::set_difference(vals.begin(), vals.end(),
                             other.begin(), other.end(),
@@ -94,7 +122,18 @@ public:
         vals.swap(new_vals);
     }
 
-    void clear() const
+    void erase(IdSet & other)
+    {
+        if (sorted != true) sort();
+        Vals new_vals;
+        new_vals.reserve(vals.size());
+        std::set_difference(vals.begin(), vals.end(),
+                            other.begin(), other.end(),
+                            back_inserter(new_vals));
+        vals.swap(new_vals);
+    }
+
+    void clear()
     {
         vals.clear();
         sorted = true;
@@ -130,8 +169,25 @@ public:
         insert_sorted(first, last);
     }
 
-    size_t size() const { if (sorted != true) sort(); return vals.size(); }
+    size_t size()
+    {
+        if (sorted != true) sort();
+        return vals.size();
+    }
+
+    size_t size() const 
+    {
+        check_sorted();
+        return vals.size();
+    }
+
     bool empty() const { return vals.empty(); }
+
+    // Finish so that const accesses are thread safe
+    void finish()
+    {
+        size();
+    }
 };
 
 
@@ -234,6 +290,11 @@ struct Repo {
     float keywords_2norm, keywords_idf_2norm;
 
     bool invalid() const { return id == -1; }
+
+    void finish()
+    {
+        watchers.finish();
+    }
 };
 
 struct Language {
@@ -294,6 +355,14 @@ struct User {
     IdSet collaborators;
 
     bool invalid() const { return id == -1; }
+
+    void finish()
+    {
+        watching.finish();
+        inferred_authors.finish();
+        corresponding_repo.finish();
+        collaborators.finish();
+    }
 };
 
 struct Author {
@@ -309,6 +378,12 @@ struct Author {
     boost::gregorian::date date;
     int num_followers;
     int num_following;
+
+    void finish()
+    {
+        repositories.finish();
+        possible_users.finish();
+    }
 };
 
 struct Cluster {
@@ -392,6 +467,8 @@ struct Data {
     std::vector<Cluster> repo_clusters;
 
     void frequency_stats();
+
+    void finish();
 
 private:
     template<class Iterator>

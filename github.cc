@@ -265,7 +265,7 @@ struct Do_User_Job {
                 // if it's one we don't dump then don't output it
                 if (!correct.count(repo_id)
                     && !incorrect.count(repo_id))
-                    return;
+                    continue;
                 
                 bool label = correct.count(repo_id);
                 float weight = (label
@@ -888,7 +888,7 @@ int main(int argc, char ** argv)
     vector<vector<int> > result_non_zero;
     results.resize(users_tested.size());
     result_possible_choices.resize(users_tested.size());
-    result_non_zero.reserve(users_tested.size());
+    result_non_zero.resize(users_tested.size());
 
     // Now, submit it as jobs to the worker task to be done multithreaded
     int group;
