@@ -7,7 +7,7 @@ default_ranker=ranker
 
 generator {
     type=default;
-    sources=parents_of_watched,ancestors_of_watched,by_watched_authors,same_name,children_of_watched,in_cluster_user,in_cluster_repo,in_id_range,coocs,coocs2,most_watched;
+    sources=parents_of_watched,ancestors_of_watched,authored_by_me,by_watched_authors,same_name,children_of_watched,in_cluster_user,in_cluster_repo,in_id_range,coocs,coocs2,most_watched;
     
     parents_of_watched {
         type=parents_of_watched;
@@ -17,6 +17,11 @@ generator {
     ancestors_of_watched {
         type=ancestors_of_watched;
         classifier_file=data/ancestors_of_watched.cls;
+    }
+
+    authored_by_me {
+        type=authored_by_me;
+        classifier_file=data/authored_by_me.cls;
     }
 
     by_watched_authors {

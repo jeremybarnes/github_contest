@@ -1,18 +1,18 @@
 loading data...full_repo_name_to_index.size() = 120827
-user inferring: valid 56521 inferred 35248 multiple 439 average 2.09112
+user inferring: valid 56521 inferred 35873 multiple 283 average 2.06714
 inferring from IDs
-found 21052/120867=17.42%, gap max 74 avg 5.86
-max_count = 603
+found 21503/120867=17.79%, gap max 74 avg 5.74
+max_count = 604
  done.
 max_count = 601
-user inferring: valid 56521 inferred 35264 multiple 649 average 2.11248
+user inferring: valid 56521 inferred 35851 multiple 535 average 2.0972
 inferring from IDs
-found 21171/120867=17.52%, gap max 74 avg 5.83
+found 21644/120867=17.91%, gap max 74 avg 5.70
 running SVD
 SOLVING THE [A^TA] EIGENPROBLEM
-NO. OF ROWS               = 119310
+NO. OF ROWS               = 120867
 NO. OF COLUMNS            =  56519
-NO. OF NON-ZERO VALUES    = 430661
+NO. OF NON-ZERO VALUES    = 435449
 MATRIX DENSITY            =   0.01%
 MAX. NO. OF LANCZOS STEPS =  56519
 MAX. NO. OF EIGENPAIRS    =     50
@@ -21,13 +21,9 @@ RIGHT END OF THE INTERVAL =  1.00E-30
 KAPPA                     =  1.00E-06
 
 NUMBER OF LANCZOS STEPS   =    185
-RITZ VALUES STABILIZED    =     53
+RITZ VALUES STABILIZED    =     54
 SINGULAR VALUES FOUND     =     50
-<<<<<<< HEAD:fake-results.txt.log
-SVD elapsed: elapsed: [12.01s cpu, 28192.0985 mticks, 12.47s wall]
-=======
 SVD elapsed: elapsed: [4.72s cpu, 12599.0099 mticks, 4.71s wall]
->>>>>>> 2a9ab7c4aa39bcbe3d0dbafdf49044804f2822fb:fake-results.txt.log
 done repos
 doing keywords
 86298 vocab entries
@@ -40,28 +36,11 @@ processing 4788 users...
 0%   10   20   30   40   50   60   70   80   90   100%
 |----|----|----|----|----|----|----|----|----|----|
 ***************************************************
-<<<<<<< HEAD:fake-results.txt.log
-elapsed: elapsed: [456.41s cpu, 1053477.7147 mticks, 465.93s wall]
-=======
 elapsed: elapsed: [706.70s cpu, 1888700.4113 mticks, 706.66s wall]
->>>>>>> 2a9ab7c4aa39bcbe3d0dbafdf49044804f2822fb:fake-results.txt.log
 done
 
 calculating test result... done.
 generator                        fired   corr 
-<<<<<<< HEAD:fake-results.txt.log
-ancestors_of_watched               246     1( 0.41%)     258(   1.05)     1( 0.41%)     258(   1.05)       6
-by_watched_authors                3460  1213(35.06%)  272127(  78.65)  1099(31.76%)  271813(  78.56)     200
-children_of_watched               3105   148( 4.77%)  184158(  59.31)     9( 0.29%)   76080(  24.50)     100
-coocs                             3763  1322(35.13%)  258658(  68.74)   494(13.13%)  225355(  59.89)     100
-coocs2                            3792  1398(36.87%)  280570(  73.99)    95( 2.51%)  101835(  26.86)     100
-in_cluster_repo                   4788   407( 8.50%)  477873(  99.81)   141( 2.94%)  455563(  95.15)     100
-in_cluster_user                   4788    53( 1.11%)  478800( 100.00)    15( 0.31%)  475638(  99.34)     100
-in_id_range                       4788   319( 6.66%)   41866(   8.74)    95( 1.98%)   41343(   8.63)      57
-most_watched                      4788   808(16.88%)  470546(  98.28)    96( 2.01%)  340517(  71.12)     100
-parents_of_watched                2953  1451(49.14%)    3615(   1.22)  1451(49.14%)    3615(   1.22)      35
-same_name                         4251  1568(36.89%)  246994(  58.10)    96( 2.26%)  241587(  56.83)     100
-=======
 ancestors_of_watched               246     3( 1.22%)     264(   1.07)     3( 1.22%)     264(   1.07)       4
 by_watched_authors                3426  1233(35.99%)  265847(  77.60)  1096(31.99%)  265510(  77.50)     200
 children_of_watched               3080   158( 5.13%)  181531(  58.94)     6( 0.19%)   80728(  26.21)     100
@@ -73,24 +52,18 @@ in_id_range                       4788   340( 7.10%)   41247(   8.61)   103( 2.1
 most_watched                      4788   795(16.60%)  471046(  98.38)    25( 0.52%)  222966(  46.57)     100
 parents_of_watched                2971  1458(49.07%)    3448(   1.16)  1458(49.07%)    3448(   1.16)      16
 same_name                         4242  1608(37.91%)  246959(  58.22)   119( 2.81%)  241901(  57.03)     100
->>>>>>> 2a9ab7c4aa39bcbe3d0dbafdf49044804f2822fb:fake-results.txt.log
 candidate source      nfired  correct already      nentries maxsz
-ancestors_of_watched               246     1( 0.41%)    32     290(   1.18) 11.3793       0
-by_watched_authors                3460  1230(35.55%)     0  603700( 174.48)  0.2037       0
-children_of_watched               3105   156( 5.02%)  5028 1155760( 372.23)  0.4485       0
-coocs                             3763  2109(56.05%) 43705 10226617(2717.68)  0.4480       0
-coocs2                            3792  2570(67.77%) 51608 25082427(6614.56)  0.2160       0
-in_cluster_repo                   4788  1249(26.09%)     0 2324262( 485.43)  0.0537       0
-in_cluster_user                   4788  2006(41.90%)     0 2390506( 499.27)  0.0839       0
-in_id_range                       4788   319( 6.66%)  2137   44003(   9.19)  5.5814       0
-most_watched                      4788   808(16.88%)  8254  478800( 100.00)  1.8926       0
-parents_of_watched                2953  1451(49.14%)  4751    8366(   2.83) 74.1334       0
-same_name                         4251  1579(37.14%)     0 1538961( 362.02)  0.1026       0
+ancestors_of_watched               246     3( 1.22%)    24     288(   1.17)  9.3750       0
+by_watched_authors                3426  1245(36.34%)     0  562516( 164.19)  0.2213       0
+children_of_watched               3080   175( 5.68%)  5072 1078146( 350.05)  0.4867       0
+coocs                             3722  2103(56.50%) 40747 9915205(2663.95)  0.4322       0
+coocs2                            3754  2552(67.98%) 48276 24308132(6475.26)  0.2091       0
+in_cluster_repo                   4788  1300(27.15%)     0 2318617( 484.26)  0.0561       0
+in_cluster_user                   4788  1982(41.40%)     0 2391605( 499.50)  0.0829       0
+in_id_range                       4788   340( 7.10%)  2219   43466(   9.08)  5.8874       0
+most_watched                      4788   795(16.60%)  7754  478800( 100.00)  1.7855       0
+parents_of_watched                2971  1458(49.07%)  4695    8143(   2.74) 75.5618       0
+same_name                         4242  1617(38.12%)     0 1470496( 346.65)  0.1100       0
 
-<<<<<<< HEAD:fake-results.txt.log
-476.96user 1.45system 8:08.67elapsed 97%CPU (0avgtext+0avgdata 0maxresident)k
-0inputs+8outputs (0major+142063minor)pagefaults 0swaps
-=======
 717.45user 0.21system 11:57.63elapsed 100%CPU (0avgtext+0avgdata 0maxresident)k
 0inputs+8outputs (0major+143158minor)pagefaults 0swaps
->>>>>>> 2a9ab7c4aa39bcbe3d0dbafdf49044804f2822fb:fake-results.txt.log

@@ -16,9 +16,9 @@
 #include "boosting/dense_features.h"
 #include "boosting/classifier.h"
 
-// Global variables for statistics
-extern int correct_repo;
-extern const IdSet * watching;
+// Global variables for statistics; per-thread
+extern __thread int correct_repo;
+extern __thread const IdSet * watching;
 
 
 /*****************************************************************************/

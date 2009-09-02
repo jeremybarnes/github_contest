@@ -143,6 +143,7 @@ struct Name_Stats {
 };
 
 map<string, Name_Stats> stats;
+Lock stats_lock;
 
 struct PrintStats {
     ~PrintStats()
@@ -172,14 +173,16 @@ struct PrintStats {
 
 }
 
-int correct_repo = -1;
-const IdSet * watching = 0;
+__thread int correct_repo = -1;
+__thread const IdSet * watching = 0;
 
 template<class Set>
 void
 insert_choices(IdSet & possible_choices, const Set & s,
                const std::string & name)
 {
+    possible_choices.finish();
+
     IdSet filtered_choices;
 
     if (watching) {
@@ -191,12 +194,15 @@ insert_choices(IdSet & possible_choices, const Set & s,
     }
     else filtered_choices.insert(s.begin(), s.end());
 
+    filtered_choices.finish();
+
     bool correct_before = possible_choices.count(correct_repo);
     size_t before = possible_choices.size();
     possible_choices.insert(filtered_choices.begin(), filtered_choices.end());
     bool correct_after = possible_choices.count(correct_repo);
     size_t after = possible_choices.size();
 
+    Guard guard(stats_lock);
     Name_Stats & st = stats[name];
     if (!s.empty()) ++st.n;
     st.total_size += filtered_choices.size();
@@ -231,6 +237,8 @@ candidates(Ranked & candidates, Candidate_Data & candidate_data,
         for (unsigned j = 0;  j < source_entries.size();  ++j)
             if (source_entries[j].keep)
                 to_keep.insert(source_entries[j].repo_id);
+
+        to_keep.finish();
 
         insert_choices(possible_choices, to_keep, sources[i]->name());
     }
@@ -365,6 +373,38 @@ feature_space() const
     boost::shared_ptr<ML::Dense_Feature_Space> result;
     result.reset(new ML::Dense_Feature_Space(*generator->feature_space()));
 
+    // user features
+    result->add_feature("user_min_popularity", Feature_Info::REAL);
+    result->add_feature("user_max_popularity", Feature_Info::REAL);
+    result->add_feature("user_avg_popularity", Feature_Info::REAL);
+
+    result->add_feature("user_min_watchers", Feature_Info::REAL);
+    result->add_feature("user_max_watchers", Feature_Info::REAL);
+    result->add_feature("user_avg_watchers", Feature_Info::REAL);
+
+    result->add_feature("user_num_watched_authors", Feature_Info::REAL);
+    result->add_feature("user_num_watched_per_author", Feature_Info::REAL);
+
+    result->add_feature("user_num_watched_names", Feature_Info::REAL);
+    result->add_feature("user_num_watched_per_name", Feature_Info::REAL);
+
+    result->add_feature("user_min_author_watches", Feature_Info::REAL);
+    result->add_feature("user_max_author_watches", Feature_Info::REAL);
+    result->add_feature("user_avg_author_watches", Feature_Info::REAL);
+
+    result->add_feature("user_min_author_watches_prop", Feature_Info::REAL);
+    result->add_feature("user_max_author_watches_prop", Feature_Info::REAL);
+    result->add_feature("user_avg_author_watches_prop", Feature_Info::REAL);
+
+    result->add_feature("user_min_name_watches", Feature_Info::REAL);
+    result->add_feature("user_max_name_watches", Feature_Info::REAL);
+    result->add_feature("user_avg_name_watches", Feature_Info::REAL);
+
+    result->add_feature("user_min_name_watches_prop", Feature_Info::REAL);
+    result->add_feature("user_max_name_watches_prop", Feature_Info::REAL);
+    result->add_feature("user_avg_name_watches_prop", Feature_Info::REAL);
+
+    // user-repo features
     result->add_feature("heuristic_score", Feature_Info::REAL);
     result->add_feature("heuristic_rank",  Feature_Info::REAL);
     result->add_feature("heuristic_percentile", Feature_Info::REAL);
@@ -450,6 +490,20 @@ feature_space() const
     return result;
 }
 
+namespace {
+
+struct Group_Info {
+    Group_Info()
+        : watcher_count(0), group_size(-1)
+    {
+    }
+
+    int watcher_count;
+    int group_size;
+};
+
+} // file scope
+
 void
 Ranker::
 features(std::vector<ML::distribution<float> > & results,
@@ -484,8 +538,129 @@ features(std::vector<ML::distribution<float> > & results,
     float user_keywords_idf_2norm
         = sqrt(user_keywords_idf.overlap(user_keywords_idf).first);
 
+    // What else can we know about the user?
+    // - do they watch popular or non-popular repos?
+    // - do they watch lots of authors or few authors?
+    // - do they watch lots of repos with the same name or few?
+    // - do they watch all of an author's repos or few?
+
+    int min_popularity = data.repos.size() + 1;
+    int max_popularity = -1;
+    size_t total_popularity = 0;
+
+    int min_watchers = 10000;
+    int max_watchers = -1;
+    size_t total_watchers = 0;
+
+    hash_map<int, Group_Info> author_groups;
+    hash_map<std::string, Group_Info> name_groups;
+
+    for (IdSet::const_iterator
+             it = user.watching.begin(),
+             end = user.watching.end();
+         it != end;  ++it) {
+        const Repo & repo = data.repos[*it];
+        min_popularity = std::min(min_popularity, repo.popularity_rank);
+        max_popularity = std::max(max_popularity, repo.popularity_rank);
+        total_popularity += repo.popularity_rank;
+
+        min_watchers = std::min<int>(min_watchers, repo.watchers.size());
+        max_watchers = std::min<int>(max_watchers, repo.watchers.size());
+        total_watchers += repo.watchers.size();
+
+        int author = repo.author;
+        if (author != -1) {
+            Group_Info & info = author_groups[author];
+            if (info.group_size == -1)
+                info.group_size = data.authors[author].repositories.size();
+            ++info.watcher_count;
+        }
+
+        {
+            Group_Info & info = name_groups[repo.name];
+            if (info.group_size == -1)
+                info.group_size = data.name_to_repos(repo.name).size();
+            ++info.watcher_count;
+        }
+    }
+
+    distribution<float> user_features;
+    user_features.push_back(min_popularity);
+    user_features.push_back(max_popularity);
+    user_features.push_back(xdiv<float>(total_popularity, user.watching.size()));
+    user_features.push_back(min_watchers);
+    user_features.push_back(max_watchers);
+    user_features.push_back(xdiv<float>(total_watchers, user.watching.size()));
+
+    user_features.push_back(author_groups.size());
+    user_features.push_back(xdiv<float>(user.watching.size(), author_groups.size()));
+
+    user_features.push_back(name_groups.size());
+    user_features.push_back(xdiv<float>(user.watching.size(), name_groups.size()));
+
+    // Analyze the author and name groups
+    int min_author_watches = 10000, max_author_watches = -1;
+    int total_author_watches = 0;
+
+    float min_author_percentage = 2.0, max_author_percentage = -1.0,
+        total_author_percentage = 0.0;
+    for (hash_map<int, Group_Info>::const_iterator
+             it = author_groups.begin(),
+             end = author_groups.end();
+         it != end;  ++it) {
+        int watches = it->second.watcher_count;
+        min_author_watches = min<int>(min_author_watches, watches);
+        max_author_watches = max<int>(max_author_watches, watches);
+        total_author_watches += watches;
+
+        float pc = xdiv<float>(watches, it->second.group_size);
+        min_author_percentage = min<float>(min_author_percentage, pc);
+        max_author_percentage = max<float>(max_author_percentage, pc);
+        total_author_percentage += pc;
+    }
+
+    user_features.push_back(min_author_watches);
+    user_features.push_back(max_author_watches);
+    user_features.push_back(xdiv<float>(total_author_watches, author_groups.size()));
+    user_features.push_back(min_author_percentage);
+    user_features.push_back(max_author_percentage);
+    user_features.push_back(xdiv<float>(total_author_percentage, author_groups.size()));
+
+
+    // Analyze the name and name groups
+    int min_name_watches = 10000, max_name_watches = -1;
+    int total_name_watches = 0;
+
+    float min_name_percentage = 2.0, max_name_percentage = -1.0,
+        total_name_percentage = 0.0;
+    for (hash_map<string, Group_Info>::const_iterator
+             it = name_groups.begin(),
+             end = name_groups.end();
+         it != end;  ++it) {
+        int watches = it->second.watcher_count;
+        min_name_watches = min<int>(min_name_watches, watches);
+        max_name_watches = max<int>(max_name_watches, watches);
+        total_name_watches += watches;
+
+        float pc = xdiv<float>(watches, it->second.group_size);
+        min_name_percentage = min<float>(min_name_percentage, pc);
+        max_name_percentage = max<float>(max_name_percentage, pc);
+        total_name_percentage += pc;
+    }
+    
+    user_features.push_back(min_name_watches);
+    user_features.push_back(max_name_watches);
+    user_features.push_back(xdiv<float>(total_name_watches, name_groups.size()));
+    user_features.push_back(min_name_percentage);
+    user_features.push_back(max_name_percentage);
+    user_features.push_back(xdiv<float>(total_name_percentage, name_groups.size()));
+
+
+    // Features that depend upon the repo as well
     for (unsigned i = 0;  i < heuristic.size();  ++i) {
         distribution<float> & result = results[heuristic[i].index];
+
+        result.insert(result.end(), user_features.begin(), user_features.end());
 
         int repo_id = heuristic[i].repo_id;
         const Repo & repo = data.repos[repo_id];
