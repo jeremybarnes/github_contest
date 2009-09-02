@@ -365,6 +365,39 @@ struct Ancestors_Of_Watched_Source : public Candidate_Source {
     }
 };
 
+struct Authored_By_Me : public Candidate_Source {
+    Authored_By_Me()
+        : Candidate_Source("authored_by_me", 12)
+    {
+    }
+
+    virtual void candidate_set(Ranked & result, int user_id, const Data & data,
+                               Candidate_Data & candidate_data) const
+    {
+        const User & user = data.users[user_id];
+
+        IdSet authors;
+
+        for (IdSet::const_iterator
+                 it = user.inferred_authors.begin(),
+                 end = user.inferred_authors.end();
+             it != end;  ++it) {
+            const Author & author = data.authors[*it];
+
+            for (IdSet::const_iterator
+                     jt = author.repositories.begin(),
+                     jend = author.repositories.end();
+                 jt != jend;  ++jt)
+                if (!user.watching.count(*jt))
+                    authors.insert(*jt);
+        }
+
+        authors.finish();
+
+        result = authors;
+    }
+};
+
 struct Children_Of_Watched_Source : public Candidate_Source {
     Children_Of_Watched_Source()
         : Candidate_Source("children_of_watched", 1)
@@ -1096,6 +1129,9 @@ get_candidate_source(const ML::Configuration & config_,
     }
     else if (type == "most_watched") {
         result.reset(new Most_Watched_Source());
+    }
+    else if (type == "authored_by_me") {
+        result.reset(new Authored_By_Me());
     }
     else throw Exception("Source of type " + type + " doesn't exist");
 
