@@ -355,7 +355,7 @@ void Data::load()
         test_file.expect_eol();
 
         users_to_test.push_back(user_id);
-        answers.push_back(user_id);
+        answers.push_back(answer);
         users[user_id].incomplete = true;
         users[user_id].id = user_id;
     }
