@@ -365,8 +365,8 @@ struct Ancestors_Of_Watched_Source : public Candidate_Source {
     }
 };
 
-struct Authored_By_Me : public Candidate_Source {
-    Authored_By_Me()
+struct Authored_By_Me_Source : public Candidate_Source {
+    Authored_By_Me_Source()
         : Candidate_Source("authored_by_me", 12)
     {
     }
@@ -907,10 +907,9 @@ struct By_Watched_Author_Source : public Candidate_Source {
     }
 };
 
-#if 0 // later
-struct By_Collaborator_Source : public Candidate_Source {
-    By_Collaborator_Source()
-        : Candidate_Source("by_collaborator", 10)
+struct Authored_By_Collaborator_Source : public Candidate_Source {
+    Authored_By_Collaborator_Source()
+        : Candidate_Source("authored_by_collaborator", 10)
     {
     }
 
@@ -923,32 +922,65 @@ struct By_Collaborator_Source : public Candidate_Source {
 
         const User & user = data.users[user_id];
 
-        IdSet authors_of_watched_repos;
-
+        IdSet collaborating_authors;
         for (IdSet::const_iterator
-                 it = user.watching.begin(),
-                 end = user.watching.end();
-             it != end;  ++it)
-            if (*it != -1)
-                authors_of_watched_repos.insert(*it);
-        
+                 it = user.collaborators.begin(),
+                 end = user.collaborators.end();
+             it != end;  ++it) {
+            collaborating_authors.insert(data.users[*it].inferred_authors.begin(),
+                                         data.users[*it].inferred_authors.end());
+        }
+
         // Find all other repos by authors of watched repos
-        IdSet repos_by_watched_authors;
+        IdSet repos_by_collaborating_authors;
 
         for (IdSet::const_iterator
-                 it = authors_of_watched_repos.begin(),
-                 end = authors_of_watched_repos.end();
-             it != end;  ++it)
-            repos_by_watched_authors
-                .insert(data.authors[*it].repositories.begin(),
-                        data.authors[*it].repositories.end());
+                 it = collaborating_authors.begin(),
+                 end = collaborating_authors.end();
+             it != end;  ++it) {
+            repos_by_collaborating_authors
+                .insert(data.users[*it].watching.begin(),
+                        data.users[*it].watching.end());
+        }
+        
+        repos_by_collaborating_authors.finish();
 
-        repos_by_watched_authors.finish();
-
-        return repos_by_watched_authors;
+        result = repos_by_collaborating_authors;
     }
 };
-#endif // later
+
+struct Watched_By_Collaborator_Source : public Candidate_Source {
+    Watched_By_Collaborator_Source()
+        : Candidate_Source("watched_by_collaborator", 10)
+    {
+    }
+
+    virtual void candidate_set(Ranked & result, int user_id, const Data & data,
+                               Candidate_Data & candidate_data) const
+    {
+        // Collaborators are users that watch at least one of our repos whilst
+        // we watch at least one of theirs.  Only works where we were able to
+        // identify which author number that we are.
+
+        const User & user = data.users[user_id];
+
+        // Find all other repos by authors of watched repos
+        IdSet watched_by_collaborating_authors;
+
+        for (IdSet::const_iterator
+                 it = user.collaborators.begin(),
+                 end = user.collaborators.end();
+             it != end;  ++it) {
+            watched_by_collaborating_authors
+                .insert(data.users[*it].watching.begin(),
+                        data.users[*it].watching.end());
+        }
+        
+        watched_by_collaborating_authors.finish();
+
+        result = watched_by_collaborating_authors;
+    }
+};
 
 struct Same_Name_Source : public Candidate_Source {
     Same_Name_Source()
@@ -1131,7 +1163,13 @@ get_candidate_source(const ML::Configuration & config_,
         result.reset(new Most_Watched_Source());
     }
     else if (type == "authored_by_me") {
-        result.reset(new Authored_By_Me());
+        result.reset(new Authored_By_Me_Source());
+    }
+    else if (type == "authored_by_collaborator") {
+        result.reset(new Authored_By_Collaborator_Source());
+    }
+    else if (type == "watched_by_collaborator") {
+        result.reset(new Watched_By_Collaborator_Source());
     }
     else throw Exception("Source of type " + type + " doesn't exist");
 

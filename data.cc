@@ -376,6 +376,8 @@ void Data::load()
 
     frequency_stats();
 
+    find_collaborators();
+
     finish();
 }
 
@@ -1434,18 +1436,18 @@ infer_from_ids()
     exit(0);  // for now...
 }
 
-#if 0
 void
 Data::
 find_collaborators()
 {
-    /*
-      
+    cerr << "collaborators...";
 
+    int num_collaborators = 0;
 
-     */
     for (unsigned i = 0;  i < users.size();  ++i) {
-        const User & user = users[i];
+        User & user = users[i];
+        user.collaborators.clear();
+
         if (user.invalid()) continue;
 
         if (user.inferred_authors.empty()) continue;
@@ -1461,8 +1463,6 @@ find_collaborators()
                 watched_authors.insert(repos[*it].author);
         }
 
-        IdSet watching_authors;
-
         // For each author that we could be
         for (IdSet::const_iterator
                  it = user.inferred_authors.begin(),
@@ -1470,40 +1470,59 @@ find_collaborators()
              it != end;  ++it) {
 
             // For each repo by this author
-            const IdSet & repos = data.authors[*it].repositories;
+            IdSet & repos_by_author = authors[*it].repositories;
 
-            for (IdSet::const_iterator jt = repos.begin(), jend = repos.end();
+            for (IdSet::const_iterator
+                     jt = repos_by_author.begin(),
+                     jend = repos_by_author.end();
                  jt != jend;  ++jt) {
 
-                const Repo & repo = repos[*jt];
+                Repo & repo = repos[*jt];
 
                 // For each watcher of this repo
                 for (IdSet::const_iterator
                          kt = repo.watchers.begin(), 
                          kend = repo.watchers.end();
                      kt != kend;  ++kt) {
+
+                    // This user doesn't count...
                     if (*kt == i) continue;
-                    const User & user = users[*kt];
+                    User & user2 = users[*kt];
+
+                    bool done_user = false;
 
                     // For each author for this watcher
                     for (IdSet::const_iterator
-                             lt = user.possible_authors.begin(),
-                             lend = user.possible_authors.end();
-                         lt != lend;  ++lt) {
-                        if ();
-                    }
+                             lt = user2.inferred_authors.begin(),
+                             lend = user2.inferred_authors.end();
+                         lt != lend && !done_user;  ++lt) {
 
-                    watching_authors.insert(user.watching.begin(),
-                                            user.watching.end());
+                        Author & author2 = authors[*lt];
+
+                        // For each repo for this author
+                        for (IdSet::const_iterator
+                                 mt = author2.repositories.begin(),
+                                 mend = author2.repositories.end();
+                             mt != mend && !done_user;  ++mt) {
+                            if (user.watching.count(*mt)) {
+                                user.collaborators.insert(*kt);
+                                done_user = true;
+                                ++num_collaborators;
+                            }
+                        }
+                    }
                 }
             }
         }
-        
-        // Find all authors of repos that this user watches
+
+        user.collaborators.finish();
     }
-    
+
+    cerr << "got " << num_collaborators << " collaborator pairs"
+         << endl;
+
+    cerr << "done" << endl;
 }    
-#endif
 
 void
 Data::
@@ -1644,6 +1663,7 @@ setup_fake_test(int nusers, int seed)
     infer_from_ids();
     calc_cooccurrences();
     frequency_stats();
+    find_collaborators();
     finish();
 }
 

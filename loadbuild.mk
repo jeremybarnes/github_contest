@@ -22,7 +22,7 @@ IGNORE_FEATURES_most_watched := $(FAMILY_FEATURES)
 
 define process_source
 
-$$(warning ignoring for $(1) $$(foreach feature,$$(IGNORE_FEATURES_$(1)), --ignore-var $$(feature)))
+#$$(warning ignoring for $(1) $$(foreach feature,$$(IGNORE_FEATURES_$(1)), --ignore-var $$(feature)))
 
 data/$(1)-fv.txt.gz: data/kmeans_users.txt data/kmeans_repos.txt
 	set -o pipefail && \

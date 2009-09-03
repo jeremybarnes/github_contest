@@ -3,6 +3,8 @@ user inferring: valid 56521 inferred 35873 multiple 283 average 2.06714
 inferring from IDs
 found 21503/120867=17.79%, gap max 74 avg 5.74
 max_count = 604
+collaborators...got 16000 collaborator pairs
+done
  done.
 running SVD
 SOLVING THE [A^TA] EIGENPROBLEM
@@ -19,7 +21,7 @@ KAPPA                     =  1.00E-06
 NUMBER OF LANCZOS STEPS   =    185
 RITZ VALUES STABILIZED    =     55
 SINGULAR VALUES FOUND     =     50
-SVD elapsed: elapsed: [4.72s cpu, 12631.2977 mticks, 4.73s wall]
+SVD elapsed: elapsed: [4.74s cpu, 12652.4569 mticks, 4.73s wall]
 done repos
 doing keywords
 86298 vocab entries
@@ -32,30 +34,33 @@ processing 4788 users...
 0%   10   20   30   40   50   60   70   80   90   100%
 |----|----|----|----|----|----|----|----|----|----|
 ***************************************************
-elapsed: elapsed: [407.23s cpu, 269381.9013 mticks, 100.79s wall]
+elapsed: elapsed: [408.58s cpu, 271049.9061 mticks, 101.41s wall]
 done
 
 calculating test result... done.
 fake test results: 
-     total:      real: 2547/4788 =  53.20%  poss: 3549/4788 =  74.12%  avg num: 411.0
+     total:      real: 2526/4788 =  52.76%  poss: 3561/4788 =  74.37%  avg num: 418.4
 non-zero scores: 
-     total:      real: 2547/4788 =  53.20%  poss: 3549/4788 =  74.12%  avg num: 411.0
+     total:      real: 2526/4788 =  52.76%  poss: 3561/4788 =  74.37%  avg num: 418.4
 
 generator                        fired   corr 
 ancestors_of_watched               240     3( 1.25%)     261(   1.09)     3( 1.25%)     261(   1.09)       5
+authored_by_collaborator           642    11( 1.71%)   25982(  40.47)    10( 1.56%)   25933(  40.39)     100
 authored_by_me                     394   352(89.34%)     481(   1.22)   344(87.31%)     473(   1.20)      16
-by_watched_authors                3756  1242(33.07%)  316581(  84.29)   797(21.22%)  315737(  84.06)     200
-children_of_watched               3490   211( 6.05%)  214060(  61.34)     7( 0.20%)   83904(  24.04)     100
-coocs                             4002  1568(39.18%)  291581(  72.86)   181( 4.52%)  137421(  34.34)     100
-coocs2                            4038  1645(40.74%)  314946(  78.00)    55( 1.36%)   69929(  17.32)     100
-in_cluster_repo                   4786   753(15.73%)  477649(  99.80)   112( 2.34%)  400758(  83.74)     100
-in_cluster_user                   4788  1157(24.16%)  478800( 100.00)   656(13.70%)  463323(  96.77)     100
-in_id_range                       4788   304( 6.35%)   43042(   8.99)    80( 1.67%)   42177(   8.81)      46
-most_watched                      4788   772(16.12%)  468814(  97.91)    25( 0.52%)  190436(  39.77)     100
+by_watched_authors                3756  1242(33.07%)  316581(  84.29)   764(20.34%)  308775(  82.21)     200
+children_of_watched               3490   211( 6.05%)  214060(  61.34)     7( 0.20%)   83860(  24.03)     100
+coocs                             4002  1568(39.18%)  291581(  72.86)   172( 4.30%)  135716(  33.91)     100
+coocs2                            4038  1645(40.74%)  314946(  78.00)    55( 1.36%)   69232(  17.15)     100
+in_cluster_repo                   4786   753(15.73%)  477649(  99.80)   109( 2.28%)  398571(  83.28)     100
+in_cluster_user                   4788  1157(24.16%)  478800( 100.00)   645(13.47%)  454999(  95.03)     100
+in_id_range                       4788   304( 6.35%)   43042(   8.99)    80( 1.67%)   42126(   8.80)      46
+most_watched                      4788   772(16.12%)  468814(  97.91)    25( 0.52%)  188592(  39.39)     100
 parents_of_watched                2833  1135(40.06%)    3851(   1.36)  1135(40.06%)    3851(   1.36)      35
-same_name                         4340  1334(30.74%)  265694(  61.22)   154( 3.55%)  259590(  59.81)     100
+same_name                         4340  1334(30.74%)  265694(  61.22)   153( 3.53%)  259186(  59.72)     100
+watched_by_collaborator            643   281(43.70%)   33859(  52.66)    59( 9.18%)   31701(  49.30)     100
 candidate source      nfired  correct already      nentries maxsz
 ancestors_of_watched               240     3( 1.25%)    39     300(   1.25) 14.0000       0
+authored_by_collaborator           642    17( 2.65%)  2109   60879(  94.83)  3.4922       0
 authored_by_me                     394   352(89.34%)     0     481(   1.22) 73.1809       0
 by_watched_authors                3756  1261(33.57%)     0  741156( 197.33)  0.1701       0
 children_of_watched               3490   224( 6.42%)  5289 1402558( 401.88)  0.3931       0
@@ -67,6 +72,7 @@ in_id_range                       4788   304( 6.35%)  1962   45004(   9.40)  5.0
 most_watched                      4788   772(16.12%)  9986  478800( 100.00)  2.2469       0
 parents_of_watched                2833  1136(40.10%)  4954    8825(   3.12) 69.0085       0
 same_name                         4340  1352(31.15%)     0 1794583( 413.50)  0.0753       0
+watched_by_collaborator            643   345(53.65%)  8873  143180( 222.67)  6.4381       0
 
-415.61user 1.61system 1:50.79elapsed 376%CPU (0avgtext+0avgdata 0maxresident)k
-0inputs+12880outputs (0major+614714minor)pagefaults 0swaps
+417.11user 1.62system 1:51.57elapsed 375%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+12880outputs (0major+295202minor)pagefaults 0swaps
