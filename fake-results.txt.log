@@ -27,7 +27,7 @@ KAPPA                     =  1.00E-06
 NUMBER OF LANCZOS STEPS   =    185
 RITZ VALUES STABILIZED    =     54
 SINGULAR VALUES FOUND     =     50
-SVD elapsed: elapsed: [4.74s cpu, 12664.3489 mticks, 4.74s wall]
+SVD elapsed: elapsed: [4.69s cpu, 12541.9053 mticks, 4.69s wall]
 done repos
 doing keywords
 86298 vocab entries
@@ -40,7 +40,7 @@ processing 4788 users...
 0%   10   20   30   40   50   60   70   80   90   100%
 |----|----|----|----|----|----|----|----|----|----|
 ***************************************************
-elapsed: elapsed: [366.54s cpu, 260716.6701 mticks, 97.55s wall]
+elapsed: elapsed: [654.04s cpu, 451354.9866 mticks, 168.87s wall]
 done
 
 calculating test result... done.
@@ -55,8 +55,9 @@ coocs2                            3754  1414(37.67%)  275170(  73.30)    39( 1.0
 in_cluster_repo                   4788  1012(21.14%)  477770(  99.78)   116( 2.42%)  407635(  85.14)     100
 in_cluster_user                   4788  1298(27.11%)  478800( 100.00)   635(13.26%)  458018(  95.66)     100
 in_id_range                       4788   340( 7.10%)   41247(   8.61)   100( 2.09%)   40520(   8.46)      57
-most_watched                      4788   795(16.60%)  471046(  98.38)    18( 0.38%)  184785(  38.59)     100
+most_watched                      4788   795(16.60%)  471046(  98.38)    12( 0.25%)  152178(  31.78)     100
 parents_of_watched                2971  1458(49.07%)    3448(   1.16)  1458(49.07%)    3448(   1.16)      16
+probability_propagation           3517  1231(35.00%)  314166(  89.33)    16( 0.45%)   88769(  25.24)     100
 same_name                         4242  1602(37.77%)  246959(  58.22)   120( 2.83%)  241164(  56.85)     100
 watched_by_collaborator            736   379(51.49%)   34150(  46.40)    51( 6.93%)   31862(  43.29)     100
 candidate source      nfired  correct already      nentries maxsz
@@ -72,8 +73,9 @@ in_cluster_user                   4788  2548(53.22%)     0 8265274(1726.25)  0.0
 in_id_range                       4788   340( 7.10%)  2219   43466(   9.08)  5.8874       0
 most_watched                      4788   795(16.60%)  7754  478800( 100.00)  1.7855       0
 parents_of_watched                2971  1458(49.07%)  4695    8143(   2.74) 75.5618       0
+probability_propagation           3517  2868(81.55%)     0 52830303(15021.41)  0.0054       0
 same_name                         4242  1617(38.12%)     0 1470496( 346.65)  0.1100       0
 watched_by_collaborator            736   443(60.19%)  6161  127935( 173.82)  5.1620       0
 
-376.84user 1.21system 1:49.07elapsed 346%CPU (0avgtext+0avgdata 0maxresident)k
-0inputs+8outputs (0major+410550minor)pagefaults 0swaps
+663.95user 1.65system 3:00.45elapsed 368%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+8outputs (0major+668231minor)pagefaults 0swaps

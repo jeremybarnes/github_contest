@@ -1113,6 +1113,107 @@ struct Most_Watched_Source : public Candidate_Source {
     }
 };
 
+struct Probability_Propagation_Source : public Candidate_Source {
+    Probability_Propagation_Source()
+        : Candidate_Source("probability_propagation", 9)
+    {
+    }
+
+    virtual ML::Dense_Feature_Space
+    specific_feature_space() const
+    {
+        Dense_Feature_Space result;
+        result.add_feature("prob_prop_total_prob", Feature_Info::REAL);
+        result.add_feature("prob_prop_nusers", Feature_Info::REAL);
+        result.add_feature("prob_prop_prop_per_user", Feature_Info::REAL);
+        return result;
+    }
+
+    struct Prob_Info {
+        Prob_Info()
+            : total(0.0), nwatchers(0)
+        {
+        }
+        double total;
+        int nwatchers;
+
+        void operator += (double amount)
+        {
+            total += amount;
+            nwatchers += 1;
+        }
+    };
+
+    virtual void candidate_set(Ranked & result, int user_id, const Data & data,
+                               Candidate_Data & candidate_data) const
+    {
+        const User & user = data.users[user_id];
+
+        // Step 1: propagate to users that watch more than one repo
+        hash_map<int, double> user_probs;
+        double total_prob = 0.0;
+
+        for (IdSet::const_iterator
+                 it = user.watching.begin(),
+                 end = user.watching.end();
+             it != end;  ++it) {
+            const Repo & repo = data.repos[*it];
+            if (repo.watchers.size() < 2) continue;
+
+            // the -1 is for the current user
+            double nwatchers_inverse = 1.0 / (repo.watchers.size() - 1);
+
+            for (IdSet::const_iterator
+                     jt = repo.watchers.begin(),
+                     jend = repo.watchers.end();
+                 jt != jend;  ++jt) {
+                if (*jt == user_id) continue;
+                user_probs[*jt] += nwatchers_inverse;
+                total_prob += 1.0;
+            }
+        }
+
+        double prob_inverse = 1.0 / total_prob;
+
+        // Step 2: propagate back to repos watched by those users
+        hash_map<int, Prob_Info> repo_probs;
+        for (hash_map<int, double>::const_iterator
+                 it = user_probs.begin(),
+                 end = user_probs.end();
+             it != end;  ++it) {
+
+            const User & user = data.users[it->first];
+
+            double nwatching_inverse = 1.0 / user.watching.size();
+
+            for (IdSet::const_iterator 
+                     jt = user.watching.begin(),
+                     jend = user.watching.end();
+                 jt != jend;  ++jt)
+                repo_probs[*jt]
+                    += it->second * prob_inverse * nwatching_inverse;
+        }
+
+        // Step 3: rank, cut off, generate features, return results
+        for (hash_map<int, Prob_Info>::const_iterator
+                 it = repo_probs.begin(),
+                 end = repo_probs.end();
+             it != end;  ++it) {
+
+            if (user.watching.count(it->first)) continue;
+            
+            result.push_back(Ranked_Entry());
+            
+            Ranked_Entry & entry = result.back();
+            entry.score = it->second.total;
+            entry.repo_id = it->first;
+            entry.features.push_back(it->second.total);
+            entry.features.push_back(it->second.nwatchers);
+            entry.features.push_back(it->second.total / it->second.nwatchers);
+        }
+    }
+};
+
 
 /*****************************************************************************/
 /* FACTORY                                                                   */
@@ -1170,6 +1271,9 @@ get_candidate_source(const ML::Configuration & config_,
     }
     else if (type == "watched_by_collaborator") {
         result.reset(new Watched_By_Collaborator_Source());
+    }
+    else if (type == "probability_propagation") {
+        result.reset(new Probability_Propagation_Source());
     }
     else throw Exception("Source of type " + type + " doesn't exist");
 
