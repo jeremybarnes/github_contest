@@ -1,7 +1,6 @@
 .target.mk
 *~
 build
-download
 local.mk
 download.zip
 data

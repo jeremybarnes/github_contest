@@ -384,7 +384,7 @@ Bugs
 
 Apart from the systematic biasing that gives me 10% more on my internal testing than on the official test set, there are also a few other bugs that I didn't manage to fix.
 
-The main one is that the candidate source classifiers for the cluster sources (in_cluster_user and in_cluster_repo) cause more harm than good, as the probabilizer on the output inverts the label classes.  I suspect that this is due to the baseline accuracy being too low; whatever the cause this means that when we reduce the 1000s of possibilities down to 100, we tend to take 100 *really bad* ones.  For this reason, I had to undo most of the improvements that I had made to this; it should be possible to do much better once this problem has been sorted out.  It's also possible that the problems are due to some kind of systematic biasing.
+The main one is that the candidate source classifiers for the cluster sources (in_cluster_user and in_cluster_repo) cause more harm than good, as the probabilizer on the output inverts the label classes.  I suspect that this is due to the baseline accuracy being too low; whatever the cause this means that when we reduce the 1000s of possibilities down to 100, we tend to take 100 *really bad* ones.  For this reason, I had to undo most of the improvements that I had made to this; it should be possible to do much better once this problem has been sorted out.  It's also possible that the problems are due to some kind of systematic biasing.  (UPDATE: it's due to a bug in the optimization of the GLZ classifier, which led to each label having a random bias added to it.  Fixing it however doesn't make that much of a difference; the in_cluster predictor is still not specific enough with the features it has available).
 
 
 Thoughts on the Contest

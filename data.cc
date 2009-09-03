@@ -345,9 +345,17 @@ void Data::load()
         if (user_id < 0 || user_id >= users.size())
             test_file.exception("invalid user ID");
 
+        int answer = -1;
+
+        if (test_file.match_literal(':')) {
+            // we have an answer
+            answer = test_file.expect_int();
+        }
+        
         test_file.expect_eol();
 
         users_to_test.push_back(user_id);
+        answers.push_back(user_id);
         users[user_id].incomplete = true;
         users[user_id].id = user_id;
     }
