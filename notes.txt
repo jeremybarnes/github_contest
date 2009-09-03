@@ -272,3 +272,168 @@ in_id_range                       4788   340( 7.10%)  2219   43466(   9.08)  5.8
 most_watched                      4788   795(16.60%)  7754  478800( 100.00)  1.7855       0
 parents_of_watched                2971  1458(49.07%)  4695    8143(   2.74) 75.5618       0
 same_name                         4242  1617(38.12%)     0 1470496( 346.65)  0.1100       0
+
+
+============
+
+Before excluding parent features:
+
+Fake test:
+
+ancestors_of_watched               246     3( 1.22%)     264(   1.07)     3( 1.22%)     264(   1.07)       4
+authored_by_me                     593   516(87.02%)    1065(   1.80)   502(84.65%)    1049(   1.77)     100
+by_watched_authors                3426  1233(35.99%)  265847(  77.60)   594(17.34%)  264551(  77.22)     200
+children_of_watched               3080   164( 5.32%)  182067(  59.11)     7( 0.23%)   69555(  22.58)     100
+coocs                             3722  1305(35.06%)  254646(  68.42)   112( 3.01%)  127102(  34.15)     100
+coocs2                            3754  1411(37.59%)  275172(  73.30)    45( 1.20%)   61047(  16.26)     100
+in_cluster_repo                   4788  1018(21.26%)  477770(  99.78)   122( 2.55%)  410999(  85.84)     100
+in_cluster_user                   4788  1323(27.63%)  478800( 100.00)   651(13.60%)  466407(  97.41)     100
+in_id_range                       4788   340( 7.10%)   41247(   8.61)   101( 2.11%)   40548(   8.47)      57
+most_watched                      4788   795(16.60%)  471046(  98.38)    18( 0.38%)  189649(  39.61)     100
+parents_of_watched                2971  1458(49.07%)    3448(   1.16)  1458(49.07%)    3448(   1.16)      16
+same_name                         4242  1605(37.84%)  246959(  58.22)   120( 2.83%)  241771(  56.99)     100
+candidate source      nfired  correct already      nentries maxsz
+ancestors_of_watched               246     3( 1.22%)    24     288(   1.17)  9.3750       0
+authored_by_me                     593   516(87.02%)     0    1125(   1.90) 45.8667       0
+by_watched_authors                3426  1245(36.34%)     0  562516( 164.19)  0.2213       0
+children_of_watched               3080   175( 5.68%)  5072 1078146( 350.05)  0.4867       0
+coocs                             3722  2103(56.50%) 40747 9915205(2663.95)  0.4322       0
+coocs2                            3754  2552(67.98%) 48276 24308132(6475.26)  0.2091       0
+in_cluster_repo                   4788  1601(33.44%)     0 8134971(1699.03)  0.0197       0
+in_cluster_user                   4788  2548(53.22%)     0 8265274(1726.25)  0.0308       0
+in_id_range                       4788   340( 7.10%)  2219   43466(   9.08)  5.8874       0
+most_watched                      4788   795(16.60%)  7754  478800( 100.00)  1.7855       0
+parents_of_watched                2971  1458(49.07%)  4695    8143(   2.74) 75.5618       0
+same_name                         4242  1617(38.12%)     0 1470496( 346.65)  0.1100       0
+
+376.17user 1.48system 1:51.33elapsed 339%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+8outputs (0major+370947minor)pagefaults 0swaps
+mv fake-results.txt~ fake-results.txt
+tail -n20 fake-results.txt
+fake test results: 
+     total:      real: 2955/4788 =  61.72%  poss: 3733/4788 =  77.97%  avg num: 391.9
+non-zero scores: 
+     total:      real: 2955/4788 =  61.72%  poss: 3733/4788 =  77.97%  avg num: 391.9
+
+
+
+
+Real test:
+
+calculating test result... done.
+fake test results: 
+     total:      real: 2506/4788 =  52.34%  poss: 3548/4788 =  74.10%  avg num: 411.9
+non-zero scores: 
+     total:      real: 2506/4788 =  52.34%  poss: 3548/4788 =  74.10%  avg num: 411.9
+
+generator                        fired   corr 
+ancestors_of_watched               240     3( 1.25%)     261(   1.09)     3( 1.25%)     261(   1.09)       5
+authored_by_me                     394   352(89.34%)     481(   1.22)   344(87.31%)     473(   1.20)      16
+by_watched_authors                3756  1241(33.04%)  316581(  84.29)   796(21.19%)  315736(  84.06)     200
+children_of_watched               3490   211( 6.05%)  214060(  61.34)     5( 0.14%)   82093(  23.52)     100
+coocs                             4002  1574(39.33%)  291597(  72.86)   189( 4.72%)  139466(  34.85)     100
+coocs2                            4038  1646(40.76%)  314955(  78.00)    52( 1.29%)   71284(  17.65)     100
+in_cluster_repo                   4786   752(15.71%)  477649(  99.80)   113( 2.36%)  402405(  84.08)     100
+in_cluster_user                   4788  1162(24.27%)  478800( 100.00)   656(13.70%)  463469(  96.80)     100
+in_id_range                       4788   304( 6.35%)   43042(   8.99)    80( 1.67%)   42176(   8.81)      46
+most_watched                      4788   772(16.12%)  468814(  97.91)    20( 0.42%)  191206(  39.93)     100
+parents_of_watched                2833  1135(40.06%)    3851(   1.36)  1135(40.06%)    3851(   1.36)      35
+same_name                         4340  1338(30.83%)  265694(  61.22)   155( 3.57%)  259963(  59.90)     100
+candidate source      nfired  correct already      nentries maxsz
+ancestors_of_watched               240     3( 1.25%)    39     300(   1.25) 14.0000       0
+authored_by_me                     394   352(89.34%)     0     481(   1.22) 73.1809       0
+by_watched_authors                3756  1261(33.57%)     0  741156( 197.33)  0.1701       0
+children_of_watched               3490   224( 6.42%)  5289 1402558( 401.88)  0.3931       0
+coocs                             4002  2496(62.37%) 50851 12703818(3174.37)  0.4199       0
+coocs2                            4038  2987(73.97%) 59633 30510866(7555.94)  0.2052       0
+in_cluster_repo                   4786  1132(23.65%)     0 8162619(1705.52)  0.0139       0
+in_cluster_user                   4788  2211(46.18%)     0 8146972(1701.54)  0.0271       0
+in_id_range                       4788   304( 6.35%)  1962   45004(   9.40)  5.0351       0
+most_watched                      4788   772(16.12%)  9986  478800( 100.00)  2.2469       0
+parents_of_watched                2833  1136(40.10%)  4954    8825(   3.12) 69.0085       0
+same_name                         4340  1352(31.15%)     0 1794583( 413.50)  0.0753       0
+
+
+So, the difference is in the parent repos: there are far more in the fake test than in the real test.
+
+
+==============
+
+After removing features:
+
+Fake test:
+
+calculating test result... done.
+generator                        fired   corr 
+ancestors_of_watched               246     3( 1.22%)     264(   1.07)     3( 1.22%)     264(   1.07)       4
+authored_by_me                     593   516(87.02%)    1065(   1.80)   502(84.65%)    1049(   1.77)     100
+by_watched_authors                3426  1233(35.99%)  265847(  77.60)   595(17.37%)  264547(  77.22)     200
+children_of_watched               3080   164( 5.32%)  182067(  59.11)     6( 0.19%)   71499(  23.21)     100
+coocs                             3722  1303(35.01%)  254630(  68.41)   110( 2.96%)  124967(  33.58)     100
+coocs2                            3754  1414(37.67%)  275170(  73.30)    41( 1.09%)   59768(  15.92)     100
+in_cluster_repo                   4788  1012(21.14%)  477770(  99.78)   119( 2.49%)  409596(  85.55)     100
+in_cluster_user                   4788  1298(27.11%)  478800( 100.00)   651(13.60%)  466323(  97.39)     100
+in_id_range                       4788   340( 7.10%)   41247(   8.61)   102( 2.13%)   40546(   8.47)      57
+most_watched                      4788   795(16.60%)  471046(  98.38)    18( 0.38%)  186752(  39.00)     100
+parents_of_watched                2971  1458(49.07%)    3448(   1.16)  1458(49.07%)    3448(   1.16)      16
+same_name                         4242  1602(37.77%)  246959(  58.22)   122( 2.88%)  241495(  56.93)     100
+candidate source      nfired  correct already      nentries maxsz
+ancestors_of_watched               246     3( 1.22%)    24     288(   1.17)  9.3750       0
+authored_by_me                     593   516(87.02%)     0    1125(   1.90) 45.8667       0
+by_watched_authors                3426  1245(36.34%)     0  562516( 164.19)  0.2213       0
+children_of_watched               3080   175( 5.68%)  5072 1078146( 350.05)  0.4867       0
+coocs                             3722  2103(56.50%) 40747 9915205(2663.95)  0.4322       0
+coocs2                            3754  2552(67.98%) 48276 24308132(6475.26)  0.2091       0
+in_cluster_repo                   4788  1601(33.44%)     0 8134971(1699.03)  0.0197       0
+in_cluster_user                   4788  2548(53.22%)     0 8265274(1726.25)  0.0308       0
+in_id_range                       4788   340( 7.10%)  2219   43466(   9.08)  5.8874       0
+most_watched                      4788   795(16.60%)  7754  478800( 100.00)  1.7855       0
+parents_of_watched                2971  1458(49.07%)  4695    8143(   2.74) 75.5618       0
+same_name                         4242  1617(38.12%)     0 1470496( 346.65)  0.1100       0
+
+376.66user 1.40system 1:49.34elapsed 345%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+8outputs (0major+417484minor)pagefaults 0swaps
+mv fake-results.txt~ fake-results.txt
+tail -n20 fake-results.txt
+fake test results: 
+     total:      real: 2943/4788 =  61.47%  poss: 3727/4788 =  77.84%  avg num: 390.6
+non-zero scores: 
+     total:      real: 2943/4788 =  61.47%  poss: 3727/4788 =  77.84%  avg num: 390.6
+
+
+
+Real test:
+calculating test result... done.
+fake test results: 
+     total:      real: 2547/4788 =  53.20%  poss: 3549/4788 =  74.12%  avg num: 411.0
+non-zero scores: 
+     total:      real: 2547/4788 =  53.20%  poss: 3549/4788 =  74.12%  avg num: 411.0
+
+generator                        fired   corr 
+ancestors_of_watched               240     3( 1.25%)     261(   1.09)     3( 1.25%)     261(   1.09)       5
+authored_by_me                     394   352(89.34%)     481(   1.22)   344(87.31%)     473(   1.20)      16
+by_watched_authors                3756  1242(33.07%)  316581(  84.29)   797(21.22%)  315737(  84.06)     200
+children_of_watched               3490   211( 6.05%)  214060(  61.34)     7( 0.20%)   83904(  24.04)     100
+coocs                             4002  1568(39.18%)  291581(  72.86)   181( 4.52%)  137421(  34.34)     100
+coocs2                            4038  1645(40.74%)  314946(  78.00)    55( 1.36%)   69929(  17.32)     100
+in_cluster_repo                   4786   753(15.73%)  477649(  99.80)   112( 2.34%)  400758(  83.74)     100
+in_cluster_user                   4788  1157(24.16%)  478800( 100.00)   656(13.70%)  463323(  96.77)     100
+in_id_range                       4788   304( 6.35%)   43042(   8.99)    80( 1.67%)   42177(   8.81)      46
+most_watched                      4788   772(16.12%)  468814(  97.91)    25( 0.52%)  190436(  39.77)     100
+parents_of_watched                2833  1135(40.06%)    3851(   1.36)  1135(40.06%)    3851(   1.36)      35
+same_name                         4340  1334(30.74%)  265694(  61.22)   154( 3.55%)  259590(  59.81)     100
+candidate source      nfired  correct already      nentries maxsz
+ancestors_of_watched               240     3( 1.25%)    39     300(   1.25) 14.0000       0
+authored_by_me                     394   352(89.34%)     0     481(   1.22) 73.1809       0
+by_watched_authors                3756  1261(33.57%)     0  741156( 197.33)  0.1701       0
+children_of_watched               3490   224( 6.42%)  5289 1402558( 401.88)  0.3931       0
+coocs                             4002  2496(62.37%) 50851 12703818(3174.37)  0.4199       0
+coocs2                            4038  2987(73.97%) 59633 30510866(7555.94)  0.2052       0
+in_cluster_repo                   4786  1132(23.65%)     0 8162619(1705.52)  0.0139       0
+in_cluster_user                   4788  2211(46.18%)     0 8146972(1701.54)  0.0271       0
+in_id_range                       4788   304( 6.35%)  1962   45004(   9.40)  5.0351       0
+most_watched                      4788   772(16.12%)  9986  478800( 100.00)  2.2469       0
+parents_of_watched                2833  1136(40.10%)  4954    8825(   3.12) 69.0085       0
+same_name                         4340  1352(31.15%)     0 1794583( 413.50)  0.0753       0
+
+So it doesn't change much, except that the real test results get much better.  Probably mostly noise.
