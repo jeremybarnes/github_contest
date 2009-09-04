@@ -191,7 +191,7 @@ decompose(Data & data)
 
 struct RepoDataAccess {
     RepoDataAccess(const Data & data)
-        : data(data)
+        : data(data), singular_vecs(data.repos.size())
     {
     }
     
@@ -213,14 +213,36 @@ struct RepoDataAccess {
         return data.repos[object];
     }
 
-    const distribution<float> & singular_vec(const Object & object) const
-    {
-        return object.keyword_vec;
+    vector<distribution<float> > singular_vecs;
+
+    const distribution<float> & singular_vec(const Object & object)
+    { 
+        static const distribution<float> default_vec(nd());
+
+        int id = object.id;
+        if (id == -1) {
+            return default_vec;
+            throw Exception("singular vec for invalid repo");
+        }
+
+        if (!singular_vecs[id].empty())
+            return singular_vecs[id];
+        singular_vecs[id].reserve(nd());
+
+        // TODO: weights?
+        singular_vecs[id].insert(singular_vecs[id].end(),
+                                 object.singular_vec.begin(),
+                                 object.singular_vec.end());
+        singular_vecs[id].insert(singular_vecs[id].end(),
+                                 object.keyword_vec.begin(),
+                                 object.keyword_vec.end());
+        
+        return singular_vecs[id];
     }
 
     int nd() const
     {
-        return data.keyword_singular_values.size();
+        return data.keyword_singular_values.size() + data.singular_values.size();
     }
 
     string what() const { return "repo"; }
