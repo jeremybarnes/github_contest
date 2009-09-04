@@ -27,7 +27,7 @@ KAPPA                     =  1.00E-06
 NUMBER OF LANCZOS STEPS   =    185
 RITZ VALUES STABILIZED    =     54
 SINGULAR VALUES FOUND     =     50
-SVD elapsed: elapsed: [4.72s cpu, 12610.6712 mticks, 4.72s wall]
+SVD elapsed: elapsed: [4.78s cpu, 12771.2404 mticks, 4.78s wall]
 done repos
 doing keywords
 pass 1: 74140 vocab entries
@@ -52,7 +52,7 @@ TRANSPOSING THE MATRIX FOR SPEED
 NUMBER OF LANCZOS STEPS   =    303
 RITZ VALUES STABILIZED    =    117
 SINGULAR VALUES FOUND     =    100
-SVD elapsed: elapsed: [5.44s cpu, 14560.2755 mticks, 5.45s wall]
+SVD elapsed: elapsed: [5.39s cpu, 14394.6374 mticks, 5.39s wall]
 done keywords
 candidate source name=coocs source = 1
 candidate source name=coocs2 source = 2
@@ -61,7 +61,7 @@ processing 4788 users...
 0%   10   20   30   40   50   60   70   80   90   100%
 |----|----|----|----|----|----|----|----|----|----|
 ***************************************************
-elapsed: elapsed: [378.03s cpu, 271025.9510 mticks, 101.40s wall]
+elapsed: elapsed: [411.62s cpu, 293970.2982 mticks, 109.99s wall]
 done
 
 calculating test result... done.
@@ -71,11 +71,11 @@ authored_by_collaborator           736    10( 1.36%)   28791(  39.12)     7( 0.9
 authored_by_me                     593   516(87.02%)    1065(   1.80)   502(84.65%)    1049(   1.77)     100
 by_watched_authors                3426  1233(35.99%)  265847(  77.60)   570(16.64%)  258409(  75.43)     200
 children_of_watched               3080   164( 5.32%)  182067(  59.11)     6( 0.19%)   71446(  23.20)     100
-coocs                             3722  1303(35.01%)  254630(  68.41)   109( 2.93%)  123165(  33.09)     100
-coocs2                            3754  1414(37.67%)  275170(  73.30)    39( 1.04%)   58973(  15.71)     100
-in_cluster_repo                   4788  1012(21.14%)  477770(  99.78)   116( 2.42%)  407635(  85.14)     100
+coocs                             3722  1303(35.01%)  254630(  68.41)   103( 2.77%)  123203(  33.10)     100
+coocs2                            3754  1414(37.67%)  275170(  73.30)    39( 1.04%)   59167(  15.76)     100
+in_cluster_repo                   4788  1128(23.56%)  477770(  99.78)   127( 2.65%)  399972(  83.54)     100
 in_cluster_user                   4788  1298(27.11%)  478800( 100.00)   635(13.26%)  458018(  95.66)     100
-in_id_range                       4788   340( 7.10%)   41247(   8.61)   100( 2.09%)   40520(   8.46)      57
+in_id_range                       4788   340( 7.10%)   41247(   8.61)   100( 2.09%)   40545(   8.47)      57
 most_watched                      4788   795(16.60%)  471046(  98.38)    18( 0.38%)  184785(  38.59)     100
 parents_of_watched                2971  1458(49.07%)    3448(   1.16)  1458(49.07%)    3448(   1.16)      16
 same_name                         4242  1602(37.77%)  246959(  58.22)   120( 2.83%)  241164(  56.85)     100
@@ -96,5 +96,5 @@ parents_of_watched                2971  1458(49.07%)  4695    8143(   2.74) 75.5
 same_name                         4242  1617(38.12%)     0 1470496( 346.65)  0.1100       0
 watched_by_collaborator            736   443(60.19%)  6161  127935( 173.82)  5.1620       0
 
-394.74user 1.66system 1:59.82elapsed 330%CPU (0avgtext+0avgdata 0maxresident)k
-0inputs+8outputs (0major+600414minor)pagefaults 0swaps
+428.61user 1.32system 2:08.32elapsed 335%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+8outputs (0major+435866minor)pagefaults 0swaps

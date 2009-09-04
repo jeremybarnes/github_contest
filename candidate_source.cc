@@ -562,6 +562,10 @@ struct In_Cluster_Repo_Source : public Candidate_Source {
                            Feature_Info::REAL);
         result.add_feature("rcluster_best_norm_dp_in_cluster",
                            Feature_Info::REAL);
+        result.add_feature("rcluster_best_keyword_dp_in_cluster",
+                           Feature_Info::REAL);
+        result.add_feature("rcluster_best_norm_keyword_dp_in_cluster",
+                           Feature_Info::REAL);
         return result;
     }
 
@@ -614,6 +618,8 @@ struct In_Cluster_Repo_Source : public Candidate_Source {
                 float best_dp = -2.0, best_dp_norm = -2.0;
                 // Find the best DP with a cluster member
 
+                float best_dp_kw = -2.0, best_dp_norm_kw = -2.0;
+
                 const Repo & repo = data.repos[repo_id];
 
                 for (IdSet::const_iterator
@@ -627,10 +633,18 @@ struct In_Cluster_Repo_Source : public Candidate_Source {
                         = xdiv(dp, repo.singular_2norm * repo2.singular_2norm);
                     best_dp = max(best_dp, dp);
                     best_dp_norm = max(best_dp_norm, dp_norm);
+
+                    dp = repo.keyword_vec.dotprod(repo2.keyword_vec);
+                    dp_norm
+                        = xdiv(dp, repo.keyword_vec_2norm * repo2.keyword_vec_2norm);
+                    best_dp_kw = max(best_dp_kw, dp);
+                    best_dp_norm_kw = max(best_dp_norm_kw, dp_norm);
                 }
 
                 entry.features.push_back(best_dp);
                 entry.features.push_back(best_dp_norm);
+                entry.features.push_back(best_dp_kw);
+                entry.features.push_back(best_dp_norm_kw);
             }
         }
 

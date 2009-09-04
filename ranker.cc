@@ -482,10 +482,19 @@ feature_space() const
     result->add_feature("repo_keyword_factor", Feature_Info::REAL);
     result->add_feature("repo_keyword_idf_factor", Feature_Info::REAL);
 
+    result->add_feature("user_keyword_max", Feature_Info::REAL);
+    result->add_feature("repo_keyword_max", Feature_Info::REAL);
+    result->add_feature("user_keyword_max_norm", Feature_Info::REAL);
+    result->add_feature("repo_keyword_max_norm", Feature_Info::REAL);
+
     result->add_feature("author_user_dp", Feature_Info::REAL);
     result->add_feature("author_user_dp_norm", Feature_Info::REAL);
+
     result->add_feature("max_dp_with_watched", Feature_Info::REAL);
     result->add_feature("max_dp_with_watched_norm", Feature_Info::REAL);
+
+    result->add_feature("max_keyword_dp_with_watched", Feature_Info::REAL);
+    result->add_feature("max_keyword_dp_with_watched_norm", Feature_Info::REAL);
 
     result->add_feature("user_repo_keyword_dotprod", Feature_Info::REAL);
     result->add_feature("user_repo_keyword_dotprod_max", Feature_Info::REAL);
@@ -888,6 +897,11 @@ features(std::vector<ML::distribution<float> > & results,
             result.push_back(repo.keywords_idf_2norm);
         }
 
+        result.push_back(user_average_keywords.max());
+        result.push_back(repo.keyword_vec.max());
+        result.push_back(user_average_keywords.max());
+        result.push_back(repo.keyword_vec.max() / repo.keyword_vec_2norm);
+
         int author = repo.author;
         if (author != -1) {
             float best_dp = -2.0, best_dp_norm = -2.0;
@@ -917,6 +931,7 @@ features(std::vector<ML::distribution<float> > & results,
         }
         
         float best_dp = -2.0, best_dp_norm = -2.0;
+        float best_dp_kw = -2.0, best_dp_kw_norm = -2.0;
         
         for (IdSet::const_iterator
                  jt = user.watching.begin(),
@@ -924,15 +939,25 @@ features(std::vector<ML::distribution<float> > & results,
              jt != jend;  ++jt) {
             if (*jt == -1) continue;
             const Repo & repo2 = data.repos[*jt];
+
             float dp = repo.singular_vec.dotprod(repo2.singular_vec);
             float dp_norm
                 = xdiv(dp, repo.singular_2norm * repo2.singular_2norm);
             best_dp = max(best_dp, dp);
             best_dp_norm = max(best_dp_norm, dp_norm);
+
+            dp = repo.keyword_vec.dotprod(repo2.keyword_vec);
+            dp_norm
+                = xdiv(dp, repo.keyword_vec_2norm * repo2.keyword_vec_2norm);
+            best_dp_kw = max(best_dp_kw, dp);
+            best_dp_kw_norm = max(best_dp_kw_norm, dp_norm);
         }
 
         result.push_back(best_dp);
         result.push_back(best_dp_norm);
+
+        result.push_back(best_dp_kw);
+        result.push_back(best_dp_kw_norm);
 
         // Keyword features
         dpvec = (repo.keyword_vec * user_average_keywords);
