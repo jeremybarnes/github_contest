@@ -487,6 +487,14 @@ feature_space() const
     result->add_feature("max_dp_with_watched", Feature_Info::REAL);
     result->add_feature("max_dp_with_watched_norm", Feature_Info::REAL);
 
+    result->add_feature("user_repo_keyword_dotprod", Feature_Info::REAL);
+    result->add_feature("user_repo_keyword_dotprod_max", Feature_Info::REAL);
+    result->add_feature("user_repo_keyword_dotprod_avg", Feature_Info::REAL);
+
+    result->add_feature("user_repo_keyword_cosine", Feature_Info::REAL);
+    result->add_feature("user_repo_keyword_cosine_max", Feature_Info::REAL);
+    result->add_feature("user_repo_keyword_cosine_avg", Feature_Info::REAL);
+
     return result;
 }
 
@@ -523,11 +531,17 @@ features(std::vector<ML::distribution<float> > & results,
     // Get cooccurrences for all repos
     Cooccurrences user_keywords, user_keywords_idf;
 
+    distribution<float> user_average_keywords(data.keyword_singular_values.size());
+
     for (IdSet::const_iterator
              it = user.watching.begin(), end = user.watching.end();
          it != end;  ++it) {
-        user_keywords.add(data.repos[*it].keywords);
-        user_keywords_idf.add(data.repos[*it].keywords_idf);
+        const Repo & repo = data.repos[*it];
+        user_keywords.add(repo.keywords);
+        user_keywords_idf.add(repo.keywords_idf);
+        user_average_keywords
+            += xdiv(repo.keyword_vec,
+                    repo.keyword_vec_2norm * user.watching.size());
     }
 
     user_keywords.finish();
@@ -919,6 +933,18 @@ features(std::vector<ML::distribution<float> > & results,
 
         result.push_back(best_dp);
         result.push_back(best_dp_norm);
+
+        // Keyword features
+        dpvec = (repo.keyword_vec * user_average_keywords);
+        result.push_back(dpvec.total());
+        result.push_back(dpvec.max());
+        result.push_back(dpvec.max() / dpvec.total());
+
+        dpvec = xdiv(dpvec, repo.keyword_vec_2norm);
+
+        result.push_back(dpvec.total());
+        result.push_back(dpvec.max());
+        result.push_back(dpvec.max() / dpvec.total());
     }
 }
 

@@ -11,6 +11,7 @@
 #include <vector>
 #include <string>
 #include "data.h"
+#include "utils/hash_map.h"
 
 struct Vocab_Entry {
     Vocab_Entry()
@@ -35,8 +36,11 @@ enum Name_Type {
 
 std::vector<std::string> uncamelcase(const std::string & str);
 
-std::vector<std::string> tokenize(const std::string & str,
-                                  Name_Type type);
+std::vector<std::string>
+tokenize(const std::string & str,
+         Name_Type type,
+         const std::hash_map<std::string, int> * vocab_map = 0,
+         const std::vector<Vocab_Entry> * vocab = 0);
 
 void analyze_keywords(Data & data);
 

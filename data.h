@@ -289,6 +289,9 @@ struct Repo {
 
     float keywords_2norm, keywords_idf_2norm;
 
+    distribution<float> keyword_vec;
+    float keyword_vec_2norm;
+
     bool invalid() const { return id == -1; }
 
     void finish()
@@ -465,6 +468,8 @@ struct Data {
 
     std::vector<Cluster> user_clusters;
     std::vector<Cluster> repo_clusters;
+
+    distribution<float> keyword_singular_values;
 
     void frequency_stats();
 
