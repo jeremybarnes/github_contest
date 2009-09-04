@@ -27,7 +27,7 @@ KAPPA                     =  1.00E-06
 NUMBER OF LANCZOS STEPS   =    185
 RITZ VALUES STABILIZED    =     54
 SINGULAR VALUES FOUND     =     50
-SVD elapsed: elapsed: [4.75s cpu, 12704.8150 mticks, 4.75s wall]
+SVD elapsed: elapsed: [4.72s cpu, 12617.4154 mticks, 4.72s wall]
 done repos
 doing keywords
 pass 1: 74140 vocab entries
@@ -52,7 +52,7 @@ TRANSPOSING THE MATRIX FOR SPEED
 NUMBER OF LANCZOS STEPS   =    274
 RITZ VALUES STABILIZED    =    103
 SINGULAR VALUES FOUND     =    100
-SVD elapsed: elapsed: [4.41s cpu, 11780.8738 mticks, 4.41s wall]
+SVD elapsed: elapsed: [4.53s cpu, 12101.9150 mticks, 4.53s wall]
 done keywords
 candidate source name=coocs source = 1
 candidate source name=coocs2 source = 2
@@ -61,7 +61,7 @@ processing 4788 users...
 0%   10   20   30   40   50   60   70   80   90   100%
 |----|----|----|----|----|----|----|----|----|----|
 ***************************************************
-elapsed: elapsed: [368.66s cpu, 501103.8490 mticks, 187.49s wall]
+elapsed: elapsed: [343.21s cpu, 242929.5382 mticks, 90.89s wall]
 done
 
 calculating test result... done.
@@ -71,12 +71,12 @@ authored_by_collaborator           736    10( 1.36%)   28788(  39.11)     7( 0.9
 authored_by_me                     593   516(87.02%)    1065(   1.80)   502(84.65%)    1049(   1.77)     100
 by_watched_authors                3426  1232(35.96%)  265847(  77.60)   569(16.61%)  258394(  75.42)     200
 children_of_watched               3080   164( 5.32%)  182071(  59.11)     7( 0.23%)   71009(  23.05)     100
-coocs                             3722  1303(35.01%)  254721(  68.44)   115( 3.09%)  118068(  31.72)     100
-coocs2                            3754  1421(37.85%)  273895(  72.96)    43( 1.15%)   52906(  14.09)     100
+coocs                             3296   575(17.45%)  264542(  80.26)   107( 3.25%)  123169(  37.37)     100
+coocs2                            3378   646(19.12%)  289417(  85.68)    38( 1.12%)   51336(  15.20)     100
 in_cluster_repo                   4788   338( 7.06%)  470245(  98.21)   118( 2.46%)  411393(  85.92)     100
 in_cluster_user                   4788   636(13.28%)  478800( 100.00)   615(12.84%)  470056(  98.17)     100
 in_id_range                       4788   340( 7.10%)   41247(   8.61)   107( 2.23%)   40555(   8.47)      57
-most_watched                      4788   795(16.60%)  471046(  98.38)    16( 0.33%)  163984(  34.25)     100
+most_watched                      4788   795(16.60%)  471046(  98.38)    12( 0.25%)  150889(  31.51)     100
 parents_of_watched                2971  1458(49.07%)    3448(   1.16)  1458(49.07%)    3448(   1.16)      16
 same_name                         4242  1601(37.74%)  246959(  58.22)   119( 2.81%)  241161(  56.85)     100
 watched_by_collaborator            736   380(51.63%)   34146(  46.39)    51( 6.93%)   31850(  43.27)     100
@@ -86,8 +86,8 @@ authored_by_collaborator           736    13( 1.77%)   964   61098(  83.01)  1.5
 authored_by_me                     593   516(87.02%)     0    1125(   1.90) 45.8667       0
 by_watched_authors                3426  1245(36.34%)     0  562516( 164.19)  0.2213       0
 children_of_watched               3080   175( 5.68%)  5072 1078146( 350.05)  0.4867       0
-coocs                             3722  2103(56.50%) 40747 9915205(2663.95)  0.4322       0
-coocs2                            3754  2552(67.98%) 48276 24308132(6475.26)  0.2091       0
+coocs                             3296  1057(32.07%)     0 6174911(1873.46)  0.0171       0
+coocs2                            3378  1280(37.89%)     0 14879115(4404.71)  0.0086       0
 in_cluster_repo                   4788   503(10.51%)     0 7229320(1509.88)  0.0070       0
 in_cluster_user                   4788  1186(24.77%)     0 8192664(1711.08)  0.0145       0
 in_id_range                       4788   340( 7.10%)  2219   43466(   9.08)  5.8874       0
@@ -96,5 +96,5 @@ parents_of_watched                2971  1458(49.07%)  4695    8143(   2.74) 75.5
 same_name                         4242  1617(38.12%)     0 1470496( 346.65)  0.1100       0
 watched_by_collaborator            736   443(60.19%)  6161  127935( 173.82)  5.1620       0
 
-385.13user 0.63system 3:24.60elapsed 188%CPU (0avgtext+0avgdata 0maxresident)k
-0inputs+8outputs (0major+324309minor)pagefaults 0swaps
+359.24user 1.30system 1:48.27elapsed 333%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+8outputs (0major+339664minor)pagefaults 0swaps

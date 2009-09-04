@@ -502,6 +502,9 @@ struct Cooc_Source : public Candidate_Source {
         // Find cooccurring with the most specicivity
 
         hash_map<int, Cooc_Info> coocs_map;
+
+        hash_set<string> watched_repo_names;
+        hash_set<int> watched_authors;
         
         for (IdSet::const_iterator
                  it = user.watching.begin(),
@@ -509,14 +512,17 @@ struct Cooc_Source : public Candidate_Source {
              it != end;  ++it) {
             int repo_id = *it;
             const Repo & repo = data.repos[repo_id];
-            
+
+            watched_repo_names.insert(repo.name);
+            watched_authors.insert(repo.author);
+
             const Cooccurrences & cooc
                 = (source == 1 ? repo.cooc : repo.cooc2);
             
             for (Cooccurrences::const_iterator
                      jt = cooc.begin(), end = cooc.end();
                  jt != end;  ++jt) {
-                //if (data.repos[jt->with].watchers.size() < 2) continue;
+                if (data.repos[jt->with].watchers.size() < 2) continue;
                 coocs_map[jt->with] += jt->score;
             }
         }
@@ -527,6 +533,11 @@ struct Cooc_Source : public Candidate_Source {
                  it = coocs_map.begin(),
                  end = coocs_map.end();
              it != end;  ++it) {
+
+            const Repo & repo = data.repos[it->first];
+            if (watched_repo_names.count(repo.name)) continue;  // will be handled by same name
+            if (watched_authors.count(repo.author)) continue;   // will be handled by same author
+
             result.push_back(Ranked_Entry());
 
             Ranked_Entry & entry = result.back();

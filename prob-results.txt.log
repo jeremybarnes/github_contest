@@ -21,7 +21,7 @@ KAPPA                     =  1.00E-06
 NUMBER OF LANCZOS STEPS   =    185
 RITZ VALUES STABILIZED    =     55
 SINGULAR VALUES FOUND     =     50
-SVD elapsed: elapsed: [4.76s cpu, 12730.4252 mticks, 4.76s wall]
+SVD elapsed: elapsed: [4.77s cpu, 12837.6988 mticks, 4.80s wall]
 done repos
 doing keywords
 pass 1: 74140 vocab entries
@@ -46,7 +46,7 @@ TRANSPOSING THE MATRIX FOR SPEED
 NUMBER OF LANCZOS STEPS   =    274
 RITZ VALUES STABILIZED    =    103
 SINGULAR VALUES FOUND     =    100
-SVD elapsed: elapsed: [4.35s cpu, 11628.6109 mticks, 4.35s wall]
+SVD elapsed: elapsed: [4.45s cpu, 11965.6392 mticks, 4.48s wall]
 done keywords
 candidate source name=coocs source = 1
 candidate source name=coocs2 source = 2
@@ -55,14 +55,14 @@ processing 4788 users...
 0%   10   20   30   40   50   60   70   80   90   100%
 |----|----|----|----|----|----|----|----|----|----|
 ***************************************************
-elapsed: elapsed: [277806.90s cpu, 586534.1908 mticks, 219.45s wall]
+elapsed: elapsed: [380.20s cpu, 251392.0456 mticks, 94.06s wall]
 done
 
 calculating test result... done.
 fake test results: 
-     total:      real: 2522/4788 =  52.67%  poss: 3592/4788 =  75.02%  avg num: 414.4
+     total:      real: 2495/4788 =  52.11%  poss: 3576/4788 =  74.69%  avg num: 411.7
 non-zero scores: 
-     total:      real: 2522/4788 =  52.67%  poss: 3592/4788 =  75.02%  avg num: 414.4
+     total:      real: 2495/4788 =  52.11%  poss: 3576/4788 =  74.69%  avg num: 411.7
 
 generator                        fired   corr 
 ancestors_of_watched               240     3( 1.25%)     261(   1.09)     3( 1.25%)     261(   1.09)       5
@@ -70,12 +70,12 @@ authored_by_collaborator           642    11( 1.71%)   25985(  40.48)    10( 1.5
 authored_by_me                     394   352(89.34%)     481(   1.22)   344(87.31%)     473(   1.20)      16
 by_watched_authors                3756  1242(33.07%)  316581(  84.29)   764(20.34%)  308753(  82.20)     200
 children_of_watched               3490   211( 6.05%)  214063(  61.34)     7( 0.20%)   83440(  23.91)     100
-coocs                             4002  1566(39.13%)  291684(  72.88)   171( 4.27%)  130097(  32.51)     100
-coocs2                            4038  1659(41.08%)  313650(  77.67)    51( 1.26%)   61216(  15.16)     100
+coocs                             3715   754(20.30%)  304405(  81.94)   176( 4.74%)  137002(  36.88)     100
+coocs2                            3811   809(21.23%)  331213(  86.91)    40( 1.05%)   56635(  14.86)     100
 in_cluster_repo                   4786   383( 8.00%)  472391(  98.70)   147( 3.07%)  401511(  83.89)     100
 in_cluster_user                   4788   658(13.74%)  478800( 100.00)   640(13.37%)  470015(  98.17)     100
 in_id_range                       4788   304( 6.35%)   43042(   8.99)    86( 1.80%)   42204(   8.81)      46
-most_watched                      4788   772(16.12%)  468814(  97.91)    22( 0.46%)  165560(  34.58)     100
+most_watched                      4788   772(16.12%)  468814(  97.91)    12( 0.25%)  150387(  31.41)     100
 parents_of_watched                2833  1135(40.06%)    3851(   1.36)  1135(40.06%)    3851(   1.36)      35
 same_name                         4340  1334(30.74%)  265694(  61.22)   153( 3.53%)  259182(  59.72)     100
 watched_by_collaborator            643   281(43.70%)   33868(  52.67)    59( 9.18%)   31716(  49.33)     100
@@ -85,8 +85,8 @@ authored_by_collaborator           642    17( 2.65%)  2109   60879(  94.83)  3.4
 authored_by_me                     394   352(89.34%)     0     481(   1.22) 73.1809       0
 by_watched_authors                3756  1261(33.57%)     0  741156( 197.33)  0.1701       0
 children_of_watched               3490   224( 6.42%)  5289 1402558( 401.88)  0.3931       0
-coocs                             4002  2496(62.37%) 50851 12703818(3174.37)  0.4199       0
-coocs2                            4038  2987(73.97%) 59633 30510866(7555.94)  0.2052       0
+coocs                             3715  1311(35.29%)     0 7819212(2104.77)  0.0168       0
+coocs2                            3811  1557(40.86%)     0 18457072(4843.10)  0.0084       0
 in_cluster_repo                   4786   570(11.91%)     0 7334600(1532.51)  0.0078       0
 in_cluster_user                   4788  1120(23.39%)     0 8054001(1682.12)  0.0139       0
 in_id_range                       4788   304( 6.35%)  1962   45004(   9.40)  5.0351       0
@@ -95,5 +95,5 @@ parents_of_watched                2833  1136(40.10%)  4954    8825(   3.12) 69.0
 same_name                         4340  1352(31.15%)     0 1794583( 413.50)  0.0753       0
 watched_by_collaborator            643   345(53.65%)  8873  143180( 222.67)  6.4381       0
 
-277692.27user 130.78system 3:55.61elapsed 117915%CPU (0avgtext+0avgdata 0maxresident)k
-0inputs+12896outputs (0major+387293minor)pagefaults 0swaps
+394.65user 1.82system 1:50.46elapsed 358%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+12856outputs (0major+334831minor)pagefaults 0swaps
