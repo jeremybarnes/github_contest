@@ -418,8 +418,8 @@ void analyze_keywords(Data & data)
         last_index = index;
 
         for (Cooccurrences::const_iterator
-                 it = repo.keywords.begin(),
-                 end = repo.keywords.end();
+                 it = repo.keywords_idf.begin(),
+                 end = repo.keywords_idf.end();
              it != end;  ++it) {
 
             matrix.rowind[entry_num] = word_to_index[it->with];
