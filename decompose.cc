@@ -204,7 +204,7 @@ struct RepoDataAccess {
 
     bool invalid(int object) const
     {
-        return data.repos[object].watchers.empty();
+        return data.repos[object].keywords.empty();
     }
 
     typedef Repo Object;
@@ -213,9 +213,14 @@ struct RepoDataAccess {
         return data.repos[object];
     }
 
+    const distribution<float> & singular_vec(const Object & object) const
+    {
+        return object.keyword_vec;
+    }
+
     int nd() const
     {
-        return data.singular_values.size();
+        return data.keyword_singular_values.size();
     }
 
     string what() const { return "repo"; }
@@ -256,7 +261,8 @@ void calc_kmeans(vector<Cluster> & clusters,
             for (unsigned j = 0;  j < cluster.members.size();  ++j) {
                 const Object & object = access.object(cluster.members[j]);
                 SIMD::vec_add(&cluster.centroid[0], k, //k / object.singular_2norm,
-                              &object.singular_vec[0], &cluster.centroid[0], nd);
+                              &access.singular_vec(object)[0],
+                              &cluster.centroid[0], nd);
             }
 
             // Normalize
@@ -281,7 +287,7 @@ void calc_kmeans(vector<Cluster> & clusters,
 
             for (unsigned j = 0;  j < nclusters;  ++j) {
                 float score
-                    = clusters[j].centroid.dotprod(object.singular_vec);
+                    = clusters[j].centroid.dotprod(access.singular_vec(object));
 
                 if (score > best_score) {
                     best_score = score;
@@ -313,7 +319,7 @@ kmeans_repos(Data & data)
     RepoDataAccess repo_access(data);
     calc_kmeans(repo_clusters, repo_in_cluster, nclusters, repo_access);
 
-#if 0
+#if 1
     int all_to_check[] = { 17, 356, 62 };
 
     for (unsigned x = 0;  x < sizeof(all_to_check) / sizeof(all_to_check[0]);  ++x) {
@@ -327,9 +333,13 @@ kmeans_repos(Data & data)
             const Repo & repo2 = data.repos[i];
             if (repo2.invalid()) continue;
             
+            //float sim
+            //    = repo1.singular_vec.dotprod(repo2.singular_vec)
+            //    / (repo1.singular_2norm * repo2.singular_2norm);
+
             float sim
-                = repo1.singular_vec.dotprod(repo2.singular_vec)
-                / (repo1.singular_2norm * repo2.singular_2norm);
+                = repo1.keyword_vec.dotprod(repo2.keyword_vec)
+                / (repo1.keyword_vec_2norm * repo2.keyword_vec_2norm);
             
             similarities.push_back(make_pair(i, sim));
         }
@@ -381,6 +391,11 @@ struct UserDataAccess {
     const User & object(int object)
     {
         return data.users[object];
+    }
+
+    const distribution<float> & singular_vec(const Object & object) const
+    {
+        return object.singular_vec;
     }
 
     int nd() const
