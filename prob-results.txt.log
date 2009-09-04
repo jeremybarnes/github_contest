@@ -21,7 +21,7 @@ KAPPA                     =  1.00E-06
 NUMBER OF LANCZOS STEPS   =    185
 RITZ VALUES STABILIZED    =     55
 SINGULAR VALUES FOUND     =     50
-SVD elapsed: elapsed: [4.71s cpu, 12568.4015 mticks, 4.70s wall]
+SVD elapsed: elapsed: [4.69s cpu, 12555.3600 mticks, 4.70s wall]
 done repos
 doing keywords
 pass 1: 74140 vocab entries
@@ -43,10 +43,10 @@ RIGHT END OF THE INTERVAL =  1.00E-30
 KAPPA                     =  1.00E-06
 
 TRANSPOSING THE MATRIX FOR SPEED
-NUMBER OF LANCZOS STEPS   =    339
-RITZ VALUES STABILIZED    =    110
+NUMBER OF LANCZOS STEPS   =    274
+RITZ VALUES STABILIZED    =    103
 SINGULAR VALUES FOUND     =    100
-SVD elapsed: elapsed: [5.43s cpu, 14532.6534 mticks, 5.44s wall]
+SVD elapsed: elapsed: [4.34s cpu, 11618.1758 mticks, 4.35s wall]
 done keywords
 candidate source name=coocs source = 1
 candidate source name=coocs2 source = 2
@@ -55,14 +55,14 @@ processing 4788 users...
 0%   10   20   30   40   50   60   70   80   90   100%
 |----|----|----|----|----|----|----|----|----|----|
 ***************************************************
-elapsed: elapsed: [462.55s cpu, 307021.0241 mticks, 114.87s wall]
+elapsed: elapsed: [470.92s cpu, 308175.6044 mticks, 115.30s wall]
 done
 
 calculating test result... done.
 fake test results: 
-     total:      real: 2524/4788 =  52.72%  poss: 3570/4788 =  74.56%  avg num: 416.9
+     total:      real: 2504/4788 =  52.30%  poss: 3564/4788 =  74.44%  avg num: 416.5
 non-zero scores: 
-     total:      real: 2524/4788 =  52.72%  poss: 3570/4788 =  74.56%  avg num: 416.9
+     total:      real: 2504/4788 =  52.30%  poss: 3564/4788 =  74.44%  avg num: 416.5
 
 generator                        fired   corr 
 ancestors_of_watched               240     3( 1.25%)     261(   1.09)     3( 1.25%)     261(   1.09)       5
@@ -70,12 +70,12 @@ authored_by_collaborator           642    11( 1.71%)   25982(  40.47)    10( 1.5
 authored_by_me                     394   352(89.34%)     481(   1.22)   344(87.31%)     473(   1.20)      16
 by_watched_authors                3756  1242(33.07%)  316581(  84.29)   764(20.34%)  308775(  82.21)     200
 children_of_watched               3490   211( 6.05%)  214060(  61.34)     7( 0.20%)   83860(  24.03)     100
-coocs                             4002  1568(39.18%)  291581(  72.86)   170( 4.25%)  135697(  33.91)     100
-coocs2                            4038  1645(40.74%)  314946(  78.00)    55( 1.36%)   69267(  17.15)     100
-in_cluster_repo                   4786   789(16.49%)  477649(  99.80)   118( 2.47%)  391292(  81.76)     100
+coocs                             4002  1568(39.18%)  291581(  72.86)   170( 4.25%)  135702(  33.91)     100
+coocs2                            4038  1645(40.74%)  314946(  78.00)    55( 1.36%)   69309(  17.16)     100
+in_cluster_repo                   4786   798(16.67%)  477649(  99.80)   113( 2.36%)  389424(  81.37)     100
 in_cluster_user                   4788  1157(24.16%)  478800( 100.00)   645(13.47%)  454999(  95.03)     100
-in_id_range                       4788   304( 6.35%)   43042(   8.99)    82( 1.71%)   42172(   8.81)      46
-most_watched                      4788   772(16.12%)  468814(  97.91)    25( 0.52%)  188594(  39.39)     100
+in_id_range                       4788   304( 6.35%)   43042(   8.99)    81( 1.69%)   42162(   8.81)      46
+most_watched                      4788   772(16.12%)  468814(  97.91)    25( 0.52%)  188586(  39.39)     100
 parents_of_watched                2833  1135(40.06%)    3851(   1.36)  1135(40.06%)    3851(   1.36)      35
 same_name                         4340  1334(30.74%)  265694(  61.22)   153( 3.53%)  259186(  59.72)     100
 watched_by_collaborator            643   281(43.70%)   33859(  52.66)    59( 9.18%)   31701(  49.30)     100
@@ -95,5 +95,5 @@ parents_of_watched                2833  1136(40.10%)  4954    8825(   3.12) 69.0
 same_name                         4340  1352(31.15%)     0 1794583( 413.50)  0.0753       0
 watched_by_collaborator            643   345(53.65%)  8873  143180( 222.67)  6.4381       0
 
-477.70user 2.01system 2:12.03elapsed 363%CPU (0avgtext+0avgdata 0maxresident)k
-8inputs+12880outputs (0major+408191minor)pagefaults 0swaps
+485.31user 1.72system 2:11.42elapsed 370%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+12904outputs (0major+392228minor)pagefaults 0swaps
