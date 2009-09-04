@@ -9,6 +9,7 @@
 #include "utils/less.h"
 #include "math/xdiv.h"
 #include "ranker.h"
+#include "utils/hash_set.h"
 
 
 using namespace std;
@@ -578,6 +579,9 @@ struct In_Cluster_Repo_Source : public Candidate_Source {
         // Number of entries for this user in each cluster
         hash_map<int, IdSet> clusters;
 
+        hash_set<string> watched_repo_names;
+        hash_set<int> watched_authors;
+
         for (IdSet::const_iterator
                  it = user.watching.begin(),
                  end = user.watching.end();
@@ -585,6 +589,9 @@ struct In_Cluster_Repo_Source : public Candidate_Source {
             int repo_id = *it;
             const Repo & repo = data.repos[repo_id];
             int cluster_id = repo.kmeans_cluster;
+
+            watched_repo_names.insert(repo.name);
+            watched_authors.insert(repo.author);
 
             if (cluster_id == -1) continue;
             clusters[cluster_id].insert(repo_id);
@@ -605,6 +612,10 @@ struct In_Cluster_Repo_Source : public Candidate_Source {
                 if (data.repos[repo_id].invalid()) continue;
                 if (user.watching.count(repo_id)) continue;
 
+                const Repo & repo = data.repos[repo_id];
+                if (watched_repo_names.count(repo.name)) continue;  // will be handled by same name
+                if (watched_authors.count(repo.author)) continue;   // will be handled by same author
+
                 result.push_back(Ranked_Entry());
                 Ranked_Entry & entry = result.back();
                 entry.score = data.repos[repo_id].watchers.size();
@@ -619,8 +630,6 @@ struct In_Cluster_Repo_Source : public Candidate_Source {
                 // Find the best DP with a cluster member
 
                 float best_dp_kw = -2.0, best_dp_norm_kw = -2.0;
-
-                const Repo & repo = data.repos[repo_id];
 
                 for (IdSet::const_iterator
                          jt = it->second.begin(),
@@ -705,6 +714,19 @@ struct In_Cluster_User_Source : public Candidate_Source {
 
         if (clusterno == -1) return;
 
+        hash_set<string> watched_repo_names;
+        hash_set<int> watched_authors;
+
+        for (IdSet::const_iterator
+                 it = user.watching.begin(),
+                 end = user.watching.end();
+             it != end;  ++it) {
+            int repo_id = *it;
+            const Repo & repo = data.repos[repo_id];
+            watched_repo_names.insert(repo.name);
+            watched_authors.insert(repo.author);
+        }
+
         const Cluster & cluster = data.user_clusters[clusterno];
 
         for (unsigned i = 0;  i < cluster.members.size();  ++i) {
@@ -722,6 +744,11 @@ struct In_Cluster_User_Source : public Candidate_Source {
                      it = user2.watching.begin(),
                      end = user2.watching.end();
                  it != end;  ++it) {
+
+                const Repo & repo = data.repos[*it];
+                if (watched_repo_names.count(repo.name)) continue;  // will be handled by same name
+                if (watched_authors.count(repo.author)) continue;   // will be handled by same author
+
                 Rank_Info & entry = watched_by_cluster_user[*it];
                 entry.num_watched += 1;
                 entry.watched_score += 1.0 / user2.watching.size();
