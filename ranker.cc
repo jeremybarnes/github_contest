@@ -504,6 +504,11 @@ feature_space() const
     result->add_feature("user_repo_keyword_cosine_max", Feature_Info::REAL);
     result->add_feature("user_repo_keyword_cosine_avg", Feature_Info::REAL);
 
+    result->add_feature("num_watches_api", Feature_Info::REAL);
+    result->add_feature("num_missing_watches", Feature_Info::REAL);
+    result->add_feature("num_forks_api", Feature_Info::REAL);
+    result->add_feature("num_missing_forks", Feature_Info::REAL);
+
     return result;
 }
 
@@ -970,6 +975,12 @@ features(std::vector<ML::distribution<float> > & results,
         result.push_back(dpvec.total());
         result.push_back(dpvec.max());
         result.push_back(dpvec.max() / dpvec.total());
+        
+        // num_watches_api
+        result.push_back(repo.num_watches_api);
+        result.push_back(repo.num_watches_api - (int)repo.watchers.size());
+        result.push_back(repo.num_forks_api);
+        result.push_back(repo.num_forks_api - (int)repo.children.size());
     }
 }
 

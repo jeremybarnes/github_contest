@@ -27,7 +27,7 @@ KAPPA                     =  1.00E-06
 NUMBER OF LANCZOS STEPS   =    185
 RITZ VALUES STABILIZED    =     54
 SINGULAR VALUES FOUND     =     50
-SVD elapsed: elapsed: [4.72s cpu, 12617.4154 mticks, 4.72s wall]
+SVD elapsed: elapsed: [4.77s cpu, 12882.7853 mticks, 4.82s wall]
 done repos
 doing keywords
 pass 1: 74140 vocab entries
@@ -52,7 +52,7 @@ TRANSPOSING THE MATRIX FOR SPEED
 NUMBER OF LANCZOS STEPS   =    274
 RITZ VALUES STABILIZED    =    103
 SINGULAR VALUES FOUND     =    100
-SVD elapsed: elapsed: [4.53s cpu, 12101.9150 mticks, 4.53s wall]
+SVD elapsed: elapsed: [4.83s cpu, 13159.7227 mticks, 4.92s wall]
 done keywords
 candidate source name=coocs source = 1
 candidate source name=coocs2 source = 2
@@ -61,7 +61,7 @@ processing 4788 users...
 0%   10   20   30   40   50   60   70   80   90   100%
 |----|----|----|----|----|----|----|----|----|----|
 ***************************************************
-elapsed: elapsed: [343.21s cpu, 242929.5382 mticks, 90.89s wall]
+elapsed: elapsed: [332.42s cpu, 235469.0113 mticks, 88.10s wall]
 done
 
 calculating test result... done.
@@ -96,5 +96,5 @@ parents_of_watched                2971  1458(49.07%)  4695    8143(   2.74) 75.5
 same_name                         4242  1617(38.12%)     0 1470496( 346.65)  0.1100       0
 watched_by_collaborator            736   443(60.19%)  6161  127935( 173.82)  5.1620       0
 
-359.24user 1.30system 1:48.27elapsed 333%CPU (0avgtext+0avgdata 0maxresident)k
-0inputs+8outputs (0major+339664minor)pagefaults 0swaps
+348.78user 1.62system 1:46.23elapsed 329%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+8outputs (0major+334333minor)pagefaults 0swaps

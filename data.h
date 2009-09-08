@@ -244,7 +244,8 @@ struct Repo {
         : id(-1), author(-1), parent(-1), depth(-1), total_loc(0),
           popularity_rank(-1),
           repo_prob(0.0), repo_prob_rank(-1), repo_prob_percentile(0.0),
-          kmeans_cluster(-1), min_user(-1), max_user(-1)
+          kmeans_cluster(-1), min_user(-1), max_user(-1),
+          num_forks_api(-1), num_watches_api(-1)
     {
     }
 
@@ -291,6 +292,9 @@ struct Repo {
 
     distribution<float> keyword_vec;
     float keyword_vec_2norm;
+
+    int num_forks_api;
+    int num_watches_api;
 
     bool invalid() const { return id == -1; }
 

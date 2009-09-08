@@ -360,6 +360,34 @@ void Data::load()
         users[user_id].id = user_id;
     }
 
+    Parse_Context fork_file("download/repo_forks.txt");
+
+    while (fork_file) {
+        int repo_id = fork_file.expect_int();
+        fork_file.expect_whitespace();
+        int num_forks = fork_file.expect_int();
+        fork_file.expect_eol();
+
+        if (repo_id < 0 || repo_id > repos.size() || repos[repo_id].invalid())
+            throw Exception("invalid repo ID in fork file");
+
+        repos[repo_id].num_forks_api = num_forks;
+    }
+
+    Parse_Context watch_file("download/repo_watch.txt");
+
+    while (watch_file) {
+        int repo_id = watch_file.expect_int();
+        watch_file.expect_whitespace();
+        int num_watches = watch_file.expect_int();
+        watch_file.expect_eol();
+
+        if (repo_id < 0 || repo_id > repos.size() || repos[repo_id].invalid())
+            throw Exception("invalid repo ID in watch file");
+
+        repos[repo_id].num_watches_api = num_watches;
+    }
+
     calc_author_stats();
     
     infer_from_ids();
