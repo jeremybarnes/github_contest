@@ -21,7 +21,7 @@ KAPPA                     =  1.00E-06
 NUMBER OF LANCZOS STEPS   =    185
 RITZ VALUES STABILIZED    =     55
 SINGULAR VALUES FOUND     =     50
-SVD elapsed: elapsed: [4.74s cpu, 12725.9892 mticks, 4.76s wall]
+SVD elapsed: elapsed: [4.75s cpu, 12696.4705 mticks, 4.75s wall]
 done repos
 doing keywords
 pass 1: 74140 vocab entries
@@ -46,7 +46,7 @@ TRANSPOSING THE MATRIX FOR SPEED
 NUMBER OF LANCZOS STEPS   =    274
 RITZ VALUES STABILIZED    =    103
 SINGULAR VALUES FOUND     =    100
-SVD elapsed: elapsed: [4.36s cpu, 11669.7751 mticks, 4.37s wall]
+SVD elapsed: elapsed: [4.37s cpu, 11681.6770 mticks, 4.37s wall]
 done keywords
 candidate source name=coocs source = 1
 candidate source name=coocs2 source = 2
@@ -55,14 +55,14 @@ processing 4788 users...
 0%   10   20   30   40   50   60   70   80   90   100%
 |----|----|----|----|----|----|----|----|----|----|
 ***************************************************
-elapsed: elapsed: [368.99s cpu, 246298.9546 mticks, 92.15s wall]
+elapsed: elapsed: [367.91s cpu, 247332.1354 mticks, 92.54s wall]
 done
 
 calculating test result... done.
 fake test results: 
-     total:      real: 2582/4788 =  53.93%  poss: 3576/4788 =  74.69%  avg num: 411.7
+     total:      real: 2577/4788 =  53.82%  poss: 3576/4788 =  74.69%  avg num: 411.7
 non-zero scores: 
-     total:      real: 2582/4788 =  53.93%  poss: 3576/4788 =  74.69%  avg num: 411.7
+     total:      real: 2577/4788 =  53.82%  poss: 3576/4788 =  74.69%  avg num: 411.7
 
 generator                        fired   corr 
 ancestors_of_watched               240     3( 1.25%)     261(   1.09)     3( 1.25%)     261(   1.09)       5
@@ -95,5 +95,5 @@ parents_of_watched                2833  1136(40.10%)  4954    8825(   3.12) 69.0
 same_name                         4340  1352(31.15%)     0 1794583( 413.50)  0.0753       0
 watched_by_collaborator            643   345(53.65%)  8873  143180( 222.67)  6.4381       0
 
-383.66user 1.62system 1:48.48elapsed 355%CPU (0avgtext+0avgdata 0maxresident)k
-0inputs+12752outputs (0major+404853minor)pagefaults 0swaps
+382.81user 2.01system 1:50.96elapsed 346%CPU (0avgtext+0avgdata 0maxresident)k
+54944inputs+12736outputs (426major+370763minor)pagefaults 0swaps

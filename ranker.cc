@@ -404,6 +404,8 @@ feature_space() const
     result->add_feature("user_max_name_watches_prop", Feature_Info::REAL);
     result->add_feature("user_avg_name_watches_prop", Feature_Info::REAL);
 
+    result->add_feature("user_num_collaborates_on_api", Feature_Info::REAL);
+
     // user-repo features
     result->add_feature("heuristic_score", Feature_Info::REAL);
     result->add_feature("heuristic_rank",  Feature_Info::REAL);
@@ -508,6 +510,8 @@ feature_space() const
     result->add_feature("num_missing_watches", Feature_Info::REAL);
     result->add_feature("num_forks_api", Feature_Info::REAL);
     result->add_feature("num_missing_forks", Feature_Info::REAL);
+
+    result->add_feature("collaborates_on_api", Feature_Info::REAL);
 
     return result;
 }
@@ -683,6 +687,17 @@ features(std::vector<ML::distribution<float> > & results,
     user_features.push_back(max_name_percentage);
     user_features.push_back(xdiv<float>(total_name_percentage, name_groups.size()));
 
+    IdSet user_collaborates_on;
+
+    for (IdSet::const_iterator
+             it = user.inferred_authors.begin(),
+             end = user.inferred_authors.end();
+         it != end;  ++it) {
+        user_collaborates_on.insert(data.authors[*it].repositories.begin(),
+                                    data.authors[*it].repositories.end());
+    }
+
+    user_features.push_back(user_collaborates_on.size());
 
     // Features that depend upon the repo as well
     for (unsigned i = 0;  i < heuristic.size();  ++i) {
@@ -981,6 +996,9 @@ features(std::vector<ML::distribution<float> > & results,
         result.push_back(repo.num_watches_api - (int)repo.watchers.size());
         result.push_back(repo.num_forks_api);
         result.push_back(repo.num_forks_api - (int)repo.children.size());
+
+        // collaborates_on
+        result.push_back(user_collaborates_on.count(repo_id));
     }
 }
 

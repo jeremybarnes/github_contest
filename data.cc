@@ -388,6 +388,31 @@ void Data::load()
         repos[repo_id].num_watches_api = num_watches;
     }
 
+    Parse_Context collab_file("download/repo_col.txt");
+
+    while (collab_file) {
+        int repo_id = collab_file.expect_int();
+        collab_file.expect_whitespace();
+        string name = collab_file.expect_text("\n ");
+        collab_file.skip_whitespace();
+        if (collab_file.match_eol()) continue;
+
+        while (!collab_file.match_eol()) {
+            string author_name = collab_file.expect_text(" \n");
+            collab_file.skip_whitespace();
+
+            int author_id = -1;
+            
+            if (!author_name_to_id.count(author_name)) {
+                continue;
+            }
+            else author_id = author_name_to_id[author_name];
+
+            repos[repo_id].collaborators_api.insert(author_id);
+            authors[author_id].collaborates_on_api.insert(repo_id);
+        }
+    }
+    
     calc_author_stats();
     
     infer_from_ids();

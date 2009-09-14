@@ -296,11 +296,15 @@ struct Repo {
     int num_forks_api;
     int num_watches_api;
 
+    // Author IDs for collaborators
+    IdSet collaborators_api;
+
     bool invalid() const { return id == -1; }
 
     void finish()
     {
         watchers.finish();
+        collaborators_api.finish();
     }
 };
 
@@ -386,10 +390,13 @@ struct Author {
     int num_followers;
     int num_following;
 
+    IdSet collaborates_on_api;
+
     void finish()
     {
         repositories.finish();
         possible_users.finish();
+        collaborates_on_api.finish();
     }
 };
 
