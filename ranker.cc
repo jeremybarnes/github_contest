@@ -406,6 +406,9 @@ feature_space() const
 
     result->add_feature("user_num_collaborates_on_api", Feature_Info::REAL);
 
+    result->add_feature("user_num_following", Feature_Info::REAL);
+    result->add_feature("user_num_followers", Feature_Info::REAL);
+
     // user-repo features
     result->add_feature("heuristic_score", Feature_Info::REAL);
     result->add_feature("heuristic_rank",  Feature_Info::REAL);
@@ -461,8 +464,8 @@ feature_space() const
     result->add_feature("user_date", Feature_Info::REAL);
     result->add_feature("user_repo_date_difference", Feature_Info::REAL);
     result->add_feature("user_author_date_difference", Feature_Info::REAL);
-    result->add_feature("user_num_followers", Feature_Info::REAL);
-    result->add_feature("user_num_following", Feature_Info::REAL);
+    result->add_feature("user_num_followers_author", Feature_Info::REAL);
+    result->add_feature("user_num_following_author", Feature_Info::REAL);
 
     result->add_feature("repo_in_id_range", Feature_Info::BOOLEAN);
     result->add_feature("user_in_id_range", Feature_Info::BOOLEAN);
@@ -512,6 +515,10 @@ feature_space() const
     result->add_feature("num_missing_forks", Feature_Info::REAL);
 
     result->add_feature("collaborates_on_api", Feature_Info::REAL);
+
+    result->add_feature("user_following_author", Feature_Info::REAL);
+    result->add_feature("author_following_user", Feature_Info::REAL);
+    result->add_feature("author_num_possible_users", Feature_Info::REAL);
 
     return result;
 }
@@ -698,6 +705,10 @@ features(std::vector<ML::distribution<float> > & results,
     }
 
     user_features.push_back(user_collaborates_on.size());
+
+    user_features.push_back(user.followers.size());
+    user_features.push_back(user.following.size());
+
 
     // Features that depend upon the repo as well
     for (unsigned i = 0;  i < heuristic.size();  ++i) {
@@ -999,6 +1010,31 @@ features(std::vector<ML::distribution<float> > & results,
 
         // collaborates_on
         result.push_back(user_collaborates_on.count(repo_id));
+
+        // user following author
+        // Are any of the possible users for the author being followed by the
+        // user?
+        bool user_following_author = false;
+        bool author_following_user = false;
+        int author_num_possible_users = 0;
+
+        if (repo.author != -1) {
+            const Author & author = data.authors[repo.author];
+
+            author_num_possible_users = author.possible_users.size();
+
+            for (IdSet::const_iterator
+                     it = author.possible_users.begin(),
+                     end = author.possible_users.end();
+                 it != end;  ++it) {
+                if (user.following.count(*it)) user_following_author = true;
+                if (user.followers.count(*it)) author_following_user = true;
+            }
+        }
+
+        result.push_back(user_following_author);
+        result.push_back(author_following_user);
+        result.push_back(author_num_possible_users);
     }
 }
 

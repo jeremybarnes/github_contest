@@ -1,4 +1,5 @@
 loading data...full_repo_name_to_index.size() = 120827
+7 errors in followers file
 user inferring: valid 56521 inferred 35873 multiple 283 average 2.06714
 inferring from IDs
 found 21503/120867=17.79%, gap max 74 avg 5.74
@@ -27,7 +28,7 @@ KAPPA                     =  1.00E-06
 NUMBER OF LANCZOS STEPS   =    185
 RITZ VALUES STABILIZED    =     54
 SINGULAR VALUES FOUND     =     50
-SVD elapsed: elapsed: [4.76s cpu, 12735.2998 mticks, 4.76s wall]
+SVD elapsed: elapsed: [4.86s cpu, 12989.8497 mticks, 4.86s wall]
 done repos
 doing keywords
 pass 1: 74140 vocab entries
@@ -52,7 +53,7 @@ TRANSPOSING THE MATRIX FOR SPEED
 NUMBER OF LANCZOS STEPS   =    274
 RITZ VALUES STABILIZED    =    103
 SINGULAR VALUES FOUND     =    100
-SVD elapsed: elapsed: [4.43s cpu, 11898.4653 mticks, 4.45s wall]
+SVD elapsed: elapsed: [4.73s cpu, 12652.8299 mticks, 4.73s wall]
 done keywords
 candidate source name=coocs source = 1
 candidate source name=coocs2 source = 2
@@ -61,7 +62,7 @@ processing 4788 users...
 0%   10   20   30   40   50   60   70   80   90   100%
 |----|----|----|----|----|----|----|----|----|----|
 ***************************************************
-elapsed: elapsed: [330.13s cpu, 237857.2780 mticks, 88.99s wall]
+elapsed: elapsed: [343.31s cpu, 249163.0122 mticks, 93.22s wall]
 done
 
 calculating test result... done.
@@ -96,5 +97,5 @@ parents_of_watched                2971  1458(49.07%)  4695    8143(   2.74) 75.5
 same_name                         4242  1617(38.12%)     0 1470496( 346.65)  0.1100       0
 watched_by_collaborator            736   443(60.19%)  6161  127935( 173.82)  5.1620       0
 
-347.16user 1.15system 1:48.56elapsed 320%CPU (0avgtext+0avgdata 0maxresident)k
-21752inputs+8outputs (208major+294584minor)pagefaults 0swaps
+360.31user 1.25system 1:51.54elapsed 324%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+8outputs (0major+380839minor)pagefaults 0swaps

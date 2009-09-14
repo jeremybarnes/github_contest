@@ -365,6 +365,8 @@ struct User {
     /// 3.  User B watches at least one of user A's repos
     IdSet collaborators;
 
+    IdSet following, followers;
+
     bool invalid() const { return id == -1; }
 
     void finish()
@@ -373,6 +375,8 @@ struct User {
         inferred_authors.finish();
         corresponding_repo.finish();
         collaborators.finish();
+        following.finish();
+        followers.finish();
     }
 };
 

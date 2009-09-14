@@ -413,6 +413,36 @@ void Data::load()
         }
     }
     
+    Parse_Context follow_file("download/follow.txt");
+
+    int errors = 0;
+
+    while (follow_file) {
+        int follower_id = follow_file.expect_int();
+        follow_file.expect_whitespace();
+        int followed_id = follow_file.expect_int();
+        follow_file.expect_eol();
+
+        if (follower_id < 0 || follower_id >= users.size()
+            || users[follower_id].invalid()) {
+            ++errors;
+            continue;
+            follow_file.exception("invalid follower ID in followers file");
+        }
+
+        if (followed_id < 0 || followed_id >= users.size()
+            || users[followed_id].invalid()) {
+            ++errors;
+            continue;
+            follow_file.exception("invalid followed ID in followers file");
+        }
+
+        users[follower_id].following.insert(followed_id);
+        users[followed_id].followers.insert(follower_id);
+    }
+    
+    cerr << errors << " errors in followers file" << endl;
+
     calc_author_stats();
     
     infer_from_ids();
@@ -432,6 +462,25 @@ void Data::load()
     find_collaborators();
 
     finish();
+
+#if 0
+    for (unsigned i = 1;  i < 20;  ++i) {
+        const User & user = users[i];
+        cerr << "user " << i << ": followers " << user.followers.size()
+             << " following: " << user.following.size() << " authors: "
+             << endl;
+        
+        for (IdSet::const_iterator
+                 it = user.inferred_authors.begin(),
+                 end = user.inferred_authors.end();
+             it != end;  ++it) {
+            cerr << "    " << authors[*it].name
+                 << " " << authors[*it].num_followers
+                 << " " << authors[*it].num_following
+                 << endl;
+        }
+    }
+#endif
 }
 
 struct FreqStats {
