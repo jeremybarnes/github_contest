@@ -26,6 +26,7 @@ bbdt {
             max_depth=3;
             verbosity=0;
             update_alg=gentle;
+            random_feature_propn=0.5;
         }
         min_iter=5;
         max_iter=50;
