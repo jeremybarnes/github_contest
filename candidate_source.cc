@@ -9,6 +9,7 @@
 #include "utils/less.h"
 #include "math/xdiv.h"
 #include "ranker.h"
+#include "utils/hash_set.h"
 
 
 using namespace std;
@@ -365,8 +366,8 @@ struct Ancestors_Of_Watched_Source : public Candidate_Source {
     }
 };
 
-struct Authored_By_Me : public Candidate_Source {
-    Authored_By_Me()
+struct Authored_By_Me_Source : public Candidate_Source {
+    Authored_By_Me_Source()
         : Candidate_Source("authored_by_me", 12)
     {
     }
@@ -501,6 +502,9 @@ struct Cooc_Source : public Candidate_Source {
         // Find cooccurring with the most specicivity
 
         hash_map<int, Cooc_Info> coocs_map;
+
+        hash_set<string> watched_repo_names;
+        hash_set<int> watched_authors;
         
         for (IdSet::const_iterator
                  it = user.watching.begin(),
@@ -508,14 +512,17 @@ struct Cooc_Source : public Candidate_Source {
              it != end;  ++it) {
             int repo_id = *it;
             const Repo & repo = data.repos[repo_id];
-            
+
+            watched_repo_names.insert(repo.name);
+            watched_authors.insert(repo.author);
+
             const Cooccurrences & cooc
                 = (source == 1 ? repo.cooc : repo.cooc2);
             
             for (Cooccurrences::const_iterator
                      jt = cooc.begin(), end = cooc.end();
                  jt != end;  ++jt) {
-                //if (data.repos[jt->with].watchers.size() < 2) continue;
+                if (data.repos[jt->with].watchers.size() < 2) continue;
                 coocs_map[jt->with] += jt->score;
             }
         }
@@ -526,6 +533,11 @@ struct Cooc_Source : public Candidate_Source {
                  it = coocs_map.begin(),
                  end = coocs_map.end();
              it != end;  ++it) {
+
+            const Repo & repo = data.repos[it->first];
+            if (watched_repo_names.count(repo.name)) continue;  // will be handled by same name
+            if (watched_authors.count(repo.author)) continue;   // will be handled by same author
+
             result.push_back(Ranked_Entry());
 
             Ranked_Entry & entry = result.back();
@@ -562,6 +574,10 @@ struct In_Cluster_Repo_Source : public Candidate_Source {
                            Feature_Info::REAL);
         result.add_feature("rcluster_best_norm_dp_in_cluster",
                            Feature_Info::REAL);
+        result.add_feature("rcluster_best_keyword_dp_in_cluster",
+                           Feature_Info::REAL);
+        result.add_feature("rcluster_best_norm_keyword_dp_in_cluster",
+                           Feature_Info::REAL);
         return result;
     }
 
@@ -574,6 +590,9 @@ struct In_Cluster_Repo_Source : public Candidate_Source {
         // Number of entries for this user in each cluster
         hash_map<int, IdSet> clusters;
 
+        hash_set<string> watched_repo_names;
+        hash_set<int> watched_authors;
+
         for (IdSet::const_iterator
                  it = user.watching.begin(),
                  end = user.watching.end();
@@ -581,6 +600,9 @@ struct In_Cluster_Repo_Source : public Candidate_Source {
             int repo_id = *it;
             const Repo & repo = data.repos[repo_id];
             int cluster_id = repo.kmeans_cluster;
+
+            watched_repo_names.insert(repo.name);
+            watched_authors.insert(repo.author);
 
             if (cluster_id == -1) continue;
             clusters[cluster_id].insert(repo_id);
@@ -601,6 +623,10 @@ struct In_Cluster_Repo_Source : public Candidate_Source {
                 if (data.repos[repo_id].invalid()) continue;
                 if (user.watching.count(repo_id)) continue;
 
+                const Repo & repo = data.repos[repo_id];
+                if (watched_repo_names.count(repo.name)) continue;  // will be handled by same name
+                if (watched_authors.count(repo.author)) continue;   // will be handled by same author
+
                 result.push_back(Ranked_Entry());
                 Ranked_Entry & entry = result.back();
                 entry.score = data.repos[repo_id].watchers.size();
@@ -614,7 +640,7 @@ struct In_Cluster_Repo_Source : public Candidate_Source {
                 float best_dp = -2.0, best_dp_norm = -2.0;
                 // Find the best DP with a cluster member
 
-                const Repo & repo = data.repos[repo_id];
+                float best_dp_kw = -2.0, best_dp_norm_kw = -2.0;
 
                 for (IdSet::const_iterator
                          jt = it->second.begin(),
@@ -627,10 +653,18 @@ struct In_Cluster_Repo_Source : public Candidate_Source {
                         = xdiv(dp, repo.singular_2norm * repo2.singular_2norm);
                     best_dp = max(best_dp, dp);
                     best_dp_norm = max(best_dp_norm, dp_norm);
+
+                    dp = repo.keyword_vec.dotprod(repo2.keyword_vec);
+                    dp_norm
+                        = xdiv(dp, repo.keyword_vec_2norm * repo2.keyword_vec_2norm);
+                    best_dp_kw = max(best_dp_kw, dp);
+                    best_dp_norm_kw = max(best_dp_norm_kw, dp_norm);
                 }
 
                 entry.features.push_back(best_dp);
                 entry.features.push_back(best_dp_norm);
+                entry.features.push_back(best_dp_kw);
+                entry.features.push_back(best_dp_norm_kw);
             }
         }
 
@@ -691,6 +725,19 @@ struct In_Cluster_User_Source : public Candidate_Source {
 
         if (clusterno == -1) return;
 
+        hash_set<string> watched_repo_names;
+        hash_set<int> watched_authors;
+
+        for (IdSet::const_iterator
+                 it = user.watching.begin(),
+                 end = user.watching.end();
+             it != end;  ++it) {
+            int repo_id = *it;
+            const Repo & repo = data.repos[repo_id];
+            watched_repo_names.insert(repo.name);
+            watched_authors.insert(repo.author);
+        }
+
         const Cluster & cluster = data.user_clusters[clusterno];
 
         for (unsigned i = 0;  i < cluster.members.size();  ++i) {
@@ -708,6 +755,11 @@ struct In_Cluster_User_Source : public Candidate_Source {
                      it = user2.watching.begin(),
                      end = user2.watching.end();
                  it != end;  ++it) {
+
+                const Repo & repo = data.repos[*it];
+                if (watched_repo_names.count(repo.name)) continue;  // will be handled by same name
+                if (watched_authors.count(repo.author)) continue;   // will be handled by same author
+
                 Rank_Info & entry = watched_by_cluster_user[*it];
                 entry.num_watched += 1;
                 entry.watched_score += 1.0 / user2.watching.size();
@@ -907,10 +959,9 @@ struct By_Watched_Author_Source : public Candidate_Source {
     }
 };
 
-#if 0 // later
-struct By_Collaborator_Source : public Candidate_Source {
-    By_Collaborator_Source()
-        : Candidate_Source("by_collaborator", 10)
+struct Authored_By_Collaborator_Source : public Candidate_Source {
+    Authored_By_Collaborator_Source()
+        : Candidate_Source("authored_by_collaborator", 10)
     {
     }
 
@@ -923,32 +974,65 @@ struct By_Collaborator_Source : public Candidate_Source {
 
         const User & user = data.users[user_id];
 
-        IdSet authors_of_watched_repos;
-
+        IdSet collaborating_authors;
         for (IdSet::const_iterator
-                 it = user.watching.begin(),
-                 end = user.watching.end();
-             it != end;  ++it)
-            if (*it != -1)
-                authors_of_watched_repos.insert(*it);
-        
+                 it = user.collaborators.begin(),
+                 end = user.collaborators.end();
+             it != end;  ++it) {
+            collaborating_authors.insert(data.users[*it].inferred_authors.begin(),
+                                         data.users[*it].inferred_authors.end());
+        }
+
         // Find all other repos by authors of watched repos
-        IdSet repos_by_watched_authors;
+        IdSet repos_by_collaborating_authors;
 
         for (IdSet::const_iterator
-                 it = authors_of_watched_repos.begin(),
-                 end = authors_of_watched_repos.end();
-             it != end;  ++it)
-            repos_by_watched_authors
-                .insert(data.authors[*it].repositories.begin(),
-                        data.authors[*it].repositories.end());
+                 it = collaborating_authors.begin(),
+                 end = collaborating_authors.end();
+             it != end;  ++it) {
+            repos_by_collaborating_authors
+                .insert(data.users[*it].watching.begin(),
+                        data.users[*it].watching.end());
+        }
+        
+        repos_by_collaborating_authors.finish();
 
-        repos_by_watched_authors.finish();
-
-        return repos_by_watched_authors;
+        result = repos_by_collaborating_authors;
     }
 };
-#endif // later
+
+struct Watched_By_Collaborator_Source : public Candidate_Source {
+    Watched_By_Collaborator_Source()
+        : Candidate_Source("watched_by_collaborator", 10)
+    {
+    }
+
+    virtual void candidate_set(Ranked & result, int user_id, const Data & data,
+                               Candidate_Data & candidate_data) const
+    {
+        // Collaborators are users that watch at least one of our repos whilst
+        // we watch at least one of theirs.  Only works where we were able to
+        // identify which author number that we are.
+
+        const User & user = data.users[user_id];
+
+        // Find all other repos by authors of watched repos
+        IdSet watched_by_collaborating_authors;
+
+        for (IdSet::const_iterator
+                 it = user.collaborators.begin(),
+                 end = user.collaborators.end();
+             it != end;  ++it) {
+            watched_by_collaborating_authors
+                .insert(data.users[*it].watching.begin(),
+                        data.users[*it].watching.end());
+        }
+        
+        watched_by_collaborating_authors.finish();
+
+        result = watched_by_collaborating_authors;
+    }
+};
 
 struct Same_Name_Source : public Candidate_Source {
     Same_Name_Source()
@@ -1081,6 +1165,107 @@ struct Most_Watched_Source : public Candidate_Source {
     }
 };
 
+struct Probability_Propagation_Source : public Candidate_Source {
+    Probability_Propagation_Source()
+        : Candidate_Source("probability_propagation", 9)
+    {
+    }
+
+    virtual ML::Dense_Feature_Space
+    specific_feature_space() const
+    {
+        Dense_Feature_Space result;
+        result.add_feature("prob_prop_total_prob", Feature_Info::REAL);
+        result.add_feature("prob_prop_nusers", Feature_Info::REAL);
+        result.add_feature("prob_prop_prop_per_user", Feature_Info::REAL);
+        return result;
+    }
+
+    struct Prob_Info {
+        Prob_Info()
+            : total(0.0), nwatchers(0)
+        {
+        }
+        double total;
+        int nwatchers;
+
+        void operator += (double amount)
+        {
+            total += amount;
+            nwatchers += 1;
+        }
+    };
+
+    virtual void candidate_set(Ranked & result, int user_id, const Data & data,
+                               Candidate_Data & candidate_data) const
+    {
+        const User & user = data.users[user_id];
+
+        // Step 1: propagate to users that watch more than one repo
+        hash_map<int, double> user_probs;
+        double total_prob = 0.0;
+
+        for (IdSet::const_iterator
+                 it = user.watching.begin(),
+                 end = user.watching.end();
+             it != end;  ++it) {
+            const Repo & repo = data.repos[*it];
+            if (repo.watchers.size() < 2) continue;
+
+            // the -1 is for the current user
+            double nwatchers_inverse = 1.0 / (repo.watchers.size() - 1);
+
+            for (IdSet::const_iterator
+                     jt = repo.watchers.begin(),
+                     jend = repo.watchers.end();
+                 jt != jend;  ++jt) {
+                if (*jt == user_id) continue;
+                user_probs[*jt] += nwatchers_inverse;
+                total_prob += 1.0;
+            }
+        }
+
+        double prob_inverse = 1.0 / total_prob;
+
+        // Step 2: propagate back to repos watched by those users
+        hash_map<int, Prob_Info> repo_probs;
+        for (hash_map<int, double>::const_iterator
+                 it = user_probs.begin(),
+                 end = user_probs.end();
+             it != end;  ++it) {
+
+            const User & user = data.users[it->first];
+
+            double nwatching_inverse = 1.0 / user.watching.size();
+
+            for (IdSet::const_iterator 
+                     jt = user.watching.begin(),
+                     jend = user.watching.end();
+                 jt != jend;  ++jt)
+                repo_probs[*jt]
+                    += it->second * prob_inverse * nwatching_inverse;
+        }
+
+        // Step 3: rank, cut off, generate features, return results
+        for (hash_map<int, Prob_Info>::const_iterator
+                 it = repo_probs.begin(),
+                 end = repo_probs.end();
+             it != end;  ++it) {
+
+            if (user.watching.count(it->first)) continue;
+            
+            result.push_back(Ranked_Entry());
+            
+            Ranked_Entry & entry = result.back();
+            entry.score = it->second.total;
+            entry.repo_id = it->first;
+            entry.features.push_back(it->second.total);
+            entry.features.push_back(it->second.nwatchers);
+            entry.features.push_back(it->second.total / it->second.nwatchers);
+        }
+    }
+};
+
 
 /*****************************************************************************/
 /* FACTORY                                                                   */
@@ -1131,7 +1316,16 @@ get_candidate_source(const ML::Configuration & config_,
         result.reset(new Most_Watched_Source());
     }
     else if (type == "authored_by_me") {
-        result.reset(new Authored_By_Me());
+        result.reset(new Authored_By_Me_Source());
+    }
+    else if (type == "authored_by_collaborator") {
+        result.reset(new Authored_By_Collaborator_Source());
+    }
+    else if (type == "watched_by_collaborator") {
+        result.reset(new Watched_By_Collaborator_Source());
+    }
+    else if (type == "probability_propagation") {
+        result.reset(new Probability_Propagation_Source());
     }
     else throw Exception("Source of type " + type + " doesn't exist");
 

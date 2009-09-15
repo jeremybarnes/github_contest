@@ -360,6 +360,89 @@ void Data::load()
         users[user_id].id = user_id;
     }
 
+    Parse_Context fork_file("download/repo_forks.txt");
+
+    while (fork_file) {
+        int repo_id = fork_file.expect_int();
+        fork_file.expect_whitespace();
+        int num_forks = fork_file.expect_int();
+        fork_file.expect_eol();
+
+        if (repo_id < 0 || repo_id > repos.size() || repos[repo_id].invalid())
+            throw Exception("invalid repo ID in fork file");
+
+        repos[repo_id].num_forks_api = num_forks;
+    }
+
+    Parse_Context watch_file("download/repo_watch.txt");
+
+    while (watch_file) {
+        int repo_id = watch_file.expect_int();
+        watch_file.expect_whitespace();
+        int num_watches = watch_file.expect_int();
+        watch_file.expect_eol();
+
+        if (repo_id < 0 || repo_id > repos.size() || repos[repo_id].invalid())
+            throw Exception("invalid repo ID in watch file");
+
+        repos[repo_id].num_watches_api = num_watches;
+    }
+
+    Parse_Context collab_file("download/repo_col.txt");
+
+    while (collab_file) {
+        int repo_id = collab_file.expect_int();
+        collab_file.expect_whitespace();
+        string name = collab_file.expect_text("\n ");
+        collab_file.skip_whitespace();
+        if (collab_file.match_eol()) continue;
+
+        while (!collab_file.match_eol()) {
+            string author_name = collab_file.expect_text(" \n");
+            collab_file.skip_whitespace();
+
+            int author_id = -1;
+            
+            if (!author_name_to_id.count(author_name)) {
+                continue;
+            }
+            else author_id = author_name_to_id[author_name];
+
+            repos[repo_id].collaborators_api.insert(author_id);
+            authors[author_id].collaborates_on_api.insert(repo_id);
+        }
+    }
+    
+    Parse_Context follow_file("download/follow.txt");
+
+    int errors = 0;
+
+    while (follow_file) {
+        int follower_id = follow_file.expect_int();
+        follow_file.expect_whitespace();
+        int followed_id = follow_file.expect_int();
+        follow_file.expect_eol();
+
+        if (follower_id < 0 || follower_id >= users.size()
+            || users[follower_id].invalid()) {
+            ++errors;
+            continue;
+            follow_file.exception("invalid follower ID in followers file");
+        }
+
+        if (followed_id < 0 || followed_id >= users.size()
+            || users[followed_id].invalid()) {
+            ++errors;
+            continue;
+            follow_file.exception("invalid followed ID in followers file");
+        }
+
+        users[follower_id].following.insert(followed_id);
+        users[followed_id].followers.insert(follower_id);
+    }
+    
+    cerr << errors << " errors in followers file" << endl;
+
     calc_author_stats();
     
     infer_from_ids();
@@ -376,7 +459,28 @@ void Data::load()
 
     frequency_stats();
 
+    find_collaborators();
+
     finish();
+
+#if 0
+    for (unsigned i = 1;  i < 20;  ++i) {
+        const User & user = users[i];
+        cerr << "user " << i << ": followers " << user.followers.size()
+             << " following: " << user.following.size() << " authors: "
+             << endl;
+        
+        for (IdSet::const_iterator
+                 it = user.inferred_authors.begin(),
+                 end = user.inferred_authors.end();
+             it != end;  ++it) {
+            cerr << "    " << authors[*it].name
+                 << " " << authors[*it].num_followers
+                 << " " << authors[*it].num_following
+                 << endl;
+        }
+    }
+#endif
 }
 
 struct FreqStats {
@@ -1434,18 +1538,18 @@ infer_from_ids()
     exit(0);  // for now...
 }
 
-#if 0
 void
 Data::
 find_collaborators()
 {
-    /*
-      
+    cerr << "collaborators...";
 
+    int num_collaborators = 0;
 
-     */
     for (unsigned i = 0;  i < users.size();  ++i) {
-        const User & user = users[i];
+        User & user = users[i];
+        user.collaborators.clear();
+
         if (user.invalid()) continue;
 
         if (user.inferred_authors.empty()) continue;
@@ -1461,8 +1565,6 @@ find_collaborators()
                 watched_authors.insert(repos[*it].author);
         }
 
-        IdSet watching_authors;
-
         // For each author that we could be
         for (IdSet::const_iterator
                  it = user.inferred_authors.begin(),
@@ -1470,40 +1572,59 @@ find_collaborators()
              it != end;  ++it) {
 
             // For each repo by this author
-            const IdSet & repos = data.authors[*it].repositories;
+            IdSet & repos_by_author = authors[*it].repositories;
 
-            for (IdSet::const_iterator jt = repos.begin(), jend = repos.end();
+            for (IdSet::const_iterator
+                     jt = repos_by_author.begin(),
+                     jend = repos_by_author.end();
                  jt != jend;  ++jt) {
 
-                const Repo & repo = repos[*jt];
+                Repo & repo = repos[*jt];
 
                 // For each watcher of this repo
                 for (IdSet::const_iterator
                          kt = repo.watchers.begin(), 
                          kend = repo.watchers.end();
                      kt != kend;  ++kt) {
+
+                    // This user doesn't count...
                     if (*kt == i) continue;
-                    const User & user = users[*kt];
+                    User & user2 = users[*kt];
+
+                    bool done_user = false;
 
                     // For each author for this watcher
                     for (IdSet::const_iterator
-                             lt = user.possible_authors.begin(),
-                             lend = user.possible_authors.end();
-                         lt != lend;  ++lt) {
-                        if ();
-                    }
+                             lt = user2.inferred_authors.begin(),
+                             lend = user2.inferred_authors.end();
+                         lt != lend && !done_user;  ++lt) {
 
-                    watching_authors.insert(user.watching.begin(),
-                                            user.watching.end());
+                        Author & author2 = authors[*lt];
+
+                        // For each repo for this author
+                        for (IdSet::const_iterator
+                                 mt = author2.repositories.begin(),
+                                 mend = author2.repositories.end();
+                             mt != mend && !done_user;  ++mt) {
+                            if (user.watching.count(*mt)) {
+                                user.collaborators.insert(*kt);
+                                done_user = true;
+                                ++num_collaborators;
+                            }
+                        }
+                    }
                 }
             }
         }
-        
-        // Find all authors of repos that this user watches
+
+        user.collaborators.finish();
     }
-    
+
+    cerr << "got " << num_collaborators << " collaborator pairs"
+         << endl;
+
+    cerr << "done" << endl;
 }    
-#endif
 
 void
 Data::
@@ -1644,6 +1765,7 @@ setup_fake_test(int nusers, int seed)
     infer_from_ids();
     calc_cooccurrences();
     frequency_stats();
+    find_collaborators();
     finish();
 }
 

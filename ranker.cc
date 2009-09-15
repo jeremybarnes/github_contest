@@ -404,6 +404,11 @@ feature_space() const
     result->add_feature("user_max_name_watches_prop", Feature_Info::REAL);
     result->add_feature("user_avg_name_watches_prop", Feature_Info::REAL);
 
+    result->add_feature("user_num_collaborates_on_api", Feature_Info::REAL);
+
+    result->add_feature("user_num_following", Feature_Info::REAL);
+    result->add_feature("user_num_followers", Feature_Info::REAL);
+
     // user-repo features
     result->add_feature("heuristic_score", Feature_Info::REAL);
     result->add_feature("heuristic_rank",  Feature_Info::REAL);
@@ -459,8 +464,8 @@ feature_space() const
     result->add_feature("user_date", Feature_Info::REAL);
     result->add_feature("user_repo_date_difference", Feature_Info::REAL);
     result->add_feature("user_author_date_difference", Feature_Info::REAL);
-    result->add_feature("user_num_followers", Feature_Info::REAL);
-    result->add_feature("user_num_following", Feature_Info::REAL);
+    result->add_feature("user_num_followers_author", Feature_Info::REAL);
+    result->add_feature("user_num_following_author", Feature_Info::REAL);
 
     result->add_feature("repo_in_id_range", Feature_Info::BOOLEAN);
     result->add_feature("user_in_id_range", Feature_Info::BOOLEAN);
@@ -482,10 +487,38 @@ feature_space() const
     result->add_feature("repo_keyword_factor", Feature_Info::REAL);
     result->add_feature("repo_keyword_idf_factor", Feature_Info::REAL);
 
+    result->add_feature("user_keyword_max", Feature_Info::REAL);
+    result->add_feature("repo_keyword_max", Feature_Info::REAL);
+    result->add_feature("user_keyword_max_norm", Feature_Info::REAL);
+    result->add_feature("repo_keyword_max_norm", Feature_Info::REAL);
+
     result->add_feature("author_user_dp", Feature_Info::REAL);
     result->add_feature("author_user_dp_norm", Feature_Info::REAL);
+
     result->add_feature("max_dp_with_watched", Feature_Info::REAL);
     result->add_feature("max_dp_with_watched_norm", Feature_Info::REAL);
+
+    result->add_feature("max_keyword_dp_with_watched", Feature_Info::REAL);
+    result->add_feature("max_keyword_dp_with_watched_norm", Feature_Info::REAL);
+
+    result->add_feature("user_repo_keyword_dotprod", Feature_Info::REAL);
+    result->add_feature("user_repo_keyword_dotprod_max", Feature_Info::REAL);
+    result->add_feature("user_repo_keyword_dotprod_avg", Feature_Info::REAL);
+
+    result->add_feature("user_repo_keyword_cosine", Feature_Info::REAL);
+    result->add_feature("user_repo_keyword_cosine_max", Feature_Info::REAL);
+    result->add_feature("user_repo_keyword_cosine_avg", Feature_Info::REAL);
+
+    result->add_feature("num_watches_api", Feature_Info::REAL);
+    result->add_feature("num_missing_watches", Feature_Info::REAL);
+    result->add_feature("num_forks_api", Feature_Info::REAL);
+    result->add_feature("num_missing_forks", Feature_Info::REAL);
+
+    result->add_feature("collaborates_on_api", Feature_Info::REAL);
+
+    result->add_feature("user_following_author", Feature_Info::REAL);
+    result->add_feature("author_following_user", Feature_Info::REAL);
+    result->add_feature("author_num_possible_users", Feature_Info::REAL);
 
     return result;
 }
@@ -523,11 +556,17 @@ features(std::vector<ML::distribution<float> > & results,
     // Get cooccurrences for all repos
     Cooccurrences user_keywords, user_keywords_idf;
 
+    distribution<float> user_average_keywords(data.keyword_singular_values.size());
+
     for (IdSet::const_iterator
              it = user.watching.begin(), end = user.watching.end();
          it != end;  ++it) {
-        user_keywords.add(data.repos[*it].keywords);
-        user_keywords_idf.add(data.repos[*it].keywords_idf);
+        const Repo & repo = data.repos[*it];
+        user_keywords.add(repo.keywords);
+        user_keywords_idf.add(repo.keywords_idf);
+        user_average_keywords
+            += xdiv(repo.keyword_vec,
+                    repo.keyword_vec_2norm * user.watching.size());
     }
 
     user_keywords.finish();
@@ -654,6 +693,21 @@ features(std::vector<ML::distribution<float> > & results,
     user_features.push_back(min_name_percentage);
     user_features.push_back(max_name_percentage);
     user_features.push_back(xdiv<float>(total_name_percentage, name_groups.size()));
+
+    IdSet user_collaborates_on;
+
+    for (IdSet::const_iterator
+             it = user.inferred_authors.begin(),
+             end = user.inferred_authors.end();
+         it != end;  ++it) {
+        user_collaborates_on.insert(data.authors[*it].repositories.begin(),
+                                    data.authors[*it].repositories.end());
+    }
+
+    user_features.push_back(user_collaborates_on.size());
+
+    user_features.push_back(user.followers.size());
+    user_features.push_back(user.following.size());
 
 
     // Features that depend upon the repo as well
@@ -874,6 +928,11 @@ features(std::vector<ML::distribution<float> > & results,
             result.push_back(repo.keywords_idf_2norm);
         }
 
+        result.push_back(user_average_keywords.max());
+        result.push_back(repo.keyword_vec.max());
+        result.push_back(user_average_keywords.max());
+        result.push_back(repo.keyword_vec.max() / repo.keyword_vec_2norm);
+
         int author = repo.author;
         if (author != -1) {
             float best_dp = -2.0, best_dp_norm = -2.0;
@@ -903,6 +962,7 @@ features(std::vector<ML::distribution<float> > & results,
         }
         
         float best_dp = -2.0, best_dp_norm = -2.0;
+        float best_dp_kw = -2.0, best_dp_kw_norm = -2.0;
         
         for (IdSet::const_iterator
                  jt = user.watching.begin(),
@@ -910,15 +970,71 @@ features(std::vector<ML::distribution<float> > & results,
              jt != jend;  ++jt) {
             if (*jt == -1) continue;
             const Repo & repo2 = data.repos[*jt];
+
             float dp = repo.singular_vec.dotprod(repo2.singular_vec);
             float dp_norm
                 = xdiv(dp, repo.singular_2norm * repo2.singular_2norm);
             best_dp = max(best_dp, dp);
             best_dp_norm = max(best_dp_norm, dp_norm);
+
+            dp = repo.keyword_vec.dotprod(repo2.keyword_vec);
+            dp_norm
+                = xdiv(dp, repo.keyword_vec_2norm * repo2.keyword_vec_2norm);
+            best_dp_kw = max(best_dp_kw, dp);
+            best_dp_kw_norm = max(best_dp_kw_norm, dp_norm);
         }
 
         result.push_back(best_dp);
         result.push_back(best_dp_norm);
+
+        result.push_back(best_dp_kw);
+        result.push_back(best_dp_kw_norm);
+
+        // Keyword features
+        dpvec = (repo.keyword_vec * user_average_keywords);
+        result.push_back(dpvec.total());
+        result.push_back(dpvec.max());
+        result.push_back(dpvec.max() / dpvec.total());
+
+        dpvec = xdiv(dpvec, repo.keyword_vec_2norm);
+
+        result.push_back(dpvec.total());
+        result.push_back(dpvec.max());
+        result.push_back(dpvec.max() / dpvec.total());
+        
+        // num_watches_api
+        result.push_back(repo.num_watches_api);
+        result.push_back(repo.num_watches_api - (int)repo.watchers.size());
+        result.push_back(repo.num_forks_api);
+        result.push_back(repo.num_forks_api - (int)repo.children.size());
+
+        // collaborates_on
+        result.push_back(user_collaborates_on.count(repo_id));
+
+        // user following author
+        // Are any of the possible users for the author being followed by the
+        // user?
+        bool user_following_author = false;
+        bool author_following_user = false;
+        int author_num_possible_users = 0;
+
+        if (repo.author != -1) {
+            const Author & author = data.authors[repo.author];
+
+            author_num_possible_users = author.possible_users.size();
+
+            for (IdSet::const_iterator
+                     it = author.possible_users.begin(),
+                     end = author.possible_users.end();
+                 it != end;  ++it) {
+                if (user.following.count(*it)) user_following_author = true;
+                if (user.followers.count(*it)) author_following_user = true;
+            }
+        }
+
+        result.push_back(user_following_author);
+        result.push_back(author_following_user);
+        result.push_back(author_num_possible_users);
     }
 }
 

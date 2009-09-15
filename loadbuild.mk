@@ -8,7 +8,21 @@ loadbuild: results.txt fake-results.txt prob-results.txt
 
 SOURCES := $(shell grep 'sources=' config.txt | sed 's/.*sources=//;s/;//;s/,/ /g')
 
+FAMILY_FEATURES := repo_has_parent repo_num_children repo_num_ancestors repo_num_siblings repo_parent_watchers
+
+IGNORE_FEATURES_authored_by_me := $(FAMILY_FEATURES)
+IGNORE_FEATURES_by_watched_authors := $(FAMILY_FEATURES)
+IGNORE_FEATURES_same_name := $(FAMILY_FEATURES)
+IGNORE_FEATURES_in_cluster_user := $(FAMILY_FEATURES)
+IGNORE_FEATURES_in_cluster_repo := $(FAMILY_FEATURES)
+IGNORE_FEATURES_in_id_range := $(FAMILY_FEATURES)
+IGNORE_FEATURES_coocs := $(FAMILY_FEATURES)
+IGNORE_FEATURES_coocs2 := $(FAMILY_FEATURES)
+IGNORE_FEATURES_most_watched := $(FAMILY_FEATURES)
+
 define process_source
+
+#$$(warning ignoring for $(1) $$(foreach feature,$$(IGNORE_FEATURES_$(1)), --ignore-var $$(feature)))
 
 data/$(1)-fv.txt.gz: data/kmeans_users.txt data/kmeans_repos.txt
 	set -o pipefail && \
@@ -46,6 +60,7 @@ data/$(1).cls:	data/$(1)-fv.txt.gz \
 		-G 2 -C 2 \
 		--output-file $$@~ \
 		--no-eval-by-group \
+		$$(foreach feature,$$(IGNORE_FEATURES_$(1)), --ignore-var $$(feature)) \
 		$$< \
 	2>&1 | tee $$@.log
 	mv $$@~ $$@

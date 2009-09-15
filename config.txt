@@ -7,7 +7,7 @@ default_ranker=ranker
 
 generator {
     type=default;
-    sources=parents_of_watched,ancestors_of_watched,authored_by_me,by_watched_authors,same_name,children_of_watched,in_cluster_user,in_cluster_repo,in_id_range,coocs,coocs2,most_watched;
+    sources=parents_of_watched,ancestors_of_watched,authored_by_me,authored_by_collaborator,watched_by_collaborator,by_watched_authors,same_name,children_of_watched,in_cluster_user,in_cluster_repo,in_id_range,coocs,coocs2,most_watched;
     
     parents_of_watched {
         type=parents_of_watched;
@@ -22,6 +22,16 @@ generator {
     authored_by_me {
         type=authored_by_me;
         classifier_file=data/authored_by_me.cls;
+    }
+
+    authored_by_collaborator {
+        type=authored_by_collaborator;
+        classifier_file=data/authored_by_collaborator.cls;
+    }
+
+    watched_by_collaborator {
+        type=watched_by_collaborator;
+        classifier_file=data/watched_by_collaborator.cls;
     }
 
     by_watched_authors {
@@ -65,6 +75,11 @@ generator {
         type=coocs;
         classifier_file=data/coocs2.cls;
         source=2;
+    }
+
+    probability_propagation {
+        type=probability_propagation;
+        classifier_file=data/probability_propagation.cls;
     }
 
     most_watched {

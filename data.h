@@ -244,7 +244,8 @@ struct Repo {
         : id(-1), author(-1), parent(-1), depth(-1), total_loc(0),
           popularity_rank(-1),
           repo_prob(0.0), repo_prob_rank(-1), repo_prob_percentile(0.0),
-          kmeans_cluster(-1), min_user(-1), max_user(-1)
+          kmeans_cluster(-1), min_user(-1), max_user(-1),
+          num_forks_api(-1), num_watches_api(-1)
     {
     }
 
@@ -289,11 +290,21 @@ struct Repo {
 
     float keywords_2norm, keywords_idf_2norm;
 
+    distribution<float> keyword_vec;
+    float keyword_vec_2norm;
+
+    int num_forks_api;
+    int num_watches_api;
+
+    // Author IDs for collaborators
+    IdSet collaborators_api;
+
     bool invalid() const { return id == -1; }
 
     void finish()
     {
         watchers.finish();
+        collaborators_api.finish();
     }
 };
 
@@ -354,6 +365,8 @@ struct User {
     /// 3.  User B watches at least one of user A's repos
     IdSet collaborators;
 
+    IdSet following, followers;
+
     bool invalid() const { return id == -1; }
 
     void finish()
@@ -362,6 +375,8 @@ struct User {
         inferred_authors.finish();
         corresponding_repo.finish();
         collaborators.finish();
+        following.finish();
+        followers.finish();
     }
 };
 
@@ -379,10 +394,13 @@ struct Author {
     int num_followers;
     int num_following;
 
+    IdSet collaborates_on_api;
+
     void finish()
     {
         repositories.finish();
         possible_users.finish();
+        collaborates_on_api.finish();
     }
 };
 
@@ -465,6 +483,8 @@ struct Data {
 
     std::vector<Cluster> user_clusters;
     std::vector<Cluster> repo_clusters;
+
+    distribution<float> keyword_singular_values;
 
     void frequency_stats();
 
