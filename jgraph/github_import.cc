@@ -6,6 +6,7 @@
 
 #include "data.h"
 #include "jgraph/jgraph.h"
+#include "jgraph/basic_graph.h"
 
 #include "utils/parse_context.h"
 #include "utils/string_functions.h"
@@ -26,16 +27,26 @@
 
 #include <fstream>
 
+#include <boost/program_options/cmdline.hpp>
+#include <boost/program_options/options_description.hpp>
+#include <boost/program_options/positional_options.hpp>
+#include <boost/program_options/parsers.hpp>
+#include <boost/program_options/variables_map.hpp>
+
 
 using namespace std;
 using namespace ML;
 
+using namespace JGraph;
+typedef BasicGraph Graph;
+typedef NodeT<Graph> Node;
+typedef EdgeT<Graph> Edge;
+typedef NodeSchemaT<Graph> NodeSchema;
+typedef EdgeSchemaT<Graph> EdgeSchema;
 
 
 void import_github()
 {
-    using namespace JGraph;
-
     Graph graph("github");
 
     NodeSchema repo_node(graph, "repo");
@@ -43,12 +54,12 @@ void import_github()
     EdgeSchema authorof_edge(graph, "authorof");
     EdgeSchema parentof_edge(graph, "parentof");
     
-    AttributeSchema<int> repo_id_attr("id", repo_node);
-    AttributeSchema<Date> repo_name_attr("name", repo_node);
-    AttributeSchema<Date> repo_date_attr("date", repo_node);
-    AttributeSchema<int> repo_depth_attr("depth", repo_node);
+    NodeAttributeSchema<Graph, int> repo_id_attr("id", repo_node);
+    NodeAttributeSchema<Graph, Date> repo_name_attr("name", repo_node);
+    NodeAttributeSchema<Graph, Date> repo_date_attr("date", repo_node);
+    NodeAttributeSchema<Graph, int> repo_depth_attr("depth", repo_node);
 
-    AttributeSchema<Atom> author_name_attr("name", author_node);
+    NodeAttributeSchema<Graph, Atom> author_name_attr("name", author_node);
 
 #if 0
     // Index from repo name to repo
@@ -80,8 +91,8 @@ void import_github()
         repo_file.expect_literal(',');
         string date_str = repo_file.expect_text("\n,", false);
 
-        repo.setAttr(repo_name_attr(repo_name));
-        repo.setAttr(repo_date_attr(date_str));
+        repo_name_attr(repo, repo_name);
+        repo_date_attr(repo, date_str);
 
         int depth = 0;
 
@@ -92,7 +103,7 @@ void import_github()
             depth = -1;
         }
 
-        repo.setAttr(repo_depth_attr(depth));
+        repo_depth_attr(repo, depth);
 
         repo_file.expect_eol();
 
@@ -419,4 +430,32 @@ void import_github()
     }
 #endif
 
+}
+
+
+int main(int argc, char ** argv)
+{
+    {
+        using namespace boost::program_options;
+
+        options_description all_opt;
+        all_opt.add_options()
+            ("help,h", "print this message");
+        
+        variables_map vm;
+        store(command_line_parser(argc, argv)
+              .options(all_opt)
+              .run(),
+              vm);
+        notify(vm);
+
+        if (vm.count("help")) {
+            cout << all_opt << endl;
+            return 1;
+        }
+    }
+
+    cerr << "loading data...";
+    import_github();
+    cerr << " done." << endl;
 }
