@@ -8,10 +8,15 @@
 #ifndef __jgraph__jgraph_fwd_h__
 #define __jgraph__jgraph_fwd_h__
 
+
+#include <stdint.h>
+
+
 namespace JGraph {
 
 class StringMap;
 class Attribute;
+class AttributeRef;
 template<class Graph> struct NodeT;
 template<class Graph> struct EdgeT;
 struct Atom;
@@ -23,6 +28,12 @@ template<class Graph> struct EdgeSchemaT;
 
 template<typename Payload, class Traits> struct AttributeSchema;
 
+class AttributeTraits;
+
+template<typename Payload>
+struct DefaultAttributeTraits;
+
+
 enum ObjectType {
     OT_NODE,
     OT_EDGE
@@ -33,6 +44,20 @@ enum EdgeBehavior {
     ED_DOUBLE,     ///< Directional; both ends know about it
     ED_SYMMETRIC   ///< Non-directional; both ends know about it
 };
+
+// Flags for attributes
+enum {
+    AFL_REFCOUNTED    = 1 << 0,
+    AFL_BINCOMPARABLE = 1 << 1,
+    AFL_BINSTABLE     = 1 << 2,
+    AFL_BINHASHABLE   = 1 << 3
+};
+
+// A naked attribute value.  Contains no reference or type information.  This
+// is the most basic bit of information stored.  No comparison functions, etc.
+typedef uint64_t AttributeValue;
+
+
 
 
 struct BasicGraph;

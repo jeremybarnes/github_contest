@@ -186,7 +186,7 @@ AttributeSchema(const std::string & name,
 }
 
 template<class Payload, class Traits>
-Attribute
+AttributeRef
 AttributeSchema<Payload, Traits>::
 operator () (const Payload & val) const
 {
@@ -196,7 +196,7 @@ operator () (const Payload & val) const
 
 template<class Payload, class Traits>
 template<typename Other>
-Attribute
+AttributeRef
 AttributeSchema<Payload, Traits>::
 operator () (const Other & other) const
 {

@@ -12,6 +12,7 @@
 #include <string>
 #include "arch/exception.h"
 #include "attribute.h"
+#include "attribute_traits.h"
 
 namespace JGraph {
 
@@ -116,11 +117,11 @@ struct AttributeSchema {
     AttributeSchema(const std::string & name,
                     const EdgeSchemaT<Graph> & edge);
 
-    Attribute operator () (const Payload & val) const;
+    AttributeRef operator () (const Payload & val) const;
 
     template<typename Other>
-    Attribute operator () (const Other & other) const;
-
+    AttributeRef operator () (const Other & other) const;
+    
     int attr_handle;
     const Traits & traits;
 };
@@ -140,12 +141,12 @@ struct NodeAttributeSchema
 
     using AttributeSchema<Payload>::operator ();
 
-    Attribute operator () (const NodeT<Graph> & node,
-                           const Payload & val) const;
+    AttributeRef operator () (const NodeT<Graph> & node,
+                              const Payload & val) const;
 
     template<typename Other>
-    Attribute operator () (const NodeT<Graph> & node,
-                           const Other & val) const;
+    AttributeRef operator () (const NodeT<Graph> & node,
+                              const Other & val) const;
 
     NodeSchemaT<Graph> & node_schema;
 };

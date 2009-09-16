@@ -7,6 +7,7 @@
 #include "data.h"
 #include "jgraph/jgraph.h"
 #include "jgraph/basic_graph.h"
+#include "jgraph/attribute_basic_types.h"
 
 #include "utils/parse_context.h"
 #include "utils/string_functions.h"
