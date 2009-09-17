@@ -134,7 +134,7 @@ getOrCreateEdge(int from_node_type,
                                       to_node_handle,
                                       result));
 
-    NodeCollection & ncoll_to = getNodeCollection(from_node_type);
+    NodeCollection & ncoll_to = getNodeCollection(to_node_type);
     
     Node & to_node = ncoll_to.nodes.at(to_node_handle);
     

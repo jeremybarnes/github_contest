@@ -65,7 +65,7 @@ void import_github()
 #if 0
     // Index from repo name to repo
     Index<AttributeSchema<string>, AttributeSchema<int> >
-        name_to_repo(repo_name_attr, 
+        name_to_repo(repo_name_attr);
 
     // Index from the (author, repo name) to the
     Index<AttributeSchema<int>,  // result (repo_id)
@@ -112,7 +112,6 @@ void import_github()
     }
 
 #if 0
-
     Parse_Context repo_desc_file("repo_descriptions.txt");
 
     while (repo_desc_file) {
@@ -300,10 +299,14 @@ void import_github()
         repo.language_2norm = repo.language_vec.two_norm();
         
     }
+#endif
+                     
+    NodeSchema user_node(graph, "user");
+    EdgeSchema watching_edge(graph, "watching");
+
+    NodeAttributeSchema<Graph, int> user_id_attr("id", user_node);
 
     Parse_Context data_file("download/data.txt");
-
-    users.resize(60000);
 
     while (data_file) {
         int user_id = data_file.expect_int();
@@ -311,18 +314,14 @@ void import_github()
         int repo_id = data_file.expect_int();
         data_file.expect_eol();
 
-        if (user_id < 0 || user_id >= users.size())
-            data_file.exception("invalid user ID");
-        if (repo_id <= 0 || repo_id >= repos.size())
-            data_file.exception("invalid repository ID");
-        
-        Repo & repo_entry = repos[repo_id];
-        User & user_entry = users[user_id];
+        Node user = user_node(user_id_attr(user_id));
 
-        repo_entry.watchers.insert(user_id);
-        user_entry.watching.insert(repo_id);
-        user_entry.id = user_id;
+        Node repo = repo_node(repo_id_attr(repo_id));
+
+        watching_edge(user, repo);
     }
+
+#if 0
 
     users_to_test.reserve(5000);
 
