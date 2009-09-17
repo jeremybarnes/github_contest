@@ -41,6 +41,7 @@ struct NodeT {
     int node_type;
 };
 
+
 /*****************************************************************************/
 /* EDGET                                                                     */
 /*****************************************************************************/
@@ -192,6 +193,34 @@ struct EdgeAttributeSchema
     using AttributeSchema<Payload>::operator ();
     using AttributeSchema<Payload>::traits;
 };
+
+
+/*****************************************************************************/
+/* NODESCHEMA1KEYT                                                           */
+/*****************************************************************************/
+
+/// A node schema, where there is a single key that must be present with the
+/// node.
+
+template<class Graph, typename Key1,
+         class Traits1 = typename DefaultGraphAttributeTraits<Key1, Graph>::Type>
+struct NodeSchema1KeyT : public NodeSchemaT<Graph> {
+    NodeSchema1KeyT(Graph & graph,
+                    const std::string & node_name,
+                    const std::string & key1_name);
+
+    // Factory for nodes
+    template<class Value>
+    NodeT<Graph> operator () (const Value & key1) const;
+    
+private:
+    using SchemaT<Graph>::graph;
+    using SchemaT<Graph>::handle;
+    using SchemaT<Graph>::object_type;
+
+    NodeAttributeSchema<Graph, Key1, Traits1> attr1;
+};
+
 
 
 } // namespace JGraph

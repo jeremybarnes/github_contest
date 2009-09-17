@@ -280,6 +280,32 @@ EdgeAttributeSchema(const std::string & name,
 {
 }
 
+
+/*****************************************************************************/
+/* NODESCHEMA1KEYT                                                           */
+/*****************************************************************************/
+
+template<class Graph, typename Key1, class Traits1>
+NodeSchema1KeyT<Graph, Key1, Traits1>::
+NodeSchema1KeyT(Graph & graph,
+                const std::string & node_name,
+                const std::string & key1_name)
+    : NodeSchemaT<Graph>(graph, node_name),
+      attr1(key1_name, *this)
+{
+}
+
+template<class Graph, typename Key1, class Traits1>
+template<class Value>
+NodeT<Graph>
+NodeSchema1KeyT<Graph, Key1, Traits1>::
+operator () (const Value & key1) const
+{
+    return NodeSchemaT<Graph>::operator () (attr1(key1));
+}
+
+
+
 } // namespace JGraph
 
 #endif /* __jgraph__jgraph_inline_h__ */

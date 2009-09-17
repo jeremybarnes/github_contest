@@ -42,7 +42,6 @@ using namespace JGraph;
 typedef BasicGraph Graph;
 typedef NodeT<Graph> Node;
 typedef EdgeT<Graph> Edge;
-typedef NodeSchemaT<Graph> NodeSchema;
 typedef EdgeSchemaT<Graph> EdgeSchema;
 
 
@@ -50,17 +49,18 @@ void import_github()
 {
     Graph graph("github");
 
-    NodeSchema repo_node(graph, "repo");
-    NodeSchema author_node(graph, "author");
+    NodeSchema1KeyT<Graph, int>  repo_node(graph, "repo", "id");
+    NodeSchema1KeyT<Graph, Atom> author_node(graph, "author", "name");
+
     EdgeSchema authorof_edge(graph, "authorof");
     EdgeSchema parentof_edge(graph, "parentof");
     
-    NodeAttributeSchema<Graph, int> repo_id_attr("id", repo_node);
+    //NodeAttributeSchema<Graph, int> repo_id_attr("id", repo_node);
     NodeAttributeSchema<Graph, Atom> repo_name_attr("name", repo_node);
     NodeAttributeSchema<Graph, Date> repo_date_attr("date", repo_node);
     NodeAttributeSchema<Graph, int> repo_depth_attr("depth", repo_node);
 
-    NodeAttributeSchema<Graph, Atom> author_name_attr("name", author_node);
+    //NodeAttributeSchema<Graph, Atom> author_name_attr("name", author_node);
 
 #if 0
     // Index from repo name to repo
@@ -84,8 +84,8 @@ void import_github()
 
         Node repo, author;
         
-        authorof_edge(repo = repo_node(repo_id_attr(repo_id)),
-                      author = author_node(author_name_attr(author_name)));
+        authorof_edge(repo = repo_node(repo_id),
+                      author = author_node(author_name));
         
         repo_file.expect_literal('/');
         string repo_name = repo_file.expect_text(',', false);
@@ -100,7 +100,7 @@ void import_github()
         if (repo_file.match_literal(',')) {
             int parent_id = repo_file.expect_int();
 
-            parentof_edge(repo, repo_node(repo_id_attr(parent_id)));
+            parentof_edge(repo, repo_node(parent_id));
             depth = -1;
         }
 
@@ -301,10 +301,8 @@ void import_github()
     }
 #endif
                      
-    NodeSchema user_node(graph, "user");
+    NodeSchema1KeyT<Graph, int> user_node(graph, "user", "id");
     EdgeSchema watching_edge(graph, "watching");
-
-    NodeAttributeSchema<Graph, int> user_id_attr("id", user_node);
 
     Parse_Context data_file("download/data.txt");
 
@@ -314,11 +312,7 @@ void import_github()
         int repo_id = data_file.expect_int();
         data_file.expect_eol();
 
-        Node user = user_node(user_id_attr(user_id));
-
-        Node repo = repo_node(repo_id_attr(repo_id));
-
-        watching_edge(user, repo);
+        watching_edge(user_node(user_id), repo_node(repo_id));
     }
 
 #if 0
