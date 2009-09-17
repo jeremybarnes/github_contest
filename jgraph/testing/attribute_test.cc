@@ -13,8 +13,7 @@
 #include "utils/string_functions.h"
 #include <boost/test/unit_test.hpp>
 #include <boost/bind.hpp>
-#include <sstream>
-#include <fstream>
+#include <iostream>
 
 using namespace ML;
 using namespace JGraph;
@@ -34,7 +33,7 @@ struct TestObj {
     TestObj()
         : val(0)
     {
-        //cerr << "default construct at " << this << endl;
+        cerr << "default construct at " << this << endl;
         ++constructed;
         magic = GOOD;
     }
@@ -42,14 +41,14 @@ struct TestObj {
     TestObj(int val)
         : val(val)
     {
-        //cerr << "value construct at " << this << endl;
+        cerr << "value construct at " << this << endl;
         ++constructed;
         magic = GOOD;
     }
 
    ~TestObj()
     {
-        //cerr << "destroying at " << this << endl;
+        cerr << "destroying at " << this << endl;
         ++destroyed;
         if (magic == BAD)
             throw Exception("object destroyed twice");
@@ -63,7 +62,7 @@ struct TestObj {
     TestObj(const TestObj & other)
         : val(other.val)
     {
-        //cerr << "copy construct at " << this << endl;
+        cerr << "copy construct at " << this << endl;
         ++constructed;
         magic = GOOD;
     }
@@ -158,6 +157,10 @@ struct TestObjTraits : public RefCountedAttributeTraits<TestObj> {
         return getObject(a).operator int();
     }
 
+    const TestObj & decode(const Attribute & attr) const
+    {
+        return getObject(attr);
+    }
 };
 
 // Reference counted attribute (string)
@@ -165,9 +168,13 @@ BOOST_AUTO_TEST_CASE( test3 )
 {
     TestObjTraits traits;
 
+    AttributeRef attr2, attr3;
+
     {
         AttributeRef attr = traits.encode(3);
         
+        BOOST_CHECK_EQUAL(attr.references(), 1);
+
         BOOST_CHECK_EQUAL(attr.print(), "3");
         BOOST_CHECK_EQUAL(attr, attr);
         BOOST_CHECK_EQUAL(attr < attr, false);
@@ -176,7 +183,62 @@ BOOST_AUTO_TEST_CASE( test3 )
 
 
         BOOST_CHECK_EQUAL(destroyed + 1, constructed);
+
+        cerr << "assign 1" << endl;
+
+        AttributeRef attr4 = attr;
+
+        BOOST_CHECK_EQUAL(attr.references(), 2);
+
+        BOOST_CHECK_EQUAL(destroyed + 1, constructed);
+
+        BOOST_CHECK_EQUAL(attr, attr4);
+
+        cerr << "assign 2" << endl;
+
+        attr2 = attr4;
+
+        BOOST_CHECK_EQUAL(attr.references(), 3);
+
+        BOOST_CHECK_EQUAL(destroyed + 1, constructed);
+
+        BOOST_CHECK_EQUAL(attr2, attr4);
+
+        cerr << "destroying 1" << endl;
     }
+
+    BOOST_CHECK_EQUAL(attr2.references(), 1);
+
+    cerr << "destroying 2" << endl;
+
+    BOOST_CHECK_EQUAL(traits.decode(attr2), 3);
+    
+    cerr << "attr2 = " << attr2 << endl;
+
+    BOOST_CHECK_EQUAL(destroyed + 1, constructed);
+
+    attr3 = attr2;
+
+    BOOST_CHECK_EQUAL(attr2.references(), 2);
+
+    cerr << "attr2 = " << attr2 << endl;
+    cerr << "attr3 = " << attr3 << endl;
+
+    BOOST_CHECK_EQUAL(destroyed + 1, constructed);
+
+    BOOST_CHECK_EQUAL(attr2, attr3);
+    BOOST_CHECK_EQUAL(attr2.print(), attr3.print());
+
+    attr2 = AttributeRef();
+
+    BOOST_CHECK_EQUAL(attr2.references(), -1);
+    BOOST_CHECK_EQUAL(attr3.references(), 1);
+
+    BOOST_CHECK_EQUAL(destroyed + 1, constructed);
+
+    attr3 = AttributeRef();
+
+    BOOST_CHECK_EQUAL(attr3.references(), -1);
 
     BOOST_CHECK_EQUAL(destroyed, constructed);
 }

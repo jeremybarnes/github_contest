@@ -6,9 +6,10 @@
 #include "attribute.h"
 #include "arch/atomic_init.h"
 #include "utils/string_functions.h"
-
+#include <iostream>
 
 using namespace ML;
+using namespace std;
 
 namespace JGraph {
 
@@ -18,7 +19,7 @@ namespace {
 // Thread-safe and initialization order safe default traits object for null
 // attributes
 
-static NullTraits * default_null_traits = 0;
+NullTraits * default_null_traits = 0;
 
 NullTraits * default_traits_instance()
 {

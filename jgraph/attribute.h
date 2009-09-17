@@ -99,7 +99,14 @@ struct AttributeRef : public Attribute {
     ~AttributeRef();
 
     AttributeRef & operator = (const Attribute & other);
+    AttributeRef & operator = (const AttributeRef & other);
+
     void swap(AttributeRef & other);
+
+    // Provides the number of references if it's a reference counted object,
+    // otherwise returns -1.  Should be used for testing only as it's not
+    // really possible to avoid race conditions.
+    int references() const;
 
 private:
     AttributeRef(const AttributeTraits * traits,

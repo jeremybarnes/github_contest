@@ -177,6 +177,15 @@ operator = (const Attribute & other)
     return *this;
 }
 
+inline AttributeRef &
+AttributeRef::
+operator = (const AttributeRef & other)
+{
+    AttributeRef new_me(other);
+    swap(new_me);
+    return *this;
+}
+
 inline void
 AttributeRef::
 swap(AttributeRef & other)
@@ -201,6 +210,15 @@ AttributeRef(const AttributeTraits * traits,
     : Attribute(traits, obj, flags)
 {
     incReferences();
+}
+
+inline
+int
+AttributeRef::
+references() const
+{
+    if (!refcounted()) return -1;
+    return *refcount();
 }
 
 inline
@@ -229,6 +247,7 @@ AttributeRef::
 decReferences()
 {
     int newref = __sync_sub_and_fetch(refcount(), 1);
+
     if (JML_UNLIKELY(newref < 0))
         throw ML::Exception("reference counting error");
     if (newref == 0)
