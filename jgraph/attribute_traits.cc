@@ -11,6 +11,8 @@
 
 
 using namespace ML;
+using namespace std;
+
 
 namespace JGraph {
 
@@ -18,6 +20,12 @@ namespace JGraph {
 /*****************************************************************************/
 /* ATTRIBUTETRAITS                                                           */
 /*****************************************************************************/
+
+AttributeTraits::
+AttributeTraits(int refCountOffset)
+    : refCountOffset(refCountOffset)
+{
+}
 
 AttributeTraits::~AttributeTraits()
 {
@@ -74,6 +82,14 @@ hash(const Attribute & a) const
 size_t
 AttributeTraits::
 stableHash(const Attribute & a) const
+{
+    throw Exception("traits should have overridden method "
+                    "or set flags differently");
+}
+
+void
+AttributeTraits::
+deleteObject(const Attribute & a) const
 {
     throw Exception("traits should have overridden method "
                     "or set flags differently");

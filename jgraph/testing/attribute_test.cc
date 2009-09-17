@@ -10,6 +10,7 @@
 
 #include "jgraph/attribute.h"
 #include "jgraph/attribute_basic_types.h"
+#include "utils/string_functions.h"
 #include <boost/test/unit_test.hpp>
 #include <boost/bind.hpp>
 #include <sstream>
@@ -21,6 +22,81 @@ using namespace std;
 
 using boost::unit_test::test_suite;
 
+// Object that keeps track of the number of times constructed/destroyed so
+// that we can check that it's not been leaked, etc
+
+size_t constructed = 0, destroyed = 0;
+
+int GOOD = 0xfeedbac4;
+int BAD  = 0xdeadbeef;
+
+struct TestObj {
+    TestObj()
+        : val(0)
+    {
+        //cerr << "default construct at " << this << endl;
+        ++constructed;
+        magic = GOOD;
+    }
+
+    TestObj(int val)
+        : val(val)
+    {
+        //cerr << "value construct at " << this << endl;
+        ++constructed;
+        magic = GOOD;
+    }
+
+   ~TestObj()
+    {
+        //cerr << "destroying at " << this << endl;
+        ++destroyed;
+        if (magic == BAD)
+            throw Exception("object destroyed twice");
+
+        if (magic != GOOD)
+            throw Exception("object never initialized in destructor");
+
+        magic = BAD;
+    }
+
+    TestObj(const TestObj & other)
+        : val(other.val)
+    {
+        //cerr << "copy construct at " << this << endl;
+        ++constructed;
+        magic = GOOD;
+    }
+
+    TestObj & operator = (int val)
+    {
+        if (magic == BAD)
+            throw Exception("assigned to destroyed object");
+
+        if (magic != GOOD)
+            throw Exception("assigned to object never initialized in assign");
+
+        this->val = val;
+        return *this;
+    }
+
+    int val;
+    int magic;
+
+    operator int () const
+    {
+        if (magic == BAD)
+            throw Exception("read destroyed object");
+
+        if (magic != GOOD)
+            throw Exception("read from uninitialized object");
+
+        return val;
+    }
+};
+
+
+// Scalar attribute (integer)
 BOOST_AUTO_TEST_CASE( test1 )
 {
     IntTraits traits;
@@ -28,9 +104,13 @@ BOOST_AUTO_TEST_CASE( test1 )
     AttributeRef attr = traits.encode(1);
 
     BOOST_CHECK_EQUAL(attr.print(), "1");
+    BOOST_CHECK_EQUAL(attr, attr);
+    BOOST_CHECK_EQUAL(attr < attr, false);
+    BOOST_CHECK_EQUAL(attr != attr, false);
+    BOOST_CHECK_EQUAL(attr.compare(attr), 0);
 }
 
-#if 0
+// Reference counted attribute (string)
 BOOST_AUTO_TEST_CASE( test2 )
 {
     StringTraits traits;
@@ -38,8 +118,57 @@ BOOST_AUTO_TEST_CASE( test2 )
     AttributeRef attr = traits.encode("hello");
 
     BOOST_CHECK_EQUAL(attr.print(), "hello");
+    BOOST_CHECK_EQUAL(attr, attr);
+    BOOST_CHECK_EQUAL(attr < attr, false);
+    BOOST_CHECK_EQUAL(attr != attr, false);
+    BOOST_CHECK_EQUAL(attr.compare(attr), 0);
 }
 
+// Reference counted attribute, checking
+
+struct TestObjTraits : public RefCountedAttributeTraits<TestObj> {
+
+    virtual std::string print(const Attribute & attr) const
+    {
+        return format("%d", getObject(attr).operator int());
+    }
+
+    virtual size_t hash(const Attribute & a) const
+    {
+        return getObject(a).operator int();
+    }
+
+    virtual size_t stableHash(const Attribute & a) const
+    {
+        return getObject(a).operator int();
+    }
+
+};
+
+// Reference counted attribute (string)
+BOOST_AUTO_TEST_CASE( test3 )
+{
+    TestObjTraits traits;
+
+    {
+        AttributeRef attr = traits.encode(3);
+        
+        BOOST_CHECK_EQUAL(attr.print(), "3");
+        BOOST_CHECK_EQUAL(attr, attr);
+        BOOST_CHECK_EQUAL(attr < attr, false);
+        BOOST_CHECK_EQUAL(attr != attr, false);
+        BOOST_CHECK_EQUAL(attr.compare(attr), 0);
+
+
+        BOOST_CHECK_EQUAL(destroyed + 1, constructed);
+    }
+
+    BOOST_CHECK_EQUAL(destroyed, constructed);
+}
+
+
+#if 0
+// Dictionary attribute (atom)
 BOOST_AUTO_TEST_CASE( test3 )
 {
     AtomTraits traits;
@@ -47,6 +176,9 @@ BOOST_AUTO_TEST_CASE( test3 )
     AttributeRef attr = traits.encode("hello");
 
     BOOST_CHECK_EQUAL(attr.print(), "hello");
+    BOOST_CHECK_EQUAL(attr, attr);
+    BOOST_CHECK_EQUAL(attr < attr, false);
+    BOOST_CHECK_EQUAL(attr != attr, true);
+    BOOST_CHECK_EQUAL(attr.compare(attr), 0);
 }
-
 #endif

@@ -37,18 +37,21 @@ struct IntTraits : public ScalarAttributeTraits {
 };
 
 
-struct StringTraits : public AttributeTraits {
-    AttributeRef encode(const std::string & val) const;
+/*****************************************************************************/
+/* STRINGTRAITS                                                              */
+/*****************************************************************************/
 
-    virtual bool equal(const Attribute & a1, const Attribute & a2) const;
-    virtual int less(const Attribute & a1, const Attribute & a2) const;
-    virtual bool stableLess(const Attribute & a1, const Attribute & a2) const;
-    virtual int compare(const Attribute & a1, const Attribute & a2) const;
-    virtual int stableCompare(const Attribute & a1, const Attribute & a2) const;
+struct StringTraits : public RefCountedAttributeTraits<std::string> {
+    virtual ~StringTraits();
+    virtual std::string print(const Attribute & attr) const;
     virtual size_t hash(const Attribute & a) const;
     virtual size_t stableHash(const Attribute & a) const;
-    virtual std::string print(const Attribute & attr) const;
 };
+
+
+/*****************************************************************************/
+/* ATOMTRAITS                                                                */
+/*****************************************************************************/
 
 struct AtomTraits : public AttributeTraits {
     virtual ~AtomTraits();
@@ -67,6 +70,11 @@ struct AtomTraits : public AttributeTraits {
 private:
     StringMap string_map;
 };
+
+
+/*****************************************************************************/
+/* DATETRAITS                                                                */
+/*****************************************************************************/
 
 struct DateTraits : public AttributeTraits {
     AttributeRef encode(const std::string & val) const;

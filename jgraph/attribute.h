@@ -51,7 +51,10 @@ struct Attribute {
     std::string print() const;
 
 private:
-    AttributeValue value;
+    union {
+        AttributeValue value;
+        char * ptr;
+    };
     const AttributeTraits * traits;
     uint32_t flags;
 
@@ -68,6 +71,9 @@ private:
     Attribute(const AttributeTraits * traits,
               AttributeValue value,
               uint32_t flags);
+    Attribute(const AttributeTraits * traits,
+              void * ptr,
+              uint32_t flags);
     Attribute & operator = (const Attribute & other);
     void swap(Attribute & other);
 
@@ -78,6 +84,7 @@ private:
 std::ostream & operator << (std::ostream & stream,
                             const Attribute & attribute);
 
+
 /*****************************************************************************/
 /* ATTRIBUTEREF                                                              */
 /*****************************************************************************/
@@ -86,10 +93,27 @@ std::ostream & operator << (std::ostream & stream,
 // is done properly.
 struct AttributeRef : public Attribute {
 
+    AttributeRef();
+    AttributeRef(const AttributeRef & other);
+    AttributeRef(const Attribute & other);
+    ~AttributeRef();
+
+    AttributeRef & operator = (const Attribute & other);
+    void swap(AttributeRef & other);
+
 private:
     AttributeRef(const AttributeTraits * traits,
                  AttributeValue value,
                  uint32_t flags);
+
+    AttributeRef(const AttributeTraits * traits,
+                 void * obj,
+                 uint32_t flags);
+
+    int * refcount() const;
+
+    void incReferences();
+    void decReferences();
 
     friend class AttributeTraits;
 };

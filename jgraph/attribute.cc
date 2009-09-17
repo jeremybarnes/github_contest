@@ -57,7 +57,4 @@ operator << (std::ostream & stream,
     return stream << attribute.print();
 }
 
-
-
-
 } // namespace JGraph
