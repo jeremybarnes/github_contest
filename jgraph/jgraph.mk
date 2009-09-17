@@ -3,6 +3,7 @@ JGRAPH_SOURCES := \
 	attribute.cc \
 	attribute_traits.cc \
 	attribute_basic_types.cc \
+	string_map.cc \
 	../exception_hook.cc
 
 #	basic_graph.cc \

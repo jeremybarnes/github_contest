@@ -9,6 +9,7 @@
 #include "utils/string_functions.h"
 #include "attribute.h"
 #include "utils/hash_specializations.h"
+#include "utils/less.h"
 
 
 using namespace ML;
@@ -60,6 +61,86 @@ StringTraits::
 print(const Attribute & a) const
 {
     return getObject(a);
+}
+
+
+/*****************************************************************************/
+/* ATOMTRAITS                                                                */
+/*****************************************************************************/
+
+AtomTraits::
+~AtomTraits()
+{
+}
+
+AttributeRef
+AtomTraits::
+encode(const std::string & val) const
+{
+    return createScalarAttribute(string_map[val], FLAGS);
+}
+
+AttributeRef
+AtomTraits::
+encode(const Atom & atom) const
+{
+    return createScalarAttribute(atom.handle, FLAGS);
+}
+
+bool
+AtomTraits::
+equal(const Attribute & a1, const Attribute & a2) const
+{
+    return getValue(a1) == getValue(a2);
+}
+
+int
+AtomTraits::
+less(const Attribute & a1, const Attribute & a2) const
+{
+    return getValue(a1) < getValue(a2);
+}
+
+bool
+AtomTraits::
+stableLess(const Attribute & a1, const Attribute & a2) const
+{
+    return print(a1) < print(a2);
+}
+
+int
+AtomTraits::
+compare(const Attribute & a1, const Attribute & a2) const
+{
+    return compare_3way(getValue(a1), getValue(a2));
+}
+
+int
+AtomTraits::
+stableCompare(const Attribute & a1, const Attribute & a2) const
+{
+    return compare_3way(print(a1), print(a2));
+}
+
+size_t
+AtomTraits::
+hash(const Attribute & a) const
+{
+    return getValue(a);
+}
+
+size_t
+AtomTraits::
+stableHash(const Attribute & a) const
+{
+    return std::hash<std::string>()(print(a));
+}
+
+std::string
+AtomTraits::
+print(const Attribute & attr) const
+{
+    return string_map[getValue(attr)];
 }
 
 } // namespace JGraph

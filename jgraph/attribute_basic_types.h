@@ -19,11 +19,15 @@ namespace JGraph {
 
 // Atomic string, etc
 struct Atom {
+    Atom(StringMap * string_map, int handle);
+    Atom(StringMap * string_map, const std::string & value);
 
 private:
-    StringMap * stringmap;
+    StringMap * string_map;
     int handle;
+    friend class AtomTraits;
 };
+
 
 /*****************************************************************************/
 /* INTTRAITS                                                                 */
@@ -67,8 +71,12 @@ struct AtomTraits : public AttributeTraits {
     virtual size_t stableHash(const Attribute & a) const;
     virtual std::string print(const Attribute & attr) const;
 
+    enum {
+        FLAGS = AFL_BINCOMPARABLE | AFL_BINHASHABLE
+    };
+
 private:
-    StringMap string_map;
+    mutable StringMap string_map;
 };
 
 

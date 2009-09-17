@@ -13,6 +13,10 @@
 namespace JGraph {
 
 struct StringMap {
+
+    int operator [] (const std::string & s);
+    std::string operator [] (int i);
+
     std::hash_map<std::string, int> string_to_int;
     std::vector<std::string> int_to_string;
 };

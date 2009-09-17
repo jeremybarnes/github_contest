@@ -122,6 +122,21 @@ BOOST_AUTO_TEST_CASE( test2 )
     BOOST_CHECK_EQUAL(attr < attr, false);
     BOOST_CHECK_EQUAL(attr != attr, false);
     BOOST_CHECK_EQUAL(attr.compare(attr), 0);
+
+    AttributeRef attr2 = traits.encode("bonus");
+
+    BOOST_CHECK_EQUAL(attr2.print(), "bonus");
+    BOOST_CHECK_EQUAL(attr2, attr2);
+    BOOST_CHECK_EQUAL(attr2 < attr2, false);
+    BOOST_CHECK_EQUAL(attr2 != attr2, false);
+    BOOST_CHECK_EQUAL(attr2.compare(attr2), 0);
+
+    BOOST_CHECK_EQUAL(attr == attr2, false);
+    BOOST_CHECK_EQUAL(attr2 == attr, false);
+    BOOST_CHECK_EQUAL(attr < attr2,  false);
+    BOOST_CHECK_EQUAL(attr2 < attr,  true);
+    BOOST_CHECK_EQUAL(attr.stableLess(attr2),  false);
+    BOOST_CHECK_EQUAL(attr2.stableLess(attr),  true);
 }
 
 // Reference counted attribute, checking
@@ -167,9 +182,8 @@ BOOST_AUTO_TEST_CASE( test3 )
 }
 
 
-#if 0
 // Dictionary attribute (atom)
-BOOST_AUTO_TEST_CASE( test3 )
+BOOST_AUTO_TEST_CASE( test4 )
 {
     AtomTraits traits;
 
@@ -178,7 +192,21 @@ BOOST_AUTO_TEST_CASE( test3 )
     BOOST_CHECK_EQUAL(attr.print(), "hello");
     BOOST_CHECK_EQUAL(attr, attr);
     BOOST_CHECK_EQUAL(attr < attr, false);
-    BOOST_CHECK_EQUAL(attr != attr, true);
+    BOOST_CHECK_EQUAL(attr != attr, false);
     BOOST_CHECK_EQUAL(attr.compare(attr), 0);
+
+    AttributeRef attr2 = traits.encode("bonus");
+
+    BOOST_CHECK_EQUAL(attr2.print(), "bonus");
+    BOOST_CHECK_EQUAL(attr2, attr2);
+    BOOST_CHECK_EQUAL(attr2 < attr2, false);
+    BOOST_CHECK_EQUAL(attr2 != attr2, false);
+    BOOST_CHECK_EQUAL(attr2.compare(attr2), 0);
+
+    BOOST_CHECK_EQUAL(attr == attr2, false);
+    BOOST_CHECK_EQUAL(attr2 == attr, false);
+    BOOST_CHECK_EQUAL(attr < attr2,  true);
+    BOOST_CHECK_EQUAL(attr2 < attr,  false);
+    BOOST_CHECK_EQUAL(attr.stableLess(attr2),  false);
+    BOOST_CHECK_EQUAL(attr2.stableLess(attr),  true);
 }
-#endif
