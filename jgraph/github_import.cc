@@ -56,7 +56,7 @@ void import_github()
     EdgeSchema parentof_edge(graph, "parentof");
     
     NodeAttributeSchema<Graph, int> repo_id_attr("id", repo_node);
-    NodeAttributeSchema<Graph, Date> repo_name_attr("name", repo_node);
+    NodeAttributeSchema<Graph, Atom> repo_name_attr("name", repo_node);
     NodeAttributeSchema<Graph, Date> repo_date_attr("date", repo_node);
     NodeAttributeSchema<Graph, int> repo_depth_attr("depth", repo_node);
 

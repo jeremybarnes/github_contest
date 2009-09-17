@@ -4,11 +4,10 @@ JGRAPH_SOURCES := \
 	attribute_traits.cc \
 	attribute_basic_types.cc \
 	string_map.cc \
-	../exception_hook.cc
+	../exception_hook.cc \
+	basic_graph.cc
 
-#	basic_graph.cc \
-
-JGRAPH_LINK :=
+JGRAPH_LINK :=  boost_date_time-mt
 
 $(eval $(call library,jgraph,$(JGRAPH_SOURCES),$(JGRAPH_LINK)))
 

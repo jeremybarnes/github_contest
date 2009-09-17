@@ -8,6 +8,8 @@
 #include "attribute_traits.h"
 #include "attribute.h"
 #include "arch/exception.h"
+#include <typeinfo>
+#include "arch/demangle.h"
 
 
 using namespace ML;
@@ -29,6 +31,22 @@ AttributeTraits(int refCountOffset)
 
 AttributeTraits::~AttributeTraits()
 {
+}
+
+void
+AttributeTraits::
+combine(const AttributeTraits & other)
+{
+    // Check that it is possible to cast it
+    //const ScalarAttributeTraits & other_scalar
+    //    = dynamic_cast<const ScalarAttributeTraits &>(other);
+
+    if (typeid(*this) != typeid(other))
+        throw Exception("AttributeTraits::combine(): "
+                        "can't combine two different objects: types "
+                        + demangle(typeid(*this).name()) + " and "
+                        + demangle(typeid(other).name()));
+    // OK, don't throw an exception
 }
 
 bool

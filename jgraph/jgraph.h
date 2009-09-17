@@ -19,11 +19,15 @@ namespace JGraph {
 // Basic data structures
 
 
+/*****************************************************************************/
+/* NODET                                                                     */
+/*****************************************************************************/
+
 // Lightweight handle to access and manipulate a node
 template<class Graph>
 struct NodeT {
     NodeT();
-    NodeT(Graph * graph, int handle);
+    NodeT(Graph * graph, int node_type, int handle);
 
     /// Set the given attribute
     void setAttr(const Attribute & value);
@@ -33,19 +37,30 @@ struct NodeT {
     void check_initialized() const;
     
     Graph * graph;
-    int handle;
+    typename Graph::NodeHandle handle;
+    int node_type;
 };
+
+/*****************************************************************************/
+/* EDGET                                                                     */
+/*****************************************************************************/
 
 // Lightweight handle to access and manipulate an edge
 // Can be one-way or two-way
 template<class Graph>
 struct EdgeT {
     EdgeT();
-    EdgeT(Graph * graph, int handle);
+    EdgeT(Graph * graph, int edge_type, int handle);
 
     Graph * graph;
-    int handle;
+    typename Graph::EdgeHandle handle;
+    int edge_type;
 };
+
+
+/*****************************************************************************/
+/* SCHEMAT                                                                   */
+/*****************************************************************************/
 
 template<class Graph>
 struct SchemaT {
@@ -57,6 +72,11 @@ protected:
     int handle;
     ObjectType object_type;
 };
+
+
+/*****************************************************************************/
+/* NODESCHEMAT                                                               */
+/*****************************************************************************/
 
 template<class Graph>
 struct NodeSchemaT : public SchemaT<Graph> {
@@ -76,6 +96,11 @@ private:
     using SchemaT<Graph>::handle;
     using SchemaT<Graph>::object_type;
 };
+
+
+/*****************************************************************************/
+/* EDGESCHEMAT                                                               */
+/*****************************************************************************/
 
 template<class Graph>
 struct EdgeSchemaT : public SchemaT<Graph> {
@@ -123,7 +148,7 @@ struct AttributeSchema {
     AttributeRef operator () (const Other & other) const;
     
     int attr_handle;
-    const Traits & traits;
+    const Traits * traits;
 };
 
 
@@ -140,6 +165,7 @@ struct NodeAttributeSchema
                         const NodeSchemaT<Graph> & node_schema);
 
     using AttributeSchema<Payload>::operator ();
+    using AttributeSchema<Payload>::traits;
 
     AttributeRef operator () (const NodeT<Graph> & node,
                               const Payload & val) const;
@@ -148,7 +174,7 @@ struct NodeAttributeSchema
     AttributeRef operator () (const NodeT<Graph> & node,
                               const Other & val) const;
 
-    NodeSchemaT<Graph> & node_schema;
+    const NodeSchemaT<Graph> & node_schema;
 };
 
 
@@ -161,9 +187,10 @@ template<class Graph, class Payload,
 struct EdgeAttributeSchema
     : AttributeSchema<Payload, Traits> {
     EdgeAttributeSchema(const std::string & name,
-                        const EdgeSchemaT<Graph> & node);
+                        const EdgeSchemaT<Graph> & edge_schema);
 
     using AttributeSchema<Payload>::operator ();
+    using AttributeSchema<Payload>::traits;
 };
 
 

@@ -84,23 +84,33 @@ private:
 /* DATETRAITS                                                                */
 /*****************************************************************************/
 
-struct DateTraits : public AttributeTraits {
-    AttributeRef encode(const std::string & val) const;
+struct DateTraits : public ScalarAttributeTraits {
+    AttributeRef encode(const Date & val) const;
 
-    virtual bool equal(const Attribute & a1, const Attribute & a2) const;
-    virtual int less(const Attribute & a1, const Attribute & a2) const;
-    virtual bool stableLess(const Attribute & a1, const Attribute & a2) const;
-    virtual int compare(const Attribute & a1, const Attribute & a2) const;
-    virtual int stableCompare(const Attribute & a1, const Attribute & a2) const;
+    // override these as the least significant bits aren't that good by
+    // themselves
     virtual size_t hash(const Attribute & a) const;
     virtual size_t stableHash(const Attribute & a) const;
+
     virtual std::string print(const Attribute & attr) const;
 };
 
+
+/*****************************************************************************/
+/* DATE                                                                      */
+/*****************************************************************************/
+
 // Date to be put in the graph
 struct Date {
-    double val;
+    Date(double seconds);
+    Date(const std::string & str);
+    double seconds;
+
+    std::string print() const;
 };
+
+std::ostream &
+operator << (std::ostream & stream, const Date & date);
 
 
 template<>

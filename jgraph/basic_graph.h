@@ -12,6 +12,11 @@
 #include <vector>
 #include "attribute.h"
 #include "utils/hash_map.h"
+#include "utils/compact_vector.h"
+#include <boost/shared_ptr.hpp>
+#include "utils/less.h"
+#include <typeinfo>
+
 
 namespace JGraph {
 
@@ -21,11 +26,14 @@ namespace JGraph {
 /*****************************************************************************/
 
 struct BasicGraph {
+    typedef int NodeHandle;
+    typedef int EdgeHandle;
+
     /// Create the given graph with the given name
     BasicGraph(const std::string & name);
 
     /// Set the attribute on the given node
-    void setNodeAttr(int node_handle, const Attribute & attr);
+    void setNodeAttr(int node_type, int node_handle, const Attribute & attr);
 
     /// Add the given node type to the metadata; returns its handle
     int addNodeType(const std::string & name);
@@ -34,7 +42,12 @@ struct BasicGraph {
     int addEdgeType(const std::string & name,
                     const EdgeBehavior & behavior);
 
-    int addNodeAttributeType(const std::string & name);
+    /// Add a new attribute type for the given node.  The traits give a
+    /// suggestion for the traits object to be used; it may not be the one
+    /// finally used).
+    std::pair<int, AttributeTraits *>
+    addNodeAttributeType(const std::string & name, int node_type,
+                         boost::shared_ptr<AttributeTraits> candidate_traits);
                              
 
     /// Create a new node, returning its handle
@@ -45,10 +58,12 @@ struct BasicGraph {
                         const Attribute & attribute);
 
     /// Create a new edge, returning its handle
-    int getOrCreateEdge(int from_handle,
-                        int to_handle,
-                        int type_handle);
-    
+    int getOrCreateEdge(int from_node_type,
+                        int from_node_handle,
+                        int to_node_type,
+                        int to_node_handle,
+                        int edge_type_handle);
+
 private:
     int handle;
     std::string name;
@@ -57,6 +72,7 @@ private:
         struct Entry {
             std::string name;
             int id;
+            boost::shared_ptr<AttributeTraits> traits;
         };
 
         typedef std::hash_map<std::string, int> Index;
@@ -68,19 +84,62 @@ private:
 
     Metadata node_metadata, edge_metadata;
 
-    struct Edge {
-        int type;
-        int adjacent_node;
+    Metadata node_attr_metadata, edge_attr_metadata;
+
+    typedef ML::compact_vector<AttributeRef, 1> AttributeSet;
+
+    // TODO: compact...
+    struct EdgeRef {
+        EdgeRef(bool forward = false, int type = 0, int dest = -1,
+                int index = -1)
+            : forward(forward), type(type), dest(dest), index(index)
+        {
+        }
+
+        bool forward;
+        int type;   // type of the edge
+        int dest;   // destination of the edge
+        int index;  // number in the collection
+ 
+        bool operator < (const EdgeRef & other) const
+        {
+            return ML::less_all(forward, other.forward,
+                                type, other.type,
+                                dest, other.dest,
+                                index, other.index);
+        }
     };
+ 
+    typedef ML::compact_vector<EdgeRef, 2> EdgeRefList;
 
     struct Node {
+        AttributeSet attributes;
+        EdgeRefList edges;
+    };
+
+    struct Edge {
+        int from;
+        int from_type;
+        int to;
+        int to_type;
+        AttributeSet attributes;
+    };
+
+    struct EdgeCollection {
         int type;
-        std::vector<Attribute> attributes;
         std::vector<Edge> edges;
     };
 
-    std::vector<Node> nodes;
-                             
+    struct NodeCollection {
+        std::vector<Node> nodes;
+        std::hash_map<AttributeRef, int> id_index;
+    };
+    
+    std::vector<boost::shared_ptr<NodeCollection> > nodes_of_type;
+    std::vector<boost::shared_ptr<EdgeCollection> > edges_of_type;
+
+    NodeCollection & getNodeCollection(int node_type);
+    EdgeCollection & getEdgeCollection(int edge_type);
 };
 
 } // namespace JGraph

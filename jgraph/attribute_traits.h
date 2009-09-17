@@ -26,6 +26,10 @@ struct AttributeTraits {
     AttributeTraits(int refCountOffset = 0);
     virtual ~AttributeTraits();
 
+    /// Combine the two together, checking that the two objects are compatible
+    /// and throwing an exception if not.
+    virtual void combine(const AttributeTraits & other);
+
     virtual bool equal(const Attribute & a1, const Attribute & a2) const;
     virtual int less(const Attribute & a1, const Attribute & a2) const;
     virtual bool stableLess(const Attribute & a1, const Attribute & a2) const;

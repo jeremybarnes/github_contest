@@ -10,6 +10,7 @@
 #include "attribute.h"
 #include "utils/hash_specializations.h"
 #include "utils/less.h"
+#include <boost/date_time/gregorian/gregorian.hpp>
 
 
 using namespace ML;
@@ -141,6 +142,79 @@ AtomTraits::
 print(const Attribute & attr) const
 {
     return string_map[getValue(attr)];
+}
+
+/*****************************************************************************/
+/* DATETRAITS                                                                */
+/*****************************************************************************/
+
+AttributeRef
+DateTraits::
+encode(const Date & val) const
+{
+    return createScalarAttribute(reinterpret_as_int(val.seconds), FLAGS);
+}
+
+size_t
+DateTraits::
+hash(const Attribute & a) const
+{
+    // TODO: do better
+    return JML_HASH_NS::hash<const char *>()(print(a).c_str());
+}
+
+size_t
+DateTraits::
+stableHash(const Attribute & a) const
+{
+    // TODO: do better
+    return JML_HASH_NS::hash<const char *>()(print(a).c_str());
+}
+
+std::string
+DateTraits::
+print(const Attribute & attr) const
+{
+    double d = reinterpret_as_double(getValue(attr));
+    return Date(d).print();
+}
+
+
+/*****************************************************************************/
+/* DATE                                                                      */
+/*****************************************************************************/
+
+
+static const boost::gregorian::date epoch(2007, 1, 1);
+
+Date::
+Date(double seconds)
+    : seconds(seconds)
+{
+}
+
+Date::
+Date(const std::string & str)
+{
+    boost::gregorian::date date
+        = boost::gregorian::from_simple_string(str);
+    
+    seconds = (date - epoch).days();
+}
+
+std::string
+Date::
+print() const
+{
+    boost::gregorian::date date
+        = epoch + boost::gregorian::date_duration(seconds);
+    return to_simple_string(date);
+}
+
+std::ostream &
+operator << (std::ostream & stream, const Date & date)
+{
+    return stream << date.print();
 }
 
 } // namespace JGraph

@@ -187,8 +187,8 @@ struct StableHashAttribute {
 namespace JML_HASH_NS {
 
 template<>
-struct hash<JGraph::Attribute> {
-    size_t operator () (const JGraph::Attribute & attr) const
+struct hash<JGraph::AttributeRef> {
+    size_t operator () (const JGraph::AttributeRef & attr) const
     {
         return attr.hash();
     }

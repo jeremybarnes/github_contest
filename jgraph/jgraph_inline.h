@@ -10,6 +10,8 @@
 
 
 #include "compiler/compiler.h"
+#include <typeinfo>
+#include "utils/smart_ptr_utils.h"
 
 
 namespace JGraph {
@@ -43,6 +45,13 @@ NodeT()
 }
 
 template<class Graph>
+NodeT<Graph>::
+NodeT(Graph * graph, int node_type, int handle)
+    : graph(graph), handle(handle), node_type(node_type)
+{
+}
+
+template<class Graph>
 void
 NodeT<Graph>::
 setAttr(const Attribute & attr)
@@ -68,6 +77,13 @@ template<class Graph>
 EdgeT<Graph>::
 EdgeT()
     : graph(0), handle(-1)
+{
+}
+
+template<class Graph>
+EdgeT<Graph>::
+EdgeT(Graph * graph, int edge_type, int handle)
+    : graph(0), handle(handle), edge_type(edge_type)
 {
 }
 
@@ -108,7 +124,7 @@ NodeT<Graph>
 NodeSchemaT<Graph>::
 operator () () const
 {
-    return NodeT<Graph>(graph, graph->createNode(handle));
+    return NodeT<Graph>(graph, handle, graph->createNode(handle));
 }
 
 template<class Graph>
@@ -116,7 +132,7 @@ NodeT<Graph>
 NodeSchemaT<Graph>::
 operator () (const Attribute & attr1) const
 {
-    return NodeT<Graph>(graph, graph->getOrCreateNode(handle, attr1));
+    return NodeT<Graph>(graph, handle, graph->getOrCreateNode(handle, attr1));
 }
 
 template<class Graph>
@@ -150,7 +166,9 @@ operator () (const NodeT<Graph> & from,
     if (from.graph != this->graph || to.graph != this->graph)
         throw Exception("attempt to create edge between graphs");
     return EdgeT<Graph>(graph,
-                        graph->getOrCreateEdge(from.handle, to.handle,
+                        this->handle,
+                        graph->getOrCreateEdge(from.node_type, from.handle,
+                                               to.node_type, to.handle,
                                                this->handle));
 }
 
@@ -173,7 +191,12 @@ AttributeSchema<Payload, Traits>::
 AttributeSchema(const std::string & name,
                 const NodeSchemaT<Graph> & node_schema)
 {
-    attr_handle = node_schema.graph->addAttributeNode(name, node_schema.handle);
+    std::pair<int, AttributeTraits *> result
+        = node_schema.graph->addNodeAttributeType(name, node_schema.handle,
+                                                  make_sp(new Traits()));
+
+    attr_handle = result.first;
+    traits = dynamic_cast<Traits *>(result.second);
 }
 
 template<class Payload, class Traits>
@@ -182,7 +205,11 @@ AttributeSchema<Payload, Traits>::
 AttributeSchema(const std::string & name,
                 const EdgeSchemaT<Graph> & edge_schema)
 {
-    attr_handle = edge_schema.graph->addAttributeEdge(name, edge_schema.handle);
+    std::pair<int, AttributeTraits *> result
+        = edge_schema.graph->addEdgeAttributeType(name, edge_schema.handle,
+                                                  make_sp(new Traits()));
+    attr_handle = result.first;
+    traits = dynamic_cast<Traits *>(result.second);
 }
 
 template<class Payload, class Traits>
@@ -190,7 +217,7 @@ AttributeRef
 AttributeSchema<Payload, Traits>::
 operator () (const Payload & val) const
 {
-    return traits.encode(val);
+    return traits->encode(val);
 }
 
 
@@ -200,7 +227,57 @@ AttributeRef
 AttributeSchema<Payload, Traits>::
 operator () (const Other & other) const
 {
-    return traits.encode(other);
+    return traits->encode(other);
+}
+
+
+/*****************************************************************************/
+/* NODEATTRIBUTESCHEMA                                                       */
+/*****************************************************************************/
+
+template<class Graph, class Payload, class Traits>
+NodeAttributeSchema<Graph, Payload, Traits>::
+NodeAttributeSchema(const std::string & name,
+                    const NodeSchemaT<Graph> & node_schema)
+    : AttributeSchema<Payload, Traits>(name, node_schema),
+      node_schema(node_schema)
+{
+}
+
+template<class Graph, class Payload, class Traits>
+AttributeRef
+NodeAttributeSchema<Graph, Payload, Traits>::
+operator () (const NodeT<Graph> & node,
+             const Payload & val) const
+{
+    AttributeRef attr = traits->encode(val);
+    node.graph->setNodeAttr(node_schema.handle, node.handle, attr);
+    return attr;
+}
+
+template<class Graph, class Payload, class Traits>
+template<typename Other>
+AttributeRef
+NodeAttributeSchema<Graph, Payload, Traits>::
+operator () (const NodeT<Graph> & node,
+             const Other & val) const
+{
+    AttributeRef attr = traits->encode(val);
+    node.graph->setNodeAttr(node_schema.handle, node.handle, attr);
+    return attr;
+}
+
+
+/*****************************************************************************/
+/* EDGEATTRIBUTESCHEMA                                                       */
+/*****************************************************************************/
+
+template<class Graph, class Payload, class Traits>
+EdgeAttributeSchema<Graph, Payload, Traits>::
+EdgeAttributeSchema(const std::string & name,
+                    const EdgeSchemaT<Graph> & edge_schema)
+    : AttributeSchema<Payload, Traits>(name, edge_schema)
+{
 }
 
 } // namespace JGraph
