@@ -66,6 +66,7 @@ struct BasicGraph {
                         int to_node_handle,
                         int edge_type_handle);
 
+#if 0
     struct NodeSetGenerator {
     private:
         boost::function<bool (void *)> increment;
@@ -79,6 +80,47 @@ struct BasicGraph {
         bool next() const;// { return increment(data); }
         int operator * () const;
     };
+#else
+    // Generate nodes from a set
+    struct NodeSetGenerator {
+        template<class Iterator>
+        NodeSetGenerator(int node_type, Iterator first, Iterator last)
+        {
+            // If possible (a single result) don't create a vector
+            current = *first;
+            index = 0;
+
+            ++first;
+            if (first != last) {
+                values.reset(new std::vector<int>());
+                values->push_back(current);
+                values->insert(values->end(),
+                               first, last);
+                std::sort(values->begin(), values->end());
+                current = (*values)[0];
+                index = 0;
+            }
+        }
+
+        JML_IMPLEMENT_OPERATOR_BOOL(current != -1);
+
+        int curr() const { return current; }
+
+        bool next()
+        {
+            if (!values || index == values->size() - 1) {
+                current = -1;
+                return false;
+            }
+            current = (*values)[++index];
+        }
+
+    private:
+        boost::shared_ptr<std::vector<int> > values;
+        int current;
+        int index;
+    };
+#endif
 
     /// Query nodes of the given type with the given attribute
     NodeSetGenerator
@@ -181,11 +223,11 @@ private:
 
     };
     
-    std::vector<boost::shared_ptr<NodeCollection> > nodes_of_type;
-    std::vector<boost::shared_ptr<EdgeCollection> > edges_of_type;
+    mutable std::vector<boost::shared_ptr<NodeCollection> > nodes_of_type;
+    mutable std::vector<boost::shared_ptr<EdgeCollection> > edges_of_type;
 
-    NodeCollection & getNodeCollection(int node_type);
-    EdgeCollection & getEdgeCollection(int edge_type);
+    NodeCollection & getNodeCollection(int node_type) const;
+    EdgeCollection & getEdgeCollection(int edge_type) const;
 };
 
 } // namespace JGraph

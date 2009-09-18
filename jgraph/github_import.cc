@@ -137,14 +137,11 @@ void import_github()
         repo_desc = unescape_json_string(repo_desc);
         repo_desc_file.expect_eol();
 
-#if 0
-        Node repo = unique(repo_node[repo_fullname_attr == full_repo_name]);
+        Node repo = unique(repo_node[repo_fullname_attr == full_repo_name]).get();
 
         if (!repo) continue;
 
         repo_desc_attr(repo, repo_desc);
-#endif
-
     }
 
 #if 0

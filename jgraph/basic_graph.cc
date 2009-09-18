@@ -6,6 +6,7 @@
 */
 
 #include "basic_graph.h"
+#include "utils/pair_utils.h"
 
 
 using namespace std;
@@ -149,9 +150,28 @@ getOrCreateEdge(int from_node_type,
     return result;
 }
 
+BasicGraph::NodeSetGenerator
+BasicGraph::
+nodesMatchingAttr(int node_type, const Attribute & attr) const
+{
+    NodeCollection & ncoll = getNodeCollection(node_type);
+
+    AttributeIndex & index = ncoll.getAttributeIndex(attr.type());
+
+    std::pair<AttributeIndex::const_iterator,
+              AttributeIndex::const_iterator> range
+        = index.equal_range(attr);
+
+    // TODO: iterator invalidation... need to lock the index while using
+    return NodeSetGenerator(node_type,
+                            second_extractor(range.first),
+                            second_extractor(range.second)
+                            /*, lock the index for reading and release when done*/);
+}
+
 BasicGraph::NodeCollection &
 BasicGraph::
-getNodeCollection(int node_type)
+getNodeCollection(int node_type) const
 {
     if (node_type < 0 || node_type >= node_metadata.entries.size())
         throw Exception("getNodeCollection: type out of range");
@@ -165,7 +185,7 @@ getNodeCollection(int node_type)
 
 BasicGraph::EdgeCollection &
 BasicGraph::
-getEdgeCollection(int edge_type)
+getEdgeCollection(int edge_type) const
 {
     if (edge_type < 0 || edge_type >= edge_metadata.entries.size())
         throw Exception("getEdgeCollection: type out of range");
