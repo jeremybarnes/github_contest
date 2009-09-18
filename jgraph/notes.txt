@@ -1,0 +1,31 @@
+Design goals
+
+
+
+- Graph data structure scaleable up to social network size (200 million nodes, 20 billion edges) on commodity hardware
+  - Will require persistence; can't expect to fit nodes + edges + attributes in memory at this size!
+- Highly efficient memory usage
+  - bit packed
+
+- Multithread and multiprocess safe (using shared memory for locks?)
+- Multiprocessing safe
+
+- Atomic operations redit
+
+- Look at ideas from
+
+- strings stored as atoms
+
+- inferred schemas
+
+- Attribute types
+  - Probabilities
+  - Real, boolean values
+  - Distributions (probability)
+  - Vector-space representation
+  - Natural language text (converted to vector space)
+  - others?
+  - Arbitrarily structured data
+  - Accessible via key
+
+- Set and list data structures

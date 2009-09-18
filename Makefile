@@ -52,4 +52,6 @@ $(eval $(call program,analyze_keywords,github utils ACE boost_program_options-mt
 
 $(eval $(call include_sub_makes,svdlibc))
 
+$(eval $(call include_sub_makes,jgraph))
+
 include loadbuild.mk
