@@ -12,29 +12,51 @@
 
 namespace JGraph {
 
-template<class Result>
-struct QueryResultSet {
-    Result unique() const
+template<class Underlying>
+struct UniqueQueryResult {
+    typedef typename Underlying::ResultType ResultType; 
+
+    UniqueQueryResult(const Underlying & underlying)
+        : underlying(underlying)
     {
-        return Result();
     }
+
+    Underlying underlying;
+
+    operator ResultType() const;
+};
+
+
+template<class Underlying>
+UniqueQueryResult<Underlying>
+unique(const Underlying & underlying)
+{
+    return UniqueQueryResult<Underlying>(underlying);
+}
+
+template<class Graph>
+struct NodeQueryResult {
+    typedef NodeT<Graph> ResultType;
 };
 
 template<class Graph, typename Payload, class Traits>
-struct AttributeEqualityQuery {
-    typedef QueryResultSet<NodeT<Graph> > ResultType;
+struct NodeAttributeEqualityPredicate {
 
-    AttributeEqualityQuery(const Attribute & attr,
-                           int node_type,
-                           Graph * graph)
+    NodeAttributeEqualityPredicate(const Attribute & attr,
+                                   int node_type,
+                                   Graph * graph)
         : attr(attr), node_type(node_type), graph(graph)
     {
     }
-
-    ResultType execute(const NodeSchemaT<Graph> & node) const
+    
+    // Filter (when filtering already generated values)
+    bool operator () (const NodeT<Graph> & node) const
     {
-        ResultType result;
-        return result;
+        return node.hasAttrValue(attr);
+    }
+
+    NodeQueryResult<Graph> generate() const
+    {
     }
 
     AttributeRef attr;
@@ -42,14 +64,23 @@ struct AttributeEqualityQuery {
     Graph * graph;
 };
 
+template<class Graph, class Predicate>
+struct SelectNodes {
+    typedef NodeQueryResult<Graph> ResultType;
+
+    
+};
+
+
 template<class Graph, typename Payload, class Traits, typename Value>
-AttributeEqualityQuery<Graph, Payload, Traits>
+NodeAttributeEqualityPredicate<Graph, Payload, Traits>
 operator == (const NodeAttributeSchema<Graph, Payload, Traits> & node_attr,
              const Value & val)
 {
-    return AttributeEqualityQuery<Graph, Payload, Traits>
+    return NodeAttributeEqualityPredicate<Graph, Payload, Traits>
         (node_attr(val), node_attr.node_type(), node_attr.graph());
 }
+
 
 
 } // namespace JGraph

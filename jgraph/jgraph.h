@@ -13,6 +13,7 @@
 #include "arch/exception.h"
 #include "attribute.h"
 #include "attribute_traits.h"
+#include "utils/unnamed_bool.h"
 
 namespace JGraph {
 
@@ -32,9 +33,15 @@ struct NodeT {
     /// Set the given attribute
     void setAttr(const Attribute & value);
 
+    /// Does the node have the given attribute value?
+    bool hasAttrValue(const Attribute & attr) const;
+
     /// Debugging code to make sure node is initialized before we call any
     /// functions on it.  Compiling with NDEBUG will make this check a NOP.
     void check_initialized() const;
+
+    /// Is it a real node?
+    JML_IMPLEMENT_OPERATOR_BOOL(node_type != -1);
     
     Graph * graph;
     typename Graph::NodeHandle handle;
@@ -87,6 +94,11 @@ struct NodeSchemaT : public SchemaT<Graph> {
     NodeT<Graph> operator () () const;
 
     NodeT<Graph> operator () (const Attribute & attr1) const;
+
+    // Query
+    template<class Filter>
+    SelectNodes<Graph, Filter>
+    operator [] (const Filter & filter) const;
 
 private:
     /// Debugging code to make sure node is initialized before we call any
@@ -176,6 +188,9 @@ struct NodeAttributeSchema
                               const Other & val) const;
 
     const NodeSchemaT<Graph> & node_schema;
+
+    int node_type() const { return node_schema.handle; }
+    Graph * graph() const { return node_schema.graph; }
 };
 
 
@@ -212,6 +227,8 @@ struct NodeSchema1KeyT : public NodeSchemaT<Graph> {
     // Factory for nodes
     template<class Value>
     NodeT<Graph> operator () (const Value & key1) const;
+
+    using NodeSchemaT<Graph>::operator [];
     
 private:
     using SchemaT<Graph>::graph;
@@ -220,8 +237,6 @@ private:
 
     NodeAttributeSchema<Graph, Key1, Traits1> attr1;
 };
-
-
 
 } // namespace JGraph
 

@@ -60,6 +60,8 @@ addNodeAttributeType(const std::string & name, int node_type,
     // TODO: do something with node_type
     int val = node_attr_metadata.getOrCreate(name);
     Metadata::Entry & entry = node_attr_metadata.entries[val];
+    suggested_traits->setType(val);
+    suggested_traits->setName(name);
     if (entry.traits)
         entry.traits->combine(*suggested_traits);
     else entry.traits = suggested_traits;
@@ -80,15 +82,16 @@ getOrCreateNode(int type_handle,
 {
     NodeCollection & ncoll = getNodeCollection(type_handle);
 
-    std::hash_map<AttributeRef, int>::const_iterator it
-        = ncoll.id_index.find(attribute);
-    if (it == ncoll.id_index.end()) {
-        int result = ncoll.nodes.size();
+    AttributeIndex & index = ncoll.getAttributeIndex(attribute.type());
+
+    int id = index.getUnique(attribute);
+
+    if (id == -1) {
+        id = ncoll.nodes.size();
         ncoll.nodes.push_back(Node());
-        ncoll.id_index[attribute] = result;
-        return result;
+        index.insert(make_pair(AttributeRef(attribute), id));
     }
-    else return it->second;
+    return id;
 }
 
 int

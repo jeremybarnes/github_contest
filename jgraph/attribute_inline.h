@@ -89,6 +89,22 @@ stableHash() const
 }
 
 inline
+const std::string &
+Attribute::
+name() const
+{
+    return traits->name();
+}
+
+inline
+int
+Attribute::
+type() const
+{
+    return traits->type();
+}
+
+inline
 Attribute::
 Attribute(const Attribute & other)
     : value(other.value), traits(other.traits), flags(other.flags)

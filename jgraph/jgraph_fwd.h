@@ -58,6 +58,8 @@ enum {
 typedef uint64_t AttributeValue;
 
 
+template<class Graph, class Predicate> struct SelectNodes;
+
 
 
 struct BasicGraph;

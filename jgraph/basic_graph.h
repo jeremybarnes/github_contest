@@ -16,6 +16,8 @@
 #include <boost/shared_ptr.hpp>
 #include "utils/less.h"
 #include <typeinfo>
+#include <boost/function.hpp>
+#include "utils/unnamed_bool.h"
 
 
 namespace JGraph {
@@ -63,6 +65,24 @@ struct BasicGraph {
                         int to_node_type,
                         int to_node_handle,
                         int edge_type_handle);
+
+    struct NodeSetGenerator {
+    private:
+        boost::function<bool (void *)> increment;
+        boost::function<int (void *)> generate;
+        boost::function<void (void *)> done;
+        int node_type;
+        void * data;
+        bool valid;
+    public:
+        JML_IMPLEMENT_OPERATOR_BOOL(!valid);
+        bool next() const;// { return increment(data); }
+        int operator * () const;
+    };
+
+    /// Query nodes of the given type with the given attribute
+    NodeSetGenerator
+    nodesMatchingAttr(int node_type, const Attribute & attr) const;
 
 private:
     int handle;
@@ -130,9 +150,35 @@ private:
         std::vector<Edge> edges;
     };
 
+    typedef std::hash_map<AttributeRef, int> AttributeIndexBase;
+    struct AttributeIndex : AttributeIndexBase {
+        int getUnique(const Attribute & attr) const
+        {
+            std::pair<const_iterator, const_iterator> range
+                = equal_range(attr);
+            if (range.first == range.second) return -1;
+            int result = range.first->second;
+            ++range.first;
+            if (range.first != range.second)
+                throw ML::Exception("AttributeIndex::getUnique(): multiple");
+            return result;
+        }
+    };
+
     struct NodeCollection {
         std::vector<Node> nodes;
-        std::hash_map<AttributeRef, int> id_index;
+
+        // For each attribute, an index of the value of the attribute
+        std::hash_map<int, boost::shared_ptr<AttributeIndex> > attribute_index;
+
+        AttributeIndex & getAttributeIndex(int attr_num)
+        {
+            boost::shared_ptr<AttributeIndex> & res
+                = attribute_index[attr_num];
+            if (!res) res.reset(new AttributeIndex());
+            return *res;
+        }
+
     };
     
     std::vector<boost::shared_ptr<NodeCollection> > nodes_of_type;

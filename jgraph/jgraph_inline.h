@@ -40,7 +40,7 @@ JML_ALWAYS_INLINE void check_initialized_impl(bool value,
 template<class Graph>
 NodeT<Graph>::
 NodeT()
-    : graph(0), handle(-1)
+    : graph(0), handle(-1), node_type(-1)
 {
 }
 
@@ -133,6 +133,15 @@ NodeSchemaT<Graph>::
 operator () (const Attribute & attr1) const
 {
     return NodeT<Graph>(graph, handle, graph->getOrCreateNode(handle, attr1));
+}
+
+template<class Graph>
+template<class Filter>
+SelectNodes<Graph, Filter>
+NodeSchemaT<Graph>::
+operator [] (const Filter & filter) const
+{
+    return SelectNodes<Graph, Filter>(filter);
 }
 
 template<class Graph>

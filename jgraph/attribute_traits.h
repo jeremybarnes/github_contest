@@ -23,7 +23,8 @@ namespace JGraph {
 */
 
 struct AttributeTraits {
-    AttributeTraits(int refCountOffset = 0);
+    AttributeTraits(int refCountOffset = 0, int type = -1,
+                    const std::string & name = "");
     virtual ~AttributeTraits();
 
     /// Combine the two together, checking that the two objects are compatible
@@ -41,6 +42,12 @@ struct AttributeTraits {
 
     // For reference counted objects only
     virtual void deleteObject(const Attribute & a) const;
+
+    virtual void setType(int type);
+    int type() const { return type_; }
+
+    virtual void setName(const std::string & name);
+    const std::string & name() const { return name_; }
 
 protected:
     // Allow descendents to access the value field of an attribute
@@ -63,6 +70,14 @@ protected:
     // reference count.  Can be used to implement, for example, an intrusive
     // reference count within an object.
     int refCountOffset;
+
+    // Data member, giving the type of the attribute according to the
+    // controlling class.
+    int type_;
+
+    // Data member, giving the name of the attribute according to the
+    // controlling class.
+    std::string name_;
 
     friend class Attribute;
     friend class AttributeRef;

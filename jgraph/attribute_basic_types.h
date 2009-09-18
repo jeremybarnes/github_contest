@@ -128,6 +128,11 @@ struct DefaultAttributeTraits<Date> {
     typedef DateTraits Type;
 };
 
+template<>
+struct DefaultAttributeTraits<std::string> {
+    typedef StringTraits Type;
+};
+
 
 } // namespace JGraph
 

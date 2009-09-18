@@ -50,6 +50,12 @@ struct Attribute {
     // IO operators
     std::string print() const;
 
+    // Name of the attribute, according to the traits
+    const std::string & name() const;
+
+    // Type of the attribute, according to the traits
+    int type() const;
+
 private:
     union {
         AttributeValue value;

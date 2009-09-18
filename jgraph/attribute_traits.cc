@@ -24,13 +24,27 @@ namespace JGraph {
 /*****************************************************************************/
 
 AttributeTraits::
-AttributeTraits(int refCountOffset)
-    : refCountOffset(refCountOffset)
+AttributeTraits(int refCountOffset, int type, const std::string & name)
+    : refCountOffset(refCountOffset), type_(type), name_(name)
 {
 }
 
 AttributeTraits::~AttributeTraits()
 {
+}
+
+void
+AttributeTraits::
+setType(int type)
+{
+    type_ = type;
+}
+
+void
+AttributeTraits::
+setName(const std::string & name)
+{
+    name_ = name;
 }
 
 void
@@ -46,6 +60,16 @@ combine(const AttributeTraits & other)
                         "can't combine two different objects: types "
                         + demangle(typeid(*this).name()) + " and "
                         + demangle(typeid(other).name()));
+
+    if (name_ == "") name_ = other.name_;
+    if (name_ != other.name_)
+        throw Exception("AttributeTraits with two different names");
+
+    if (type_ == -1) type_ = other.type_;
+    if (type_ != other.type_)
+        throw Exception("AttributeTraits with two different types");
+
+
     // OK, don't throw an exception
 }
 

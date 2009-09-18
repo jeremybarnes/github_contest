@@ -8,6 +8,7 @@
 #include "jgraph/jgraph.h"
 #include "jgraph/basic_graph.h"
 #include "jgraph/attribute_basic_types.h"
+#include "jgraph/query.h"
 
 #include "utils/parse_context.h"
 #include "utils/string_functions.h"
@@ -44,6 +45,33 @@ typedef NodeT<Graph> Node;
 typedef EdgeT<Graph> Edge;
 typedef EdgeSchemaT<Graph> EdgeSchema;
 
+std::string unescape_json_string(const std::string & str)
+{
+    if (str.empty() || str == "\"\"") return "";
+    else if (str[0] == '\"') {
+        if (str[str.size() - 1] != '\"')
+            throw Exception("invalid json string: " + str);
+
+        string result;
+
+        for (unsigned i = 1; i < str.size() - 1;  ++i) {
+            char c = str[i];
+
+            if (c == '\\') {
+                if (i == str.size() - 2)
+                    throw Exception("invalid backslash in json string: " + str);
+                ++i;
+                c = str[i];
+            }
+
+            result += c;
+        }
+        
+        return result;
+    }
+
+    return str;
+}
 
 void import_github()
 {
@@ -55,25 +83,11 @@ void import_github()
     EdgeSchema authorof_edge(graph, "authorof");
     EdgeSchema parentof_edge(graph, "parentof");
     
-    //NodeAttributeSchema<Graph, int> repo_id_attr("id", repo_node);
     NodeAttributeSchema<Graph, Atom> repo_name_attr("name", repo_node);
     NodeAttributeSchema<Graph, Date> repo_date_attr("date", repo_node);
     NodeAttributeSchema<Graph, int> repo_depth_attr("depth", repo_node);
+    NodeAttributeSchema<Graph, string> repo_fullname_attr("fullname", repo_node);
 
-    //NodeAttributeSchema<Graph, Atom> author_name_attr("name", author_node);
-
-#if 0
-    // Index from repo name to repo
-    Index<AttributeSchema<string>, AttributeSchema<int> >
-        name_to_repo(repo_name_attr);
-
-    // Index from the (author, repo name) to the
-    Index<AttributeSchema<int>,  // result (repo_id)
-                     boost::tuple<AttributeSchema<int>,
-                     AttributeSchema<Atom> > >
-        int, Node, Atom> full_name;
-#endif
-    
     Parse_Context repo_file("download/repos.txt");
 
     while (repo_file) {
@@ -94,6 +108,7 @@ void import_github()
 
         repo_name_attr(repo, repo_name);
         repo_date_attr(repo, date_str);
+        repo_fullname_attr(repo, author_name + "/" + repo_name);
 
         int depth = 0;
 
@@ -111,7 +126,8 @@ void import_github()
         //full_repo_name_to_index[author_name + "/" + repo.name] = repo_id;
     }
 
-#if 0
+    NodeAttributeSchema<Graph, string> repo_desc_attr("desc", repo_node);
+
     Parse_Context repo_desc_file("repo_descriptions.txt");
 
     while (repo_desc_file) {
@@ -119,61 +135,28 @@ void import_github()
         repo_desc_file.expect_literal(':');
         string repo_desc = repo_desc_file.expect_text('\n', true);
         repo_desc = unescape_json_string(repo_desc);
-
-        if (!full_repo_name_to_index.count(full_repo_name)) {
-            //repo_desc_file.exception("repo " + full_repo_name
-            //                         + " not found in repos");
-
-            //cerr << "repo " + full_repo_name + " not found in repos"
-            //     << endl;
-            repo_desc_file.expect_eol();
-            continue;
-        }
-        
-        int repo_id = full_repo_name_to_index[full_repo_name];
-
-        //cerr << "repo_id = " << repo_id << endl;
-
-        if (repos[repo_id].description != "") {
-            if (repo_desc == "---") repo_desc = repos[repo_id].description;
-            else if (repos[repo_id].description == "---") ;
-            else {
-                //repo_desc_file.exception("repo " + full_repo_name
-                //                         + " was already in description file");
-                //cerr << "repo " + full_repo_name
-                //    + " was already in description file" << endl;
-            }
-        }
-
-        repos[repo_id].description = repo_desc;
         repo_desc_file.expect_eol();
+
+#if 0
+        Node repo = unique(repo_node[repo_fullname_attr == full_repo_name]);
+
+        if (!repo) continue;
+
+        repo_desc_attr(repo, repo_desc);
+#endif
+
     }
 
+#if 0
     Parse_Context author_file("authors.txt");
 
     while (author_file) {
         string author_name = author_file.expect_text(':', true);
         if (author_name == "") continue;
 
-        int author_id = -1;
 
-        if (!author_name_to_id.count(author_name)) {
-            cerr << "warning: unseen author in file: " << author_name
-                 << endl;
-            // Unseen author... add it
-            author_id = author_name_to_id[author_name] = authors.size();
-            Author new_author;
-            new_author.name = author_name;
-            new_author.id = author_id;
-            authors.push_back(new_author);
-        }
-        else author_id = author_name_to_id[author_name];
-        
-        if (author_id == -1)
-            throw Exception("author not found");
 
-        Author & author = authors[author_id];
-    
+
         author_file.expect_literal(':');
         author.num_following = author_file.expect_int();
         author_file.expect_literal(',');
