@@ -10,7 +10,7 @@
 
 #include <stdint.h>
 #include <string>
-#include <iosfwd>
+#include <iostream>
 #include "arch/exception.h"
 #include "attribute.h"
 #include "attribute_traits.h"
@@ -249,12 +249,13 @@ struct NodeSchema1KeyT : public NodeSchemaT<Graph> {
 
     using NodeSchemaT<Graph>::operator [];
     
+    NodeAttributeSchema<Graph, Key1, Traits1> attr1;
+
 private:
     using SchemaT<Graph>::graph;
     using SchemaT<Graph>::handle;
     using SchemaT<Graph>::object_type;
 
-    NodeAttributeSchema<Graph, Key1, Traits1> attr1;
 };
 
 } // namespace JGraph

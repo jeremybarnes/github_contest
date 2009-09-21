@@ -8,6 +8,7 @@
 #include "basic_graph.h"
 #include "utils/pair_utils.h"
 #include "jgraph.h"
+#include "utils/string_functions.h"
 
 
 using namespace std;
@@ -56,7 +57,8 @@ BasicGraph::
 addEdgeType(const std::string & name,
             const EdgeBehavior & behavior)
 {
-    return edge_metadata.getOrCreate(name);
+    int result = edge_metadata.getOrCreate(name);
+    return result;
 }
 
 std::pair<int, AttributeTraits *>
@@ -96,6 +98,7 @@ getOrCreateNode(int type_handle,
     if (id == -1) {
         id = ncoll.nodes.size();
         ncoll.nodes.push_back(Node());
+        ncoll.nodes.back().attributes.push_back(AttributeRef(attribute));
         index.insert(make_pair(AttributeRef(attribute), id));
     }
     return id;
@@ -124,8 +127,9 @@ getOrCreateEdge(int from_node_type,
              end = from_node.edges.end();
          it != end;  ++it) {
         if (it->forward == true
-            && it->type == edge_type_handle
-            && it->dest == to_node_handle) {
+            && it->edge_type == edge_type_handle
+            && it->dest_type == to_node_type
+            && it->dest_node == to_node_handle) {
             // found
             return it->index;
         }
@@ -141,6 +145,7 @@ getOrCreateEdge(int from_node_type,
 
     from_node.edges.push_back(EdgeRef(edge_type_handle,
                                       true, // forward
+                                      to_node_type,
                                       to_node_handle,
                                       result));
 
@@ -150,21 +155,68 @@ getOrCreateEdge(int from_node_type,
     
     to_node.edges.push_back(EdgeRef(edge_type_handle,
                                     false, // forward
+                                    from_node_type,
                                     from_node_handle,
                                     result));
 
     return result;
 }
 
-const AttributeRef &
-BasicGraph::AttributeSet::
-find(int type) const
+std::string
+BasicGraph::
+printNode(int node_type, int node_handle) const
 {
-    static const AttributeRef none;
-    for (const_iterator it = begin(), e = end();
-         it != e;  ++it)
-        if (it->type() == type) return *it;
-    return none;
+    const NodeCollection & ncoll = getNodeCollection(node_type);
+    const Node & node = ncoll.nodes.at(node_handle);
+
+    std::string id_name, id_value;
+    const AttributeSet & attributes = node.attributes;
+
+    if (!attributes.empty()) {
+        id_name = attributes[0].name();
+        id_value = attributes[0].print();
+    }
+    
+    std::string result;
+    result = format("node \"%s:%s\" type \"%s\" (%d), handle %d, %zd attr, %zd edges",
+                    id_name.c_str(), id_value.c_str(),
+                    node_metadata.entries.at(node_type).name.c_str(),
+                    node_type,
+                    node_handle,
+                    (size_t)attributes.size(),
+                    (size_t)node.edges.size());
+    
+    for (unsigned i = 0;  i < attributes.size();  ++i) {
+        result += format("\n    %s:%s",
+                         attributes[i].name().c_str(),
+                         attributes[i].print().c_str());
+    }
+
+    for (unsigned i = 0;  i < node.edges.size();  ++i) {
+        const EdgeRef & edge = node.edges[i];
+        string edge_type = edge_metadata.entries.at(edge.edge_type).name;
+        string tofrom = (edge.forward ? "TO" : "FROM");
+
+        const NodeCollection & dest_ncoll = getNodeCollection(edge.dest_type);
+
+        const Node & dest_node = dest_ncoll.nodes.at(edge.dest_node);
+
+        std::string id_name, id_value;
+        const AttributeSet & attributes = dest_node.attributes;
+        
+        if (!attributes.empty()) {
+            id_name = attributes[0].name();
+            id_value = attributes[0].print();
+        }
+        
+        string desttype = node_metadata.entries.at(edge.dest_type).name.c_str();
+        
+        result += format("\n    %s %s %s (%s:%s)",
+                         edge_type.c_str(), tofrom.c_str(),
+                         desttype.c_str(), id_name.c_str(), id_value.c_str());
+    }
+
+    return result;
 }
 
 BasicGraph::NodeSetGenerator
@@ -214,6 +266,17 @@ getEdgeCollection(int edge_type) const
         edges_of_type[edge_type].reset(new EdgeCollection());
     
     return  *edges_of_type[edge_type];
+}
+
+const AttributeRef &
+BasicGraph::AttributeSet::
+find(int type) const
+{
+    static const AttributeRef none;
+    for (const_iterator it = begin(), e = end();
+         it != e;  ++it)
+        if (it->type() == type) return *it;
+    return none;
 }
 
 int

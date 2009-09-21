@@ -300,6 +300,10 @@ void import_github()
         watching_edge(user_node(user_id), repo_node(repo_id));
     }
 
+    // Print some: repo ID 407
+    cerr << Node(unique(repo_node[repo_node.attr1 == 407])) << endl;
+    cerr << Node(unique(user_node[user_node.attr1 == 407])) << endl;
+
 #if 0
 
     users_to_test.reserve(5000);

@@ -35,9 +35,6 @@ struct BasicGraph {
     /// Create the given graph with the given name
     BasicGraph(const std::string & name);
 
-    /// Set the attribute on the given node
-    void setNodeAttr(int node_type, int node_handle, const Attribute & attr);
-
     /// Add the given node type to the metadata; returns its handle
     int addNodeType(const std::string & name);
 
@@ -59,6 +56,12 @@ struct BasicGraph {
     /// Create a new node, returning its handle
     int getOrCreateNode(int type_handle,
                         const Attribute & attribute);
+
+    /// Set the attribute on the given node
+    void setNodeAttr(int node_type, int node_handle, const Attribute & attr);
+
+    /// Print the contents of a node
+    std::string printNode(int node_type, int node_handle) const;
 
     /// Create a new edge, returning its handle
     int getOrCreateEdge(int from_node_type,
@@ -162,22 +165,26 @@ private:
 
     // TODO: compact...
     struct EdgeRef {
-        EdgeRef(bool forward = false, int type = 0, int dest = -1,
+        EdgeRef(bool forward = false, int edge_type = 0,
+                int dest_type = -1, int dest_node = -1,
                 int index = -1)
-            : forward(forward), type(type), dest(dest), index(index)
+            : forward(forward), edge_type(edge_type), dest_type(dest_type),
+              dest_node(dest_node), index(index)
         {
         }
 
         bool forward;
-        int type;   // type of the edge
-        int dest;   // destination of the edge
-        int index;  // number in the collection
+        int edge_type;   // type of the edge
+        int dest_type;   // type of destination of the edge
+        int dest_node;   // node index of destination of the edge
+        int index;       // number in the collection
  
         bool operator < (const EdgeRef & other) const
         {
             return ML::less_all(forward, other.forward,
-                                type, other.type,
-                                dest, other.dest,
+                                edge_type, other.edge_type,
+                                dest_type, other.dest_type,
+                                dest_node, other.dest_node,
                                 index, other.index);
         }
     };

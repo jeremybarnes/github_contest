@@ -68,6 +68,21 @@ check_initialized() const
     check_initialized_impl(graph, "NodeT");
 }
 
+template<class Graph>
+std::string
+NodeT<Graph>::
+print() const
+{
+    return graph->printNode(node_type, handle);
+}
+
+template<class Graph>
+std::ostream &
+operator << (std::ostream & stream, const NodeT<Graph> & node)
+{
+    return stream << node.print();
+}
+
 
 /*****************************************************************************/
 /* EDGET                                                                     */
@@ -85,6 +100,13 @@ EdgeT<Graph>::
 EdgeT(Graph * graph, int edge_type, int handle)
     : graph(0), handle(handle), edge_type(edge_type)
 {
+}
+
+template<class Graph>
+std::ostream &
+operator << (std::ostream & stream, const EdgeT<Graph> & edge)
+{
+    return stream << edge.print();
 }
 
 
