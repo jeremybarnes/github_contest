@@ -148,32 +148,35 @@ void import_github()
 
     cerr << "desc: found " << found << " notfound " << notfound << endl;
 
-#if 0
     Parse_Context author_file("authors.txt");
+
+    NodeAttributeSchema<Graph, int>
+        author_num_following_attr("num_following", author_node);
+    NodeAttributeSchema<Graph, int>
+        author_num_followers_attr("num_followers", author_node);
+    NodeAttributeSchema<Graph, Date>
+        author_date_joined_attr("date_joined", author_node);
 
     while (author_file) {
         string author_name = author_file.expect_text(':', true);
-        if (author_name == "") continue;
-
-
-
-
         author_file.expect_literal(':');
-        author.num_following = author_file.expect_int();
+        int num_following = author_file.expect_int();
         author_file.expect_literal(',');
         author_file.expect_int();  // github ID; unused
         author_file.expect_literal(',');
-        author.num_followers = author_file.expect_int();
+        int num_followers = author_file.expect_int();
         author_file.expect_literal(',');
-        string date_str = author_file.expect_text("\n,", false);
-
-        author.date = boost::gregorian::from_simple_string(date_str);
-        //cerr << "date_str " << date_str << " date " << author.date
-        //     << endl;
-
+        string date_joined = author_file.expect_text("\n,", false);
         author_file.expect_eol();
+
+        Node author = author_node(author_name);
+
+        author_num_following_attr(author, num_following);
+        author_num_followers_attr(author, num_followers);
+        author_date_joined_attr(author, date_joined);
     }
 
+#if 0
     // Children.  Only direct ones for the moment.
     for (unsigned i = 0;  i < repos.size();  ++i) {
         Repo & repo = repos[i];
@@ -302,6 +305,7 @@ void import_github()
     // Print some: repo ID 407
     cerr << Node(unique(repo_node[repo_node.attr1 == 407])) << endl;
     cerr << Node(unique(user_node[user_node.attr1 == 407])) << endl;
+    cerr << Node(unique(author_node[author_node.attr1 == "petdance"])) << endl;
 
 #if 0
 
