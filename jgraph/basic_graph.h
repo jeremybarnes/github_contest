@@ -8,6 +8,7 @@
 #ifndef __jgraph__basic_graph_h__
 #define __jgraph__basic_graph_h__
 
+#include "jgraph_fwd.h"
 #include <string>
 #include <vector>
 #include "attribute.h"
@@ -83,9 +84,19 @@ struct BasicGraph {
 #else
     // Generate nodes from a set
     struct NodeSetGenerator {
+        typedef NodeT<BasicGraph> ResultType;
+
         template<class Iterator>
-        NodeSetGenerator(int node_type, Iterator first, Iterator last)
+        NodeSetGenerator(BasicGraph * graph, int node_type,
+                         Iterator first, Iterator last)
+            : graph(graph), node_type(node_type)
         {
+            if (first == last) {
+                current = -1;
+                index = 0;
+                return;
+            }
+
             // If possible (a single result) don't create a vector
             current = *first;
             index = 0;
@@ -104,18 +115,13 @@ struct BasicGraph {
 
         JML_IMPLEMENT_OPERATOR_BOOL(current != -1);
 
-        int curr() const { return current; }
+        NodeT<BasicGraph> curr() const;
 
-        bool next()
-        {
-            if (!values || index == values->size() - 1) {
-                current = -1;
-                return false;
-            }
-            current = (*values)[++index];
-        }
+        bool next();
 
     private:
+        BasicGraph * graph;
+        int node_type;
         boost::shared_ptr<std::vector<int> > values;
         int current;
         int index;
@@ -148,7 +154,11 @@ private:
 
     Metadata node_attr_metadata, edge_attr_metadata;
 
-    typedef ML::compact_vector<AttributeRef, 1> AttributeSet;
+    typedef ML::compact_vector<AttributeRef, 1> AttributeSetBase;
+
+    struct AttributeSet : public AttributeSetBase {
+        const AttributeRef & find(int type) const;
+    };
 
     // TODO: compact...
     struct EdgeRef {
@@ -213,14 +223,7 @@ private:
         // For each attribute, an index of the value of the attribute
         std::hash_map<int, boost::shared_ptr<AttributeIndex> > attribute_index;
 
-        AttributeIndex & getAttributeIndex(int attr_num)
-        {
-            boost::shared_ptr<AttributeIndex> & res
-                = attribute_index[attr_num];
-            if (!res) res.reset(new AttributeIndex());
-            return *res;
-        }
-
+        AttributeIndex & getAttributeIndex(int attr_num);
     };
     
     mutable std::vector<boost::shared_ptr<NodeCollection> > nodes_of_type;

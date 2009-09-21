@@ -10,6 +10,7 @@
 
 #include <stdint.h>
 #include <string>
+#include <iosfwd>
 #include "arch/exception.h"
 #include "attribute.h"
 #include "attribute_traits.h"
@@ -43,10 +44,18 @@ struct NodeT {
     /// Is it a real node?
     JML_IMPLEMENT_OPERATOR_BOOL(node_type != -1);
     
+    std::string print() const;
+    std::string display(int indent) const;
+
     Graph * graph;
     typename Graph::NodeHandle handle;
     int node_type;
+
 };
+
+template<class Graph>
+std::ostream &
+operator << (std::ostream & stream, const NodeT<Graph> & node);
 
 
 /*****************************************************************************/
@@ -60,10 +69,20 @@ struct EdgeT {
     EdgeT();
     EdgeT(Graph * graph, int edge_type, int handle);
 
+    /// Is it a real node?
+    JML_IMPLEMENT_OPERATOR_BOOL(edge_type != -1);
+
+    std::string print() const;
+    std::string display(int indent) const;
+
     Graph * graph;
     typename Graph::EdgeHandle handle;
     int edge_type;
 };
+
+template<class Graph>
+std::ostream &
+operator << (std::ostream & stream, const EdgeT<Graph> & edge);
 
 
 /*****************************************************************************/

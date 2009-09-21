@@ -13,6 +13,7 @@
 #include "utils/hash_specializations.h"
 #include <stdint.h>
 #include <string>
+#include "utils/unnamed_bool.h"
 
 
 namespace JGraph {
@@ -56,6 +57,8 @@ struct Attribute {
     // Type of the attribute, according to the traits
     int type() const;
 
+    JML_IMPLEMENT_OPERATOR_BOOL(traits);
+
 private:
     union {
         AttributeValue value;
@@ -74,6 +77,7 @@ private:
     // always exactly what is required.
     Attribute();
     Attribute(const Attribute & other);
+
     Attribute(const AttributeTraits * traits,
               AttributeValue value,
               uint32_t flags);

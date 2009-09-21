@@ -130,6 +130,8 @@ void import_github()
 
     Parse_Context repo_desc_file("repo_descriptions.txt");
 
+    int found = 0, notfound = 0;
+
     while (repo_desc_file) {
         string full_repo_name = repo_desc_file.expect_text(':', false);
         repo_desc_file.expect_literal(':');
@@ -137,12 +139,15 @@ void import_github()
         repo_desc = unescape_json_string(repo_desc);
         repo_desc_file.expect_eol();
 
-        Node repo = unique(repo_node[repo_fullname_attr == full_repo_name]).get();
+        Node repo = unique(repo_node[repo_fullname_attr == full_repo_name]);
 
-        if (!repo) continue;
+        if (!repo) { ++notfound; continue; }
+        ++found;
 
         repo_desc_attr(repo, repo_desc);
     }
+
+    cerr << "desc: found " << found << " notfound " << notfound << endl;
 
 #if 0
     Parse_Context author_file("authors.txt");

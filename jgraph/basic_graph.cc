@@ -7,6 +7,7 @@
 
 #include "basic_graph.h"
 #include "utils/pair_utils.h"
+#include "jgraph.h"
 
 
 using namespace std;
@@ -36,6 +37,11 @@ setNodeAttr(int node_type, int node_handle, const Attribute & attr)
         throw Exception("BasicGraph::setNodeAttr: invalid node handle");
     Node & node = ncoll.nodes[node_handle];
     node.attributes.push_back(attr);
+
+    if (ncoll.attribute_index[attr.type()]) {
+        AttributeIndex & aindex = *ncoll.attribute_index[attr.type()];
+        aindex.insert(make_pair(AttributeRef(attr), node_handle));
+    }
 }
 
 int
@@ -150,6 +156,17 @@ getOrCreateEdge(int from_node_type,
     return result;
 }
 
+const AttributeRef &
+BasicGraph::AttributeSet::
+find(int type) const
+{
+    static const AttributeRef none;
+    for (const_iterator it = begin(), e = end();
+         it != e;  ++it)
+        if (it->type() == type) return *it;
+    return none;
+}
+
 BasicGraph::NodeSetGenerator
 BasicGraph::
 nodesMatchingAttr(int node_type, const Attribute & attr) const
@@ -163,7 +180,9 @@ nodesMatchingAttr(int node_type, const Attribute & attr) const
         = index.equal_range(attr);
 
     // TODO: iterator invalidation... need to lock the index while using
-    return NodeSetGenerator(node_type,
+    // TODO: deal properly with const/non-const graph semantics...
+    return NodeSetGenerator(const_cast<BasicGraph *>(this),
+                            node_type,
                             second_extractor(range.first),
                             second_extractor(range.second)
                             /*, lock the index for reading and release when done*/);
@@ -215,6 +234,45 @@ getOrCreate(const std::string & name)
     else result = it->second;
 
     return result;
+}
+
+BasicGraph::AttributeIndex &
+BasicGraph::NodeCollection::
+getAttributeIndex(int attr_num)
+{
+    boost::shared_ptr<AttributeIndex> & res
+        = attribute_index[attr_num];
+    if (!res) {
+        // Scan through all nodes and index their attributes
+        // Would be greatly improved with indexed attributes...
+        res.reset(new AttributeIndex());
+        for (unsigned i = 0;  i < nodes.size();  ++i) {
+            const AttributeRef & attr = nodes[i].attributes.find(attr_num);
+            if (attr) res->insert(make_pair(attr, i));
+        }
+    }
+    return *res;
+}
+
+NodeT<BasicGraph>
+BasicGraph::NodeSetGenerator::
+curr() const
+{
+    if (current == -1)
+        throw ML::Exception("NodeSetGenerator: no nodes");
+    return NodeT<BasicGraph>(graph, node_type, current);
+}
+
+bool
+BasicGraph::NodeSetGenerator::
+next()
+{
+    if (!values || index == values->size() - 1) {
+        current = -1;
+        return false;
+    }
+    current = (*values)[++index];
+    return current != -1;
 }
 
 } // namespace JGraph

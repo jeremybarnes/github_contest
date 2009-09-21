@@ -14,7 +14,7 @@ namespace JGraph {
 
 template<class Underlying>
 struct UniqueQueryResult {
-    typedef typename Underlying::ResultType ResultType; 
+    typedef typename Underlying::ResultType::ResultType ResultType; 
 
     UniqueQueryResult(const Underlying & underlying)
         : underlying(underlying)
@@ -23,7 +23,23 @@ struct UniqueQueryResult {
 
     Underlying underlying;
 
-    operator ResultType() const;
+    operator ResultType() const
+    {
+        // Here, we execute the query and return the result
+
+        typename Underlying::ResultType executed = underlying.execute();
+
+        if (!executed) return ResultType();
+
+        ResultType result = executed.curr();
+
+        if (executed.next()) {
+
+            throw ML::Exception("more than one result but unique() used");
+        }
+
+        return result;
+    }
 };
 
 
@@ -55,8 +71,9 @@ struct NodeAttributeEqualityPredicate {
         return node.hasAttrValue(attr);
     }
 
-    NodeQueryResult<Graph> generate() const
+    typename Graph::NodeSetGenerator execute() const
     {
+        return graph->nodesMatchingAttr(node_type, attr);
     }
 
     AttributeRef attr;
@@ -66,9 +83,18 @@ struct NodeAttributeEqualityPredicate {
 
 template<class Graph, class Predicate>
 struct SelectNodes {
-    typedef NodeQueryResult<Graph> ResultType;
+    typedef typename Graph::NodeSetGenerator ResultType;
+    SelectNodes(const Predicate & predicate)
+        : predicate(predicate)
+    {
+    }
 
+    Predicate predicate;
     
+    ResultType execute() const
+    {
+        return predicate.execute();
+    }
 };
 
 
