@@ -143,8 +143,8 @@ getOrCreateEdge(int from_node_type,
     new_edge.to_type = to_node_type;
     ecoll.edges.push_back(new_edge);
 
-    from_node.edges.push_back(EdgeRef(edge_type_handle,
-                                      true, // forward
+    from_node.edges.push_back(EdgeRef(true, // forward
+                                      edge_type_handle,
                                       to_node_type,
                                       to_node_handle,
                                       result));
@@ -153,8 +153,8 @@ getOrCreateEdge(int from_node_type,
     
     Node & to_node = ncoll_to.nodes.at(to_node_handle);
     
-    to_node.edges.push_back(EdgeRef(edge_type_handle,
-                                    false, // forward
+    to_node.edges.push_back(EdgeRef(false, // forward
+                                    edge_type_handle,
                                     from_node_type,
                                     from_node_handle,
                                     result));

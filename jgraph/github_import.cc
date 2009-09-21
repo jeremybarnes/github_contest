@@ -98,8 +98,8 @@ void import_github()
 
         Node repo, author;
         
-        authorof_edge(repo = repo_node(repo_id),
-                      author = author_node(author_name));
+        authorof_edge(author = author_node(author_name),
+                      repo = repo_node(repo_id));
         
         repo_file.expect_literal('/');
         string repo_name = repo_file.expect_text(',', false);
@@ -114,8 +114,7 @@ void import_github()
 
         if (repo_file.match_literal(',')) {
             int parent_id = repo_file.expect_int();
-
-            parentof_edge(repo, repo_node(parent_id));
+            parentof_edge(repo_node(parent_id), repo);
             depth = -1;
         }
 
