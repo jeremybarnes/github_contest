@@ -104,7 +104,7 @@ getOrCreateNode(int type,
     return id;
 }
 
-int
+std::pair<int, EdgeDirection>
 BasicGraph::
 getOrCreateEdge(int from_node_type,
                 int from_node_handle,
@@ -137,7 +137,7 @@ getOrCreateEdge(int from_node_type,
             && it->dest_type == to_node_type
             && it->dest_node == to_node_handle) {
             // found
-            return it->index;
+            return make_pair(it->index, direction);
         }
     }
 
@@ -155,7 +155,8 @@ getOrCreateEdge(int from_node_type,
                                       to_node_handle,
                                       result));
 
-    if (!targetNodeKnowsEdge(metadata.behavior)) return result;
+    if (!targetNodeKnowsEdge(metadata.behavior))
+        return make_pair(result, direction);
 
     // Let the target know about the node as well
     NodeCollection & ncoll_to = getNodeCollection(to_node_type);
@@ -168,7 +169,7 @@ getOrCreateEdge(int from_node_type,
                                     from_node_handle,
                                     result));
 
-    return result;
+    return make_pair(result, direction);
 }
 
 std::string

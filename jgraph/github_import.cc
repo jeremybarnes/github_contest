@@ -35,6 +35,7 @@
 #include <boost/program_options/parsers.hpp>
 #include <boost/program_options/variables_map.hpp>
 
+#include "jgraph/basic_graph_boost.h"
 #include <boost/graph/graph_traits.hpp>
 #include <boost/graph/topological_sort.hpp>
 
@@ -45,7 +46,8 @@ using namespace JGraph;
 typedef BasicGraph Graph;
 typedef NodeT<Graph> Node;
 typedef EdgeT<Graph> Edge;
-typedef EdgeSchemaT<Graph> EdgeSchema;
+typedef UnipartiteEdgeSchemaT<Graph> UniEdgeSchema;
+typedef BipartiteEdgeSchemaT<Graph> BiEdgeSchema;
 
 std::string unescape_json_string(const std::string & str)
 {
@@ -82,8 +84,8 @@ void import_github()
     NodeSchema1KeyT<Graph, int>  repo_node(graph, "repo", "id");
     NodeSchema1KeyT<Graph, Atom> author_node(graph, "author", "name");
 
-    EdgeSchema authorof_edge(graph, "authorof");
-    EdgeSchema parentof_edge(graph, "parentof");
+    BiEdgeSchema authorof_edge(graph, "authorof", author_node, repo_node);
+    UniEdgeSchema parentof_edge(graph, "parentof", repo_node);
     
     NodeAttributeSchema<Graph, Atom> repo_name_attr("name", repo_node);
     NodeAttributeSchema<Graph, Date> repo_date_attr("date", repo_node);
@@ -179,9 +181,9 @@ void import_github()
     }
 
     // Use boost::graph to calculate depth
-    
-
-
+    vector<Node> node_order;
+    BoostGraphAdaptor<UniEdgeSchema> boost_graph(parentof_edge);
+    boost::topological_sort(boost_graph, back_inserter(node_order));
 
 #if 0
     // Children.  Only direct ones for the moment.
@@ -300,7 +302,7 @@ void import_github()
 #endif
                      
     NodeSchema1KeyT<Graph, int> user_node(graph, "user", "id");
-    EdgeSchema watching_edge(graph, "watching");
+    BiEdgeSchema watching_edge(graph, "watching", user_node, repo_node);
 
     Parse_Context data_file("download/data.txt");
 

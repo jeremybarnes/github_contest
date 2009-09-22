@@ -34,6 +34,12 @@ struct NodeT {
     /// Set the given attribute
     void setAttr(const Attribute & value);
 
+    /// Does the node have any attribute of the given type?
+    bool hasAttr(int attr_type) const;
+
+    /// How many attributes does the node have of the given type?
+    int attrCount(int attr_type) const;
+
     /// Does the node have the given attribute value?
     bool hasAttrValue(const Attribute & attr) const;
 
@@ -68,6 +74,7 @@ template<class Graph>
 struct EdgeT {
     EdgeT();
     EdgeT(Graph * graph, int edge_type, int edge_handle,
+          EdgeDirection direction,
           int from_type, int from_handle, int to_type, int to_handle);
 
     /// Is it a real node?
@@ -82,9 +89,13 @@ struct EdgeT {
     /// Return the to node for the edge
     NodeT<Graph> to() const;
 
+    /// Return the direction of the edge
+    EdgeDirection direction() const;
+
     Graph * graph;
     int edge_type;
     typename Graph::EdgeHandle edge_handle;
+    EdgeDirection direction_;
     int from_type;
     typename Graph::NodeHandle from_handle;
     int to_type;
@@ -103,12 +114,14 @@ operator << (std::ostream & stream, const EdgeT<Graph> & edge);
 template<class Graph>
 struct SchemaT {
     SchemaT();
-    SchemaT(Graph & graph, ObjectType type);
+    SchemaT(Graph & graph);
+
+    typedef Graph GraphType;
+
+    Graph * graph() const { return graph_; }
 
 protected:
-    Graph * graph;
-    int handle;
-    ObjectType object_type;
+    Graph * graph_;
 };
 
 
@@ -130,38 +143,79 @@ struct NodeSchemaT : public SchemaT<Graph> {
     SelectNodes<Graph, Filter>
     operator [] (const Filter & filter) const;
 
+    int node_type() const { return node_type_; };
+
+    using SchemaT<Graph>::graph;
+
 private:
+    int node_type_;
+
     /// Debugging code to make sure node is initialized before we call any
     /// functions on it.  Compiling with NDEBUG will make this check a NOP.
     void check_initialized() const;
-
-    using SchemaT<Graph>::graph;
-    using SchemaT<Graph>::handle;
-    using SchemaT<Graph>::object_type;
 };
 
 
 /*****************************************************************************/
-/* EDGESCHEMAT                                                               */
+/* BIPARTITEEDGESCHEMAT                                                      */
 /*****************************************************************************/
 
 template<class Graph>
-struct EdgeSchemaT : public SchemaT<Graph> {
-    EdgeSchemaT(Graph & graph, const std::string & name,
-                EdgeBehavior behavior = EB_DOUBLE);
+struct BipartiteEdgeSchemaT : public SchemaT<Graph> {
+    BipartiteEdgeSchemaT(Graph & graph, const std::string & name,
+                         const NodeSchemaT<Graph> & from_schema,
+                         const NodeSchemaT<Graph> & to_schema,
+                         EdgeBehavior behavior = EB_DOUBLE);
     
     // Create an edge
     EdgeT<Graph> operator () (const NodeT<Graph> & from,
                               const NodeT<Graph> & to) const;
 
+    int edge_type() const { return edge_type_; }
+
+    int from_node_type() const { return from_node_schema_->node_type(); }
+    int to_node_type() const { return to_node_schema_->node_type(); }
+
+    using SchemaT<Graph>::graph;
+
+private:
+    int edge_type_;
+    const NodeSchemaT<Graph> * from_node_schema_;
+    const NodeSchemaT<Graph> * to_node_schema_;
+
+    /// Debugging code to make sure node is initialized before we call any
+    /// functions on it.  Compiling with NDEBUG will make this check a NOP.
+    void check_initialized() const;
+};
+
+/*****************************************************************************/
+/* UNIPARTITEEDGESCHEMAT                                                     */
+/*****************************************************************************/
+
+template<class Graph>
+struct UnipartiteEdgeSchemaT : public SchemaT<Graph> {
+    UnipartiteEdgeSchemaT(Graph & graph, const std::string & name,
+                          const NodeSchemaT<Graph> & node_schema,
+                          EdgeBehavior behavior = EB_DOUBLE);
+    
+    // Create an edge
+    EdgeT<Graph> operator () (const NodeT<Graph> & from,
+                              const NodeT<Graph> & to) const;
+
+    int edge_type() const { return edge_type_; }
+
+    int from_node_type() const { return node_schema_->node_type(); }
+    int to_node_type() const { return node_schema_->node_type(); }
+    int node_type() const { return node_schema_->node_type(); }
+
+    using SchemaT<Graph>::graph;
 private:
     /// Debugging code to make sure node is initialized before we call any
     /// functions on it.  Compiling with NDEBUG will make this check a NOP.
     void check_initialized() const;
 
-    using SchemaT<Graph>::graph;
-    using SchemaT<Graph>::handle;
-    using SchemaT<Graph>::object_type;
+    int edge_type_;
+    const NodeSchemaT<Graph> * node_schema_;
 };
 
 template<typename Payload, class Graph>
@@ -219,8 +273,8 @@ struct NodeAttributeSchema
 
     const NodeSchemaT<Graph> & node_schema;
 
-    int node_type() const { return node_schema.handle; }
-    Graph * graph() const { return node_schema.graph; }
+    int node_type() const { return node_schema.node_type(); }
+    Graph * graph() const { return node_schema.graph(); }
 };
 
 
@@ -262,11 +316,7 @@ struct NodeSchema1KeyT : public NodeSchemaT<Graph> {
     
     NodeAttributeSchema<Graph, Key1, Traits1> attr1;
 
-private:
     using SchemaT<Graph>::graph;
-    using SchemaT<Graph>::handle;
-    using SchemaT<Graph>::object_type;
-
 };
 
 } // namespace JGraph

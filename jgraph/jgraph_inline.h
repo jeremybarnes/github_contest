@@ -91,7 +91,7 @@ operator << (std::ostream & stream, const NodeT<Graph> & node)
 template<class Graph>
 EdgeT<Graph>::
 EdgeT()
-    : graph(0), edge_type(-1), edge_handle(-1),
+    : graph(0), edge_type(-1), edge_handle(-1), direction_(ED_FORWARDS),
       from_type(-1), from_handle(-1),
       to_type(-1), to_handle(-1)
 {
@@ -100,8 +100,10 @@ EdgeT()
 template<class Graph>
 EdgeT<Graph>::
 EdgeT(Graph * graph, int edge_type, int edge_handle,
+      EdgeDirection direction,
       int from_type, int from_handle, int to_type, int to_handle)
     : graph(graph), edge_type(edge_type), edge_handle(edge_handle),
+      direction_(direction),
       from_type(from_type), from_handle(from_handle),
       to_type(to_type), to_handle(to_handle)
 {
@@ -121,6 +123,14 @@ EdgeT<Graph>::
 to() const
 {
     return NodeT<Graph>(graph, to_type, to_handle);
+}
+
+template<class Graph>
+EdgeDirection
+EdgeT<Graph>::
+direction() const
+{
+    return direction_;
 }
 
 template<class Graph>
@@ -146,14 +156,14 @@ operator << (std::ostream & stream, const EdgeT<Graph> & edge)
 template<class Graph>
 SchemaT<Graph>::
 SchemaT()
-    : graph(0), handle(0), object_type(0)
+    : graph_(0)
 {
 }
 
 template<class Graph>
 SchemaT<Graph>::
-SchemaT(Graph & graph, ObjectType type)
-    : graph(&graph), handle(0), object_type(type)
+SchemaT(Graph & graph)
+    : graph_(&graph)
 {
 }
 
@@ -165,9 +175,9 @@ SchemaT(Graph & graph, ObjectType type)
 template<class Graph>
 NodeSchemaT<Graph>::
 NodeSchemaT(Graph & graph, const std::string & name)
-    : SchemaT<Graph>(graph, OT_NODE)
+    : SchemaT<Graph>(graph)
 {
-    this->handle = graph.addNodeType(name);
+    this->node_type_ = graph.addNodeType(name);
 }
 
 template<class Graph>
@@ -175,7 +185,8 @@ NodeT<Graph>
 NodeSchemaT<Graph>::
 operator () () const
 {
-    return NodeT<Graph>(graph, handle, graph->createNode(handle));
+    return NodeT<Graph>(graph(), node_type_,
+                        graph()->createNode(node_type_));
 }
 
 template<class Graph>
@@ -183,7 +194,8 @@ NodeT<Graph>
 NodeSchemaT<Graph>::
 operator () (const Attribute & attr1) const
 {
-    return NodeT<Graph>(graph, handle, graph->getOrCreateNode(handle, attr1));
+    return NodeT<Graph>(graph(), node_type_,
+                        graph()->getOrCreateNode(node_type_, attr1));
 }
 
 template<class Graph>
@@ -205,41 +217,101 @@ check_initialized() const
 
 
 /*****************************************************************************/
-/* EDGESCHEMAT                                                               */
+/* BIPARTITEEDGESCHEMAT                                                      */
 /*****************************************************************************/
 
 template<class Graph>
-EdgeSchemaT<Graph>::
-EdgeSchemaT(Graph & graph, const std::string & name,
-            EdgeBehavior behavior)
-    : SchemaT<Graph>(graph, OT_EDGE)
+BipartiteEdgeSchemaT<Graph>::
+BipartiteEdgeSchemaT(Graph & graph, const std::string & name,
+                     const NodeSchemaT<Graph> & from_node_schema,
+                     const NodeSchemaT<Graph> & to_node_schema,
+                     EdgeBehavior behavior)
+    : SchemaT<Graph>(graph),
+      from_node_schema_(&from_node_schema),
+      to_node_schema_(&to_node_schema)
 {
-    handle = graph.addEdgeType(name, behavior);
+    edge_type_ = graph.addEdgeType(name, behavior);
 }
 
 template<class Graph>
 EdgeT<Graph>
-EdgeSchemaT<Graph>::
+BipartiteEdgeSchemaT<Graph>::
 operator () (const NodeT<Graph> & from,
              const NodeT<Graph> & to) const
 {
-    if (from.graph != this->graph || to.graph != this->graph)
+    if (from.graph != this->graph() || to.graph != this->graph())
         throw Exception("attempt to create edge between graphs");
-    return EdgeT<Graph>(graph,
-                        this->handle,
-                        graph->getOrCreateEdge(from.node_type, from.handle,
-                                               to.node_type, to.handle,
-                                               this->handle),
+
+    if (from.node_type != from_node_schema_->node_type())
+        throw Exception("attempt to create edge from wrong node type");
+
+    if (to.node_type != to_node_schema_->node_type())
+        throw Exception("attempt to create edge to wrong node type");
+
+    std::pair<int, EdgeDirection> edge_params
+        = graph()->getOrCreateEdge(from.node_type, from.handle,
+                                 to.node_type, to.handle,
+                                   this->edge_type_);
+        
+    return EdgeT<Graph>(graph(),
+                        this->edge_type_,
+                        edge_params.first,
+                        edge_params.second,
                         from.node_type, from.handle,
                         to.node_type, to.handle);
 }
 
 template<class Graph>
 void
-EdgeSchemaT<Graph>::
+BipartiteEdgeSchemaT<Graph>::
 check_initialized() const
 {
-    check_initialized_impl(graph, "EdgeSchemaT");
+    check_initialized_impl(graph, "BipartiteEdgeSchemaT");
+}
+
+
+/*****************************************************************************/
+/* UNIPARTITEEDGESCHEMAT                                                     */
+/*****************************************************************************/
+
+template<class Graph>
+UnipartiteEdgeSchemaT<Graph>::
+UnipartiteEdgeSchemaT(Graph & graph, const std::string & name,
+                      const NodeSchemaT<Graph> & node_schema,
+                      EdgeBehavior behavior)
+    : SchemaT<Graph>(graph), node_schema_(&node_schema)
+{
+    edge_type_ = graph.addEdgeType(name, behavior);
+}
+
+template<class Graph>
+EdgeT<Graph>
+UnipartiteEdgeSchemaT<Graph>::
+operator () (const NodeT<Graph> & from,
+             const NodeT<Graph> & to) const
+{
+    if (from.graph != this->graph() || to.graph != this->graph())
+        throw Exception("attempt to create edge between graphs");
+
+    std::pair<int, EdgeDirection> edge_params
+        = graph()->getOrCreateEdge(from.node_type, from.handle,
+                                   to.node_type, to.handle,
+                                   this->edge_type_);
+    
+    return EdgeT<Graph>(graph(),
+                        this->edge_type_,
+                        edge_params.first,
+                        edge_params.second,
+                        from.node_type, from.handle,
+                        to.node_type, to.handle);
+}
+
+template<class Graph>
+void
+UnipartiteEdgeSchemaT<Graph>::
+check_initialized() const
+{
+    check_initialized_impl(graph, "UnipartiteEdgeSchemaT");
 }
 
 
@@ -254,8 +326,9 @@ AttributeSchema(const std::string & name,
                 const NodeSchemaT<Graph> & node_schema)
 {
     std::pair<int, AttributeTraits *> result
-        = node_schema.graph->addNodeAttributeType(name, node_schema.handle,
-                                                  make_sp(new Traits()));
+        = node_schema.graph()->addNodeAttributeType(name,
+                                                    node_schema.node_type(),
+                                                    make_sp(new Traits()));
 
     attr_handle = result.first;
     traits = dynamic_cast<Traits *>(result.second);
@@ -268,7 +341,8 @@ AttributeSchema(const std::string & name,
                 const EdgeSchemaT<Graph> & edge_schema)
 {
     std::pair<int, AttributeTraits *> result
-        = edge_schema.graph->addEdgeAttributeType(name, edge_schema.handle,
+        = edge_schema.graph->addEdgeAttributeType(name,
+                                                  edge_schema.edge_type(),
                                                   make_sp(new Traits()));
     attr_handle = result.first;
     traits = dynamic_cast<Traits *>(result.second);
@@ -313,7 +387,7 @@ operator () (const NodeT<Graph> & node,
              const Payload & val) const
 {
     AttributeRef attr = traits->encode(val);
-    node.graph->setNodeAttr(node_schema.handle, node.handle, attr);
+    node.graph->setNodeAttr(node_schema.node_type(), node.handle, attr);
     return attr;
 }
 
@@ -325,7 +399,7 @@ operator () (const NodeT<Graph> & node,
              const Other & val) const
 {
     AttributeRef attr = traits->encode(val);
-    node.graph->setNodeAttr(node_schema.handle, node.handle, attr);
+    node.graph->setNodeAttr(node_schema.node_type(), node.handle, attr);
     return attr;
 }
 

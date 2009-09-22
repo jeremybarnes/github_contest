@@ -64,15 +64,21 @@ struct BasicGraph {
     std::string printNode(int node_type, int node_handle) const;
 
     /// Create a new edge, returning its handle
-    int getOrCreateEdge(int from_node_type,
-                        int from_node_handle,
-                        int to_node_type,
-                        int to_node_handle,
-                        int edge_type_handle);
+    std::pair<int, EdgeDirection>
+    getOrCreateEdge(int from_node_type,
+                    int from_node_handle,
+                    int to_node_type,
+                    int to_node_handle,
+                    int edge_type_handle);
 
     // Generate nodes from a set, with a coherent node type
     struct CoherentNodeSetGenerator {
         typedef NodeT<BasicGraph> ResultType;
+
+        CoherentNodeSetGenerator()
+            : graph(0), node_type(-1), current(-1), index(0)
+        {
+        }
 
         template<class Iterator>
         CoherentNodeSetGenerator(BasicGraph * graph, int node_type,
@@ -118,6 +124,13 @@ struct BasicGraph {
     /// Query nodes of the given type with the given attribute
     CoherentNodeSetGenerator
     nodesMatchingAttr(int node_type, const Attribute & attr) const;
+
+    /// Return all nodes in the graph of the given type
+    CoherentNodeSetGenerator
+    allNodesOfType(int node_type) const;
+
+    /// Return the number of nodes of the given type in the graph
+    int numNodesOfType(int node_type) const;
 
 private:
     int handle;

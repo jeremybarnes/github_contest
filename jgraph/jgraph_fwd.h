@@ -10,6 +10,7 @@
 
 
 #include <stdint.h>
+#include <iosfwd>
 #include "compiler/compiler.h"
 
 namespace JGraph {
@@ -33,11 +34,14 @@ class AttributeTraits;
 template<typename Payload>
 struct DefaultAttributeTraits;
 
-
 enum ObjectType {
     OT_NODE,
     OT_EDGE
 };
+
+std::string print(ObjectType ot);
+
+std::ostream & operator << (std::ostream & stream, ObjectType ot);
 
 enum EdgeBehavior {
     EB_SINGLE,     ///< Directional; only the thing at one end knows about it
@@ -45,11 +49,20 @@ enum EdgeBehavior {
     EB_SYMMETRIC   ///< Non-directional; both ends know about it
 };
 
+std::string print(EdgeBehavior eb);
+
+std::ostream & operator << (std::ostream & stream, EdgeBehavior eb);
+
 enum EdgeDirection {
     ED_FORWARDS,     ///< Edge goes forwards
     ED_BACKWARDS,    ///< Edge goes backwards
     ED_BIDIRECTIONAL ///< Edge goes forwards and backwards
 };
+
+std::string print(EdgeDirection ed);
+std::string printPreposition(EdgeDirection ed);
+
+std::ostream & operator << (std::ostream & stream, EdgeDirection ed);
 
 inline EdgeDirection defaultDirection(EdgeBehavior behavior)
 {
