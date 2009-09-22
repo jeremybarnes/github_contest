@@ -91,15 +91,44 @@ operator << (std::ostream & stream, const NodeT<Graph> & node)
 template<class Graph>
 EdgeT<Graph>::
 EdgeT()
-    : graph(0), handle(-1)
+    : graph(0), edge_type(-1), edge_handle(-1),
+      from_type(-1), from_handle(-1),
+      to_type(-1), to_handle(-1)
 {
 }
 
 template<class Graph>
 EdgeT<Graph>::
-EdgeT(Graph * graph, int edge_type, int handle)
-    : graph(0), handle(handle), edge_type(edge_type)
+EdgeT(Graph * graph, int edge_type, int edge_handle,
+      int from_type, int from_handle, int to_type, int to_handle)
+    : graph(graph), edge_type(edge_type), edge_handle(edge_handle),
+      from_type(from_type), from_handle(from_handle),
+      to_type(to_type), to_handle(to_handle)
 {
+}
+
+template<class Graph>
+NodeT<Graph>
+EdgeT<Graph>::
+from() const
+{
+    return NodeT<Graph>(graph, from_type, from_handle);
+}
+
+template<class Graph>
+NodeT<Graph>
+EdgeT<Graph>::
+to() const
+{
+    return NodeT<Graph>(graph, to_type, to_handle);
+}
+
+template<class Graph>
+std::string
+EdgeT<Graph>::
+print() const
+{
+    return graph->printEdge(edge_type, edge_handle);
 }
 
 template<class Graph>
@@ -200,7 +229,9 @@ operator () (const NodeT<Graph> & from,
                         this->handle,
                         graph->getOrCreateEdge(from.node_type, from.handle,
                                                to.node_type, to.handle,
-                                               this->handle));
+                                               this->handle),
+                        from.node_type, from.handle,
+                        to.node_type, to.handle);
 }
 
 template<class Graph>

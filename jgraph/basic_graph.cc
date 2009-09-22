@@ -68,7 +68,7 @@ addNodeAttributeType(const std::string & name, int node_type,
 {
     // TODO: do something with node_type
     int val = node_attr_metadata.getOrCreate(name);
-    Metadata::Entry & entry = node_attr_metadata.entries[val];
+    NodeMetadataEntry & entry = node_attr_metadata.entries[val];
     suggested_traits->setType(val);
     suggested_traits->setName(name);
     if (entry.traits)
@@ -79,17 +79,17 @@ addNodeAttributeType(const std::string & name, int node_type,
 
 int
 BasicGraph::
-createNode(int type_handle)
+createNode(int type)
 {
     throw Exception("createNode: not done yet");
 }
 
 int
 BasicGraph::
-getOrCreateNode(int type_handle,
+getOrCreateNode(int type,
                 const Attribute & attribute)
 {
-    NodeCollection & ncoll = getNodeCollection(type_handle);
+    NodeCollection & ncoll = getNodeCollection(type);
 
     AttributeIndex & index = ncoll.getAttributeIndex(attribute.type());
 
@@ -110,9 +110,9 @@ getOrCreateEdge(int from_node_type,
                 int from_node_handle,
                 int to_node_type,
                 int to_node_handle,
-                int edge_type_handle)
+                int edge_type)
 {
-    EdgeCollection & ecoll = getEdgeCollection(edge_type_handle);
+    EdgeCollection & ecoll = getEdgeCollection(edge_type);
     
     /* Find the from node, and look for the edge there */
     
@@ -122,12 +122,18 @@ getOrCreateEdge(int from_node_type,
     
     // TODO: various optimizations possible...
 
+    // Find the right direction to create
+    const EdgeMetadataEntry & metadata
+        = edge_metadata.entries[edge_type];
+
+    EdgeDirection direction = defaultDirection(metadata.behavior);
+
     for (EdgeRefList::const_iterator
              it = from_node.edges.begin(),
              end = from_node.edges.end();
          it != end;  ++it) {
-        if (it->forward == true
-            && it->edge_type == edge_type_handle
+        if (it->direction == direction
+            && it->edge_type == edge_type
             && it->dest_type == to_node_type
             && it->dest_node == to_node_handle) {
             // found
@@ -143,18 +149,21 @@ getOrCreateEdge(int from_node_type,
     new_edge.to_type = to_node_type;
     ecoll.edges.push_back(new_edge);
 
-    from_node.edges.push_back(EdgeRef(true, // forward
-                                      edge_type_handle,
+    from_node.edges.push_back(EdgeRef(direction,
+                                      edge_type,
                                       to_node_type,
                                       to_node_handle,
                                       result));
 
+    if (!targetNodeKnowsEdge(metadata.behavior)) return result;
+
+    // Let the target know about the node as well
     NodeCollection & ncoll_to = getNodeCollection(to_node_type);
     
     Node & to_node = ncoll_to.nodes.at(to_node_handle);
     
-    to_node.edges.push_back(EdgeRef(false, // forward
-                                    edge_type_handle,
+    to_node.edges.push_back(EdgeRef(!direction,
+                                    edge_type,
                                     from_node_type,
                                     from_node_handle,
                                     result));
@@ -195,7 +204,10 @@ printNode(int node_type, int node_handle) const
     for (unsigned i = 0;  i < node.edges.size();  ++i) {
         const EdgeRef & edge = node.edges[i];
         string edge_type = edge_metadata.entries.at(edge.edge_type).name;
-        string tofrom = (edge.forward ? "TO" : "FROM");
+        string tofrom = (edge.direction == ED_FORWARDS
+                         ? "TO"
+                         : (edge.direction == ED_BACKWARDS
+                            ? "FROM" : "TOFROM"));
 
         const NodeCollection & dest_ncoll = getNodeCollection(edge.dest_type);
 
@@ -219,7 +231,7 @@ printNode(int node_type, int node_handle) const
     return result;
 }
 
-BasicGraph::NodeSetGenerator
+BasicGraph::CoherentNodeSetGenerator
 BasicGraph::
 nodesMatchingAttr(int node_type, const Attribute & attr) const
 {
@@ -233,7 +245,7 @@ nodesMatchingAttr(int node_type, const Attribute & attr) const
 
     // TODO: iterator invalidation... need to lock the index while using
     // TODO: deal properly with const/non-const graph semantics...
-    return NodeSetGenerator(const_cast<BasicGraph *>(this),
+    return CoherentNodeSetGenerator(const_cast<BasicGraph *>(this),
                             node_type,
                             second_extractor(range.first),
                             second_extractor(range.second)
@@ -279,12 +291,13 @@ find(int type) const
     return none;
 }
 
+template<class Entry>
 int
-BasicGraph::Metadata::
+BasicGraph::Metadata<Entry>::
 getOrCreate(const std::string & name)
 {
     int result;
-    Index::const_iterator it
+    typename Index::const_iterator it
         = index.find(name);
     if (it == index.end()) {
         result = entries.size();
@@ -318,7 +331,7 @@ getAttributeIndex(int attr_num)
 }
 
 NodeT<BasicGraph>
-BasicGraph::NodeSetGenerator::
+BasicGraph::CoherentNodeSetGenerator::
 curr() const
 {
     if (current == -1)
@@ -327,7 +340,7 @@ curr() const
 }
 
 bool
-BasicGraph::NodeSetGenerator::
+BasicGraph::CoherentNodeSetGenerator::
 next()
 {
     if (!values || index == values->size() - 1) {

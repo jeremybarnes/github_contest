@@ -67,7 +67,8 @@ operator << (std::ostream & stream, const NodeT<Graph> & node);
 template<class Graph>
 struct EdgeT {
     EdgeT();
-    EdgeT(Graph * graph, int edge_type, int handle);
+    EdgeT(Graph * graph, int edge_type, int edge_handle,
+          int from_type, int from_handle, int to_type, int to_handle);
 
     /// Is it a real node?
     JML_IMPLEMENT_OPERATOR_BOOL(edge_type != -1);
@@ -75,9 +76,19 @@ struct EdgeT {
     std::string print() const;
     std::string display(int indent) const;
 
+    /// Return the from node for the edge
+    NodeT<Graph> from() const;
+
+    /// Return the to node for the edge
+    NodeT<Graph> to() const;
+
     Graph * graph;
-    typename Graph::EdgeHandle handle;
     int edge_type;
+    typename Graph::EdgeHandle edge_handle;
+    int from_type;
+    typename Graph::NodeHandle from_handle;
+    int to_type;
+    typename Graph::NodeHandle to_handle;
 };
 
 template<class Graph>
@@ -137,7 +148,7 @@ private:
 template<class Graph>
 struct EdgeSchemaT : public SchemaT<Graph> {
     EdgeSchemaT(Graph & graph, const std::string & name,
-               EdgeBehavior behavior = ED_DOUBLE);
+                EdgeBehavior behavior = EB_DOUBLE);
     
     // Create an edge
     EdgeT<Graph> operator () (const NodeT<Graph> & from,

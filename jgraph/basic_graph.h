@@ -70,28 +70,13 @@ struct BasicGraph {
                         int to_node_handle,
                         int edge_type_handle);
 
-#if 0
-    struct NodeSetGenerator {
-    private:
-        boost::function<bool (void *)> increment;
-        boost::function<int (void *)> generate;
-        boost::function<void (void *)> done;
-        int node_type;
-        void * data;
-        bool valid;
-    public:
-        JML_IMPLEMENT_OPERATOR_BOOL(!valid);
-        bool next() const;// { return increment(data); }
-        int operator * () const;
-    };
-#else
-    // Generate nodes from a set
-    struct NodeSetGenerator {
+    // Generate nodes from a set, with a coherent node type
+    struct CoherentNodeSetGenerator {
         typedef NodeT<BasicGraph> ResultType;
 
         template<class Iterator>
-        NodeSetGenerator(BasicGraph * graph, int node_type,
-                         Iterator first, Iterator last)
+        CoherentNodeSetGenerator(BasicGraph * graph, int node_type,
+                                 Iterator first, Iterator last)
             : graph(graph), node_type(node_type)
         {
             if (first == last) {
@@ -129,23 +114,31 @@ struct BasicGraph {
         int current;
         int index;
     };
-#endif
 
     /// Query nodes of the given type with the given attribute
-    NodeSetGenerator
+    CoherentNodeSetGenerator
     nodesMatchingAttr(int node_type, const Attribute & attr) const;
 
 private:
     int handle;
     std::string name;
 
-    struct Metadata {
-        struct Entry {
-            std::string name;
-            int id;
-            boost::shared_ptr<AttributeTraits> traits;
-        };
+    struct MetadataEntry {
+        std::string name;
+        int id;
+        boost::shared_ptr<AttributeTraits> traits;
+    };
 
+    typedef MetadataEntry NodeMetadataEntry;
+
+    struct EdgeMetadataEntry : MetadataEntry {
+        EdgeBehavior behavior;
+    };
+
+    typedef MetadataEntry AttrMetadataEntry;
+
+    template<class Entry>
+    struct Metadata {
         typedef std::hash_map<std::string, int> Index;
         Index index;
         std::vector<Entry> entries;
@@ -153,9 +146,9 @@ private:
         int getOrCreate(const std::string & name);
     };
 
-    Metadata node_metadata, edge_metadata;
-
-    Metadata node_attr_metadata, edge_attr_metadata;
+    Metadata<NodeMetadataEntry> node_metadata;
+    Metadata<EdgeMetadataEntry> edge_metadata;
+    Metadata<AttrMetadataEntry> node_attr_metadata, edge_attr_metadata;
 
     typedef ML::compact_vector<AttributeRef, 1> AttributeSetBase;
 
@@ -165,15 +158,15 @@ private:
 
     // TODO: compact...
     struct EdgeRef {
-        EdgeRef(bool forward = false, int edge_type = 0,
+        EdgeRef(EdgeDirection dir = ED_FORWARDS, int edge_type = 0,
                 int dest_type = -1, int dest_node = -1,
                 int index = -1)
-            : forward(forward), edge_type(edge_type), dest_type(dest_type),
+            : direction(direction), edge_type(edge_type), dest_type(dest_type),
               dest_node(dest_node), index(index)
         {
         }
 
-        bool forward;
+        EdgeDirection direction;
         int edge_type;   // type of the edge
         int dest_type;   // type of destination of the edge
         int dest_node;   // node index of destination of the edge
@@ -181,7 +174,7 @@ private:
  
         bool operator < (const EdgeRef & other) const
         {
-            return ML::less_all(forward, other.forward,
+            return ML::less_all(direction, other.direction,
                                 edge_type, other.edge_type,
                                 dest_type, other.dest_type,
                                 dest_node, other.dest_node,

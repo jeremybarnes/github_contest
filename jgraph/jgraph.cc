@@ -6,8 +6,16 @@
 */
 
 #include "jgraph.h"
+#include "arch/exception.h"
 
-namespace JGDS {
+using namespace ML;
+
+namespace JGraph {
+
+void throw_bad_edge_direction(const EdgeDirection & ed)
+{
+    throw Exception("bad edge direction");
+}
 
 
 

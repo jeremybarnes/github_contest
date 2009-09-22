@@ -71,7 +71,7 @@ struct NodeAttributeEqualityPredicate {
         return node.hasAttrValue(attr);
     }
 
-    typename Graph::NodeSetGenerator execute() const
+    typename Graph::CoherentNodeSetGenerator execute() const
     {
         return graph->nodesMatchingAttr(node_type, attr);
     }
@@ -83,7 +83,7 @@ struct NodeAttributeEqualityPredicate {
 
 template<class Graph, class Predicate>
 struct SelectNodes {
-    typedef typename Graph::NodeSetGenerator ResultType;
+    typedef typename Graph::CoherentNodeSetGenerator ResultType;
     SelectNodes(const Predicate & predicate)
         : predicate(predicate)
     {
