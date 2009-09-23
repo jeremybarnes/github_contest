@@ -38,6 +38,9 @@ BOOST_AUTO_TEST_CASE( test1 )
     Node n2 = node(2);
     edge(n1, n2);
 
+    cerr << "n1 = " << n1 << endl;
+    cerr << "n2 = " << n2 << endl;
+
     vector<Node> search_results;
     BoostGraphAdaptor<UnipartiteEdgeSchemaT<BasicGraph> >
         boost_graph(edge);

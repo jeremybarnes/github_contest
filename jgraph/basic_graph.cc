@@ -73,6 +73,7 @@ addEdgeType(const std::string & name,
             const EdgeBehavior & behavior)
 {
     int result = edge_metadata.getOrCreate(name);
+    edge_metadata.entries[result].behavior = behavior;
     return result;
 }
 
