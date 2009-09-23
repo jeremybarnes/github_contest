@@ -57,7 +57,35 @@ NodeT<Graph>::
 setAttr(const Attribute & attr)
 {
     check_initialized();
-    graph->setNodeAttr(handle, attr);
+    graph->setNodeAttr(node_type, handle, attr);
+}
+
+template<class Graph>
+template<class Schema>
+typename Schema::PayloadType
+NodeT<Graph>::
+getAttr(const Schema & schema) const
+{
+    check_initialized();
+    AttributeRef attr
+        = graph->getNodeAttr(node_type, handle, schema.attr_handle);
+    if (!attr)
+        throw Exception("attribute not found");
+    return schema.traits->decode(attr);
+}
+
+template<class Graph>
+template<class Schema>
+typename Schema::PayloadType
+NodeT<Graph>::
+getAttrOrDefault(const Schema & schema,
+                 const typename Schema::PayloadType & if_not_found) const
+{
+    check_initialized();
+    AttributeRef attr
+        = graph->getNodeAttr(node_type, handle, schema.attr_handle);
+    if (!attr) return if_not_found;
+    return schema.traits->decode(attr);
 }
 
 template<class Graph>

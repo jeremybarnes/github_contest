@@ -10,7 +10,9 @@
 #include "utils/string_functions.h"
 
 
+using namespace std;
 using namespace ML;
+
 
 namespace JGraph {
 
@@ -71,6 +73,11 @@ std::ostream & operator << (std::ostream & stream, EdgeDirection ed)
 void throw_bad_edge_direction(const EdgeDirection & ed)
 {
     throw Exception("bad edge direction");
+}
+
+void throw_uninitialized_exception(const char * object)
+{
+    throw Exception(string("uninitialized object: ") + object);
 }
 
 

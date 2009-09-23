@@ -37,6 +37,7 @@ struct IntTraits : public ScalarAttributeTraits {
     virtual ~IntTraits();
 
     AttributeRef encode(int val) const;
+    int decode(const Attribute & attr) const;
     virtual std::string print(const Attribute & attr) const;
 };
 

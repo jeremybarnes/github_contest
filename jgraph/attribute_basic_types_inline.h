@@ -21,6 +21,13 @@ encode(int val) const
     return createScalarAttribute(val, FLAGS);
 }
 
+inline int
+IntTraits::
+decode(const Attribute & attr) const
+{
+    return getValue(attr);
+}
+
 } // namespace JGraph
 
 #endif /* __jgraph__attribute_basic_types_inline_h__ */
