@@ -153,22 +153,22 @@ common_feature_space()
 {
     ML::Dense_Feature_Space result;
 
-    result.add_feature("density", Feature_Info::REAL);
-    result.add_feature("user_id", Feature_Info::REAL);
-    result.add_feature("user_repo_id_ratio", Feature_Info::REAL);
-    result.add_feature("user_watched_repos", Feature_Info::REAL);
-    result.add_feature("repo_watched_users", Feature_Info::REAL);
-    result.add_feature("repo_lines_of_code", Feature_Info::REAL);
-    result.add_feature("user_prob", Feature_Info::REAL);
-    result.add_feature("user_prob_rank", Feature_Info::REAL);
-    result.add_feature("repo_prob", Feature_Info::REAL);
-    result.add_feature("repo_prob_rank", Feature_Info::REAL);
-    result.add_feature("user_repo_prob", Feature_Info::REAL);
-    result.add_feature("repo_has_parent", Feature_Info::REAL);
-    result.add_feature("repo_num_children", Feature_Info::REAL);
-    result.add_feature("repo_num_ancestors", Feature_Info::REAL);
-    result.add_feature("repo_num_siblings", Feature_Info::REAL);
-    result.add_feature("repo_parent_watchers", Feature_Info::REAL);
+    result.add_feature("density", REAL);
+    result.add_feature("user_id", REAL);
+    result.add_feature("user_repo_id_ratio", REAL);
+    result.add_feature("user_watched_repos", REAL);
+    result.add_feature("repo_watched_users", REAL);
+    result.add_feature("repo_lines_of_code", REAL);
+    result.add_feature("user_prob", REAL);
+    result.add_feature("user_prob_rank", REAL);
+    result.add_feature("repo_prob", REAL);
+    result.add_feature("repo_prob_rank", REAL);
+    result.add_feature("user_repo_prob", REAL);
+    result.add_feature("repo_has_parent", REAL);
+    result.add_feature("repo_num_children", REAL);
+    result.add_feature("repo_num_ancestors", REAL);
+    result.add_feature("repo_num_siblings", REAL);
+    result.add_feature("repo_parent_watchers", REAL);
 
     return result;
 }
@@ -467,10 +467,10 @@ struct Cooc_Source : public Candidate_Source {
     specific_feature_space() const
     {
         Dense_Feature_Space result;
-        result.add_feature("cooc_total_score", Feature_Info::REAL);
-        result.add_feature("cooc_max_score", Feature_Info::REAL);
-        result.add_feature("cooc_avg_score", Feature_Info::REAL);
-        result.add_feature("cooc_num_scores", Feature_Info::REAL);
+        result.add_feature("cooc_total_score", REAL);
+        result.add_feature("cooc_max_score", REAL);
+        result.add_feature("cooc_avg_score", REAL);
+        result.add_feature("cooc_num_scores", REAL);
         return result;
     }
 
@@ -565,19 +565,19 @@ struct In_Cluster_Repo_Source : public Candidate_Source {
     {
         Dense_Feature_Space result;
         result.add_feature("rcluster_num_watched_in_cluster",
-                           Feature_Info::REAL);
+                           REAL);
         result.add_feature("rcluster_prop_watched_in_cluster",
-                           Feature_Info::REAL);
+                           REAL);
         result.add_feature("rcluster_rank_in_cluster",
-                           Feature_Info::REAL);
+                           REAL);
         result.add_feature("rcluster_best_dp_in_cluster",
-                           Feature_Info::REAL);
+                           REAL);
         result.add_feature("rcluster_best_norm_dp_in_cluster",
-                           Feature_Info::REAL);
+                           REAL);
         result.add_feature("rcluster_best_keyword_dp_in_cluster",
-                           Feature_Info::REAL);
+                           REAL);
         result.add_feature("rcluster_best_norm_keyword_dp_in_cluster",
-                           Feature_Info::REAL);
+                           REAL);
         return result;
     }
 
@@ -686,10 +686,10 @@ struct In_Cluster_User_Source : public Candidate_Source {
     specific_feature_space() const
     {
         Dense_Feature_Space result;
-        result.add_feature("ucluster_num_watchers", Feature_Info::REAL);
-        result.add_feature("ucluster_watcher_score", Feature_Info::REAL);
-        result.add_feature("ucluster_highest_dp", Feature_Info::REAL);
-        result.add_feature("ucluster_highest_dp_norm", Feature_Info::REAL);
+        result.add_feature("ucluster_num_watchers", REAL);
+        result.add_feature("ucluster_watcher_score", REAL);
+        result.add_feature("ucluster_highest_dp", REAL);
+        result.add_feature("ucluster_highest_dp_norm", REAL);
         return result;
     }
 
@@ -864,18 +864,18 @@ struct By_Watched_Author_Source : public Candidate_Source {
     specific_feature_space() const
     {
         Dense_Feature_Space result;
-        result.add_feature("author_already_watched_num", Feature_Info::REAL);
-        result.add_feature("author_unwatched_num", Feature_Info::REAL);
+        result.add_feature("author_already_watched_num", REAL);
+        result.add_feature("author_unwatched_num", REAL);
         result.add_feature("author_already_watched_prop",
-                           Feature_Info::REAL);
+                           REAL);
         result.add_feature("author_num_watchers_already",
-                           Feature_Info::REAL);
+                           REAL);
         result.add_feature("author_prop_watchers_already",
-                           Feature_Info::REAL);
-        result.add_feature("author_abs_rank", Feature_Info::REAL);
-        result.add_feature("author_abs_percentile", Feature_Info::REAL);
-        result.add_feature("author_unwatched_rank", Feature_Info::REAL);
-        result.add_feature("author_unwatched_percentile", Feature_Info::REAL);
+                           REAL);
+        result.add_feature("author_abs_rank", REAL);
+        result.add_feature("author_abs_percentile", REAL);
+        result.add_feature("author_unwatched_rank", REAL);
+        result.add_feature("author_unwatched_percentile", REAL);
 
         return result;
     }
@@ -1044,19 +1044,19 @@ struct Same_Name_Source : public Candidate_Source {
     specific_feature_space() const
     {
         Dense_Feature_Space result;
-        result.add_feature("same_name_already_watched_num", Feature_Info::REAL);
-        result.add_feature("same_name_unwatched_num", Feature_Info::REAL);
+        result.add_feature("same_name_already_watched_num", REAL);
+        result.add_feature("same_name_unwatched_num", REAL);
         result.add_feature("same_name_already_watched_prop",
-                           Feature_Info::REAL);
+                           REAL);
         result.add_feature("same_name_num_watchers_already",
-                           Feature_Info::REAL);
+                           REAL);
         result.add_feature("same_name_prop_watchers_already",
-                           Feature_Info::REAL);
-        result.add_feature("same_name_abs_rank", Feature_Info::REAL);
-        result.add_feature("same_name_abs_percentile", Feature_Info::REAL);
-        result.add_feature("same_name_unwatched_rank", Feature_Info::REAL);
+                           REAL);
+        result.add_feature("same_name_abs_rank", REAL);
+        result.add_feature("same_name_abs_percentile", REAL);
+        result.add_feature("same_name_unwatched_rank", REAL);
         result.add_feature("same_name_unwatched_percentile",
-                           Feature_Info::REAL);
+                           REAL);
 
         return result;
     }
@@ -1175,9 +1175,9 @@ struct Probability_Propagation_Source : public Candidate_Source {
     specific_feature_space() const
     {
         Dense_Feature_Space result;
-        result.add_feature("prob_prop_total_prob", Feature_Info::REAL);
-        result.add_feature("prob_prop_nusers", Feature_Info::REAL);
-        result.add_feature("prob_prop_prop_per_user", Feature_Info::REAL);
+        result.add_feature("prob_prop_total_prob", REAL);
+        result.add_feature("prob_prop_nusers", REAL);
+        result.add_feature("prob_prop_prop_per_user", REAL);
         return result;
     }
 
