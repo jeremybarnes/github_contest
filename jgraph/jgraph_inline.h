@@ -61,6 +61,15 @@ setAttr(const Attribute & attr)
 }
 
 template<class Graph>
+void
+NodeT<Graph>::
+setOrReplaceAttr(const Attribute & attr)
+{
+    check_initialized();
+    graph->setOrReplaceNodeAttr(node_type, handle, attr);
+}
+
+template<class Graph>
 template<class Schema>
 typename Schema::PayloadType
 NodeT<Graph>::
@@ -86,6 +95,28 @@ getAttrOrDefault(const Schema & schema,
         = graph->getNodeAttr(node_type, handle, schema.attr_handle);
     if (!attr) return if_not_found;
     return schema.traits->decode(attr);
+}
+
+template<class Graph>
+template<class EdgeSchema>
+std::pair<typename Graph::IncidentEdgeIterator,
+          typename Graph::IncidentEdgeIterator>
+NodeT<Graph>::
+outEdges(const EdgeSchema & edge_schema) const
+{
+    return graph->getIncidentEdges(node_type, handle, edge_schema.edge_type(),
+                                   true /* out */);
+}
+
+template<class Graph>
+template<class EdgeSchema>
+std::pair<typename Graph::IncidentEdgeIterator,
+          typename Graph::IncidentEdgeIterator>
+NodeT<Graph>::
+inEdges(const EdgeSchema & edge_schema) const
+{
+    return graph->getIncidentEdges(node_type, handle, edge_schema.edge_type(),
+                                   false /* out */);
 }
 
 template<class Graph>
@@ -402,9 +433,10 @@ operator () (const Other & other) const
 template<class Graph, class Payload, class Traits>
 NodeAttributeSchema<Graph, Payload, Traits>::
 NodeAttributeSchema(const std::string & name,
-                    const NodeSchemaT<Graph> & node_schema)
+                    const NodeSchemaT<Graph> & node_schema,
+                    Uniqueness unique)
     : AttributeSchema<Payload, Traits>(name, node_schema),
-      node_schema(node_schema)
+      node_schema(node_schema), unique(unique)
 {
 }
 
@@ -415,7 +447,9 @@ operator () (const NodeT<Graph> & node,
              const Payload & val) const
 {
     AttributeRef attr = traits->encode(val);
-    node.graph->setNodeAttr(node_schema.node_type(), node.handle, attr);
+    if (unique == UNIQUE)
+        node.graph->setOrReplaceNodeAttr(node_schema.node_type(), node.handle, attr);
+    else node.graph->setNodeAttr(node_schema.node_type(), node.handle, attr);
     return attr;
 }
 
@@ -427,7 +461,9 @@ operator () (const NodeT<Graph> & node,
              const Other & val) const
 {
     AttributeRef attr = traits->encode(val);
-    node.graph->setNodeAttr(node_schema.node_type(), node.handle, attr);
+    if (unique == UNIQUE)
+        node.graph->setOrReplaceNodeAttr(node_schema.node_type(), node.handle, attr);
+    else node.graph->setNodeAttr(node_schema.node_type(), node.handle, attr);
     return attr;
 }
 

@@ -1,4 +1,4 @@
-/* jgraph.h                                                        -*- C++ -*-
+/*  jgraph.h                                                        -*- C++ -*-
     Jeremy Barnes, 14 September 2009
     Copyright (c) 2009 Jeremy Barnes.  All rights reserved.
 */
@@ -33,6 +33,9 @@ struct NodeT {
 
     /// Set the given attribute
     void setAttr(const Attribute & value);
+
+    /// Set the given attribute or replace it with a new value
+    void setOrReplaceAttr(const Attribute & value);
 
     /// Does the node have any attribute of the given type?
     bool hasAttr(int attr_type) const;
@@ -276,6 +279,10 @@ struct AttributeSchema {
     const Traits * traits;
 };
 
+enum Uniqueness {
+    UNIQUE,
+    NOT_UNIQUE
+};
 
 /*****************************************************************************/
 /* NODEATTRIBUTESCHEMA                                                       */
@@ -287,7 +294,8 @@ template<class Graph, class Payload,
 struct NodeAttributeSchema
     : AttributeSchema<Payload, Traits> {
     NodeAttributeSchema(const std::string & name,
-                        const NodeSchemaT<Graph> & node_schema);
+                        const NodeSchemaT<Graph> & node_schema,
+                        Uniqueness unique = UNIQUE);
 
     using AttributeSchema<Payload>::operator ();
     using AttributeSchema<Payload>::traits;
@@ -303,6 +311,8 @@ struct NodeAttributeSchema
 
     int node_type() const { return node_schema.node_type(); }
     Graph * graph() const { return node_schema.graph(); }
+
+    Uniqueness unique;
 };
 
 

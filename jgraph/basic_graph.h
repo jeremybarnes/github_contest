@@ -61,6 +61,11 @@ struct BasicGraph {
     /// Set the attribute on the given node
     void setNodeAttr(int node_type, int node_handle, const Attribute & attr);
 
+    /// Set the attribute on the given node, ensuring that there is only a
+    /// single one for each node
+    void setOrReplaceNodeAttr(int node_type, int node_handle,
+                              const Attribute & attr);
+
     /// Get the (single) value of the attribute on the given node
     AttributeRef
     getNodeAttr(int node_type, int node_handle, int attr_type) const;
@@ -195,6 +200,10 @@ private:
 
     struct AttributeSet : public AttributeSetBase {
         const AttributeRef & find(int type) const;
+
+        /// Find or add the given attribute.  Returns the old value if it was
+        /// modified, or a null attribute if not.
+        AttributeRef replace(const Attribute & attr);
     };
 
     // TODO: compact...

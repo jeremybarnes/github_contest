@@ -36,10 +36,13 @@ BOOST_AUTO_TEST_CASE( test1 )
 
     Node n1 = node(1);
     Node n2 = node(2);
+    Node n3 = node(3);
     edge(n1, n2);
+    edge(n2, n3);
 
     cerr << "n1 = " << n1 << endl;
     cerr << "n2 = " << n2 << endl;
+    cerr << "n3 = " << n3 << endl;
 
     vector<Node> search_results;
     BoostGraphAdaptor<UnipartiteEdgeSchemaT<BasicGraph> >
@@ -48,7 +51,25 @@ BOOST_AUTO_TEST_CASE( test1 )
 
     // Note: order is reversed
 
-    BOOST_REQUIRE_EQUAL(search_results.size(), 2);
-    BOOST_CHECK_EQUAL(search_results[0].getAttr(node.attr1), 2);
-    BOOST_CHECK_EQUAL(search_results[1].getAttr(node.attr1), 1);
+    BOOST_REQUIRE_EQUAL(search_results.size(), 3);
+    BOOST_CHECK_EQUAL(search_results[0].getAttr(node.attr1), 3);
+    BOOST_CHECK_EQUAL(search_results[1].getAttr(node.attr1), 2);
+    BOOST_CHECK_EQUAL(search_results[2].getAttr(node.attr1), 1);
+
+    edge(n1, n3);
+    search_results.clear();
+    boost::topological_sort(boost_graph, back_inserter(search_results));
+    
+    BOOST_REQUIRE_EQUAL(search_results.size(), 3);
+    BOOST_CHECK_EQUAL(search_results[0].getAttr(node.attr1), 3);
+    BOOST_CHECK_EQUAL(search_results[1].getAttr(node.attr1), 2);
+    BOOST_CHECK_EQUAL(search_results[2].getAttr(node.attr1), 1);
+
+    // Create a back edge so it's no longer a DAG
+    edge(n3, n1);
+    search_results.clear();
+
+    cerr << "*** exception expected here" << endl;
+    BOOST_CHECK_THROW(boost::topological_sort(boost_graph, back_inserter(search_results)), std::exception);
+    cerr << "*** end exception expected here" << endl;
 }

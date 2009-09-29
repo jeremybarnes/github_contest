@@ -45,6 +45,25 @@ setNodeAttr(int node_type, int node_handle, const Attribute & attr)
     }
 }
 
+void
+BasicGraph::
+setOrReplaceNodeAttr(int node_type, int node_handle, const Attribute & attr)
+{
+    NodeCollection & ncoll = getNodeCollection(node_type);
+
+    if (node_handle < 0 || node_handle >= ncoll.nodes.size())
+        throw Exception("BasicGraph::setNodeAttr: invalid node handle");
+    Node & node = ncoll.nodes[node_handle];
+
+    AttributeRef old_attr = node.attributes.replace(attr);
+
+    if (ncoll.attribute_index[attr.type()] && old_attr && old_attr != attr) {
+        AttributeIndex & aindex = *ncoll.attribute_index[attr.type()];
+        aindex.erase(old_attr);
+        aindex.insert(make_pair(AttributeRef(attr), node_handle));
+    }
+}
+
 AttributeRef
 BasicGraph::
 getNodeAttr(int node_type, int node_handle, int attr_type) const
@@ -370,6 +389,7 @@ getEdgeCollection(int edge_type) const
     return  *edges_of_type[edge_type];
 }
 
+
 /*****************************************************************************/
 /* HELPER CLASSES                                                            */
 /*****************************************************************************/
@@ -383,6 +403,26 @@ find(int type) const
          it != e;  ++it)
         if (it->type() == type) return *it;
     return none;
+}
+
+AttributeRef
+BasicGraph::AttributeSet::
+replace(const Attribute & attr)
+{
+    AttributeRef result;
+
+    for (iterator it = begin(), e = end();
+         it != e;  ++it) {
+        if (it->type() == attr.type()) {
+            result = *it;
+            *it = AttributeRef(attr);
+            return result;
+        }
+    }
+    
+    push_back(AttributeRef(attr));
+
+    return result;
 }
 
 template<class Entry>

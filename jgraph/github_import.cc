@@ -87,10 +87,10 @@ void import_github()
     BiEdgeSchema authorof_edge(graph, "authorof", author_node, repo_node);
     UniEdgeSchema parentof_edge(graph, "parentof", repo_node);
     
-    NodeAttributeSchema<Graph, Atom> repo_name_attr("name", repo_node);
-    NodeAttributeSchema<Graph, Date> repo_date_attr("date", repo_node);
-    NodeAttributeSchema<Graph, int> repo_depth_attr("depth", repo_node);
-    NodeAttributeSchema<Graph, string> repo_fullname_attr("fullname", repo_node);
+    NodeAttributeSchema<Graph, Atom> repo_name_attr("name", repo_node, UNIQUE);
+    NodeAttributeSchema<Graph, Date> repo_date_attr("date", repo_node, UNIQUE);
+    NodeAttributeSchema<Graph, int> repo_depth_attr("depth", repo_node, UNIQUE);
+    NodeAttributeSchema<Graph, string> repo_fullname_attr("fullname", repo_node, UNIQUE);
 
     Parse_Context repo_file("download/repos.txt");
 
@@ -155,11 +155,11 @@ void import_github()
     Parse_Context author_file("authors.txt");
 
     NodeAttributeSchema<Graph, int>
-        author_num_following_attr("num_following", author_node);
+        author_num_following_attr("num_following", author_node, UNIQUE);
     NodeAttributeSchema<Graph, int>
-        author_num_followers_attr("num_followers", author_node);
+        author_num_followers_attr("num_followers", author_node, UNIQUE);
     NodeAttributeSchema<Graph, Date>
-        author_date_joined_attr("date_joined", author_node);
+        author_date_joined_attr("date_joined", author_node, UNIQUE);
 
     while (author_file) {
         string author_name = author_file.expect_text(':', true);
@@ -185,54 +185,41 @@ void import_github()
     BoostGraphAdaptor<UniEdgeSchema> boost_graph(parentof_edge);
     boost::topological_sort(boost_graph, back_inserter(node_order));
 
-#if 0
-    // Children.  Only direct ones for the moment.
-    for (unsigned i = 0;  i < repos.size();  ++i) {
-        Repo & repo = repos[i];
-        if (repo.id == -1) continue;  // invalid repo
-        if (repo.parent == -1) continue;  // no parent
-        repos[repo.parent].children.insert(i);
-    }
+    int max_depth = 0;
+    Node repo_max_depth;
 
-    /* Expand all parents */
-    bool need_another = true;
-    int depth = 0;
+    for (vector<Node>::reverse_iterator
+             it = node_order.rbegin(),
+             end = node_order.rend();
+         it != end;  ++it) {
+        const Node & node = *it;
 
-    for (;  need_another;  ++depth) {
-        need_another = false;
-        for (unsigned i = 0;  i < repos.size();  ++i) {
-            Repo & repo = repos[i];
-            if (repo.id == -1) continue;  // invalid repo
-            if (repo.depth != -1) continue;
-            if (repo.parent == -1) {
-                cerr << "repo id: " << i << endl;
-                cerr << "repo: " << repo.name << endl;
-                cerr << "depth: " << repo.depth << endl;
-                cerr << "mydepth: " << depth << endl;
-                throw Exception("logic error: parent invalid");
-            }
+        // Find all parents
+        BasicGraph::IncidentEdgeIterator jt, jend;
+        boost::tie(jt, jend) = node.inEdges(parentof_edge);
+        // TODO: should be possible to know that there is just one (by the
+        // schema).
 
-            Repo & parent = repos[repo.parent];
-            if (parent.depth == -1) {
-                need_another = true;
-                continue;
-            }
+        if (std::distance(jt, jend) == 0)
+            continue;  // no parents
 
-            repo.depth = parent.depth + 1;
-            repo.ancestors = parent.ancestors;
-            repo.ancestors.push_back(repo.parent);
-            repo.all_ancestors.insert(repo.ancestors.begin(),
-                                      repo.ancestors.end());
+        if (std::distance(jt, jend) != 1)
+            throw Exception("distance is wrong");
+        
+        Node parent = jt->to();
+        int depth = parent.getAttr(repo_depth_attr) + 1;
+        
+        repo_depth_attr(node, depth);
 
-#if 0
-            if (depth > 1)
-                cerr << "repo " << repo.id << " " << repo.name
-                     << " has ancestors "
-                     << repo.ancestors << endl;
-#endif
+        if (depth > max_depth) {
+            max_depth = std::max(max_depth, depth);
+            repo_max_depth = node;
         }
     }
-#endif
+
+    cerr << "max_depth = " << max_depth << " repo " << repo_max_depth
+         << endl;
+
 
 #if 0
     Parse_Context lang_file("download/lang.txt");
@@ -315,94 +302,78 @@ void import_github()
         watching_edge(user_node(user_id), repo_node(repo_id));
     }
 
-    // Print some: repo ID 407
-    cerr << Node(unique(repo_node[repo_node.attr1 == 407])) << endl;
-    cerr << Node(unique(user_node[user_node.attr1 == 407])) << endl;
-    cerr << Node(unique(author_node[author_node.attr1 == "petdance"])) << endl;
-
-#if 0
-
-    users_to_test.reserve(5000);
-
+    NodeAttributeSchema<Graph, bool> repo_incomplete_attr("incomplete",
+                                                          user_node);
+    NodeAttributeSchema<Graph, bool> repo_test_attr("test",
+                                                    user_node);
+    
+    BiEdgeSchema answer_edge(graph, "answer", user_node, repo_node);
+    
     Parse_Context test_file("download/test.txt");
 
     while (test_file) {
         int user_id = test_file.expect_int();
 
-        if (user_id < 0 || user_id >= users.size())
-            test_file.exception("invalid user ID");
+        Node user = user_node(user_id);
+        repo_incomplete_attr(user, true);
+        repo_test_attr(user, true);
 
-        int answer = -1;
-
-        if (test_file.match_literal(':')) {
-            // we have an answer
-            answer = test_file.expect_int();
-        }
+        if (test_file.match_literal(':'))
+            answer_edge(user, repo_node(test_file.expect_int()));
         
         test_file.expect_eol();
-
-        users_to_test.push_back(user_id);
-        answers.push_back(answer);
-        users[user_id].incomplete = true;
-        users[user_id].id = user_id;
     }
 
     Parse_Context fork_file("download/repo_forks.txt");
 
+    NodeAttributeSchema<Graph, int> repo_forks_attr("forks", repo_node);
+
     while (fork_file) {
         int repo_id = fork_file.expect_int();
         fork_file.expect_whitespace();
-        int num_forks = fork_file.expect_int();
+
+        repo_forks_attr(repo_node(repo_id), fork_file.expect_int());
         fork_file.expect_eol();
-
-        if (repo_id < 0 || repo_id > repos.size() || repos[repo_id].invalid())
-            throw Exception("invalid repo ID in fork file");
-
-        repos[repo_id].num_forks_api = num_forks;
     }
 
     Parse_Context watch_file("download/repo_watch.txt");
 
+    NodeAttributeSchema<Graph, int> repo_watches_attr("watches", repo_node);
+
     while (watch_file) {
         int repo_id = watch_file.expect_int();
         watch_file.expect_whitespace();
-        int num_watches = watch_file.expect_int();
+        repo_watches_attr(repo_node(repo_id), watch_file.expect_int());
         watch_file.expect_eol();
-
-        if (repo_id < 0 || repo_id > repos.size() || repos[repo_id].invalid())
-            throw Exception("invalid repo ID in watch file");
-
-        repos[repo_id].num_watches_api = num_watches;
     }
 
     Parse_Context collab_file("download/repo_col.txt");
 
+    BiEdgeSchema collaborates_edge(graph, "collaborates_on", author_node, repo_node);
+
     while (collab_file) {
         int repo_id = collab_file.expect_int();
+
         collab_file.expect_whitespace();
         string name = collab_file.expect_text("\n ");
         collab_file.skip_whitespace();
         if (collab_file.match_eol()) continue;
 
+        Node repo = repo_node(repo_id);
+
         while (!collab_file.match_eol()) {
             string author_name = collab_file.expect_text(" \n");
             collab_file.skip_whitespace();
 
-            int author_id = -1;
-            
-            if (!author_name_to_id.count(author_name)) {
-                continue;
-            }
-            else author_id = author_name_to_id[author_name];
+            Node author = author_node(author_name);
 
-            repos[repo_id].collaborators_api.insert(author_id);
-            authors[author_id].collaborates_on_api.insert(repo_id);
+            collaborates_edge(author, repo);
         }
     }
     
     Parse_Context follow_file("download/follow.txt");
-
-    int errors = 0;
+    
+    UniEdgeSchema follows_edge(graph, "follows", user_node);
 
     while (follow_file) {
         int follower_id = follow_file.expect_int();
@@ -410,25 +381,16 @@ void import_github()
         int followed_id = follow_file.expect_int();
         follow_file.expect_eol();
 
-        if (follower_id < 0 || follower_id >= users.size()
-            || users[follower_id].invalid()) {
-            ++errors;
-            continue;
-            follow_file.exception("invalid follower ID in followers file");
-        }
-
-        if (followed_id < 0 || followed_id >= users.size()
-            || users[followed_id].invalid()) {
-            ++errors;
-            continue;
-            follow_file.exception("invalid followed ID in followers file");
-        }
-
-        users[follower_id].following.insert(followed_id);
-        users[followed_id].followers.insert(follower_id);
+        follows_edge(user_node(follower_id), user_node(followed_id));
     }
-#endif
 
+    // Print some: repo ID 407
+    cerr << Node(unique(repo_node[repo_node.attr1 == 407])) << endl;
+    cerr << Node(unique(repo_node[repo_node.attr1 == 408])) << endl;
+    cerr << Node(unique(repo_node[repo_node.attr1 == 409])) << endl;
+    cerr << Node(unique(repo_node[repo_node.attr1 == 18407])) << endl;
+    cerr << Node(unique(user_node[user_node.attr1 == 407])) << endl;
+    cerr << Node(unique(author_node[author_node.attr1 == "petdance"])) << endl;
 }
 
 

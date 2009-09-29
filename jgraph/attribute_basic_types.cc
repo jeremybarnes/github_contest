@@ -18,6 +18,7 @@ using namespace ML;
 
 namespace JGraph {
 
+
 /*****************************************************************************/
 /* INTTRAITS                                                                 */
 /*****************************************************************************/
@@ -31,6 +32,22 @@ IntTraits::
 print(const Attribute & attr) const
 {
     return format("%zd", getValue(attr));
+}
+
+
+/*****************************************************************************/
+/* BOOLTRAITS                                                                */
+/*****************************************************************************/
+
+BoolTraits::~BoolTraits()
+{
+}
+
+std::string
+BoolTraits::
+print(const Attribute & attr) const
+{
+    return getValue(attr) ? "true" : "false";
 }
 
 

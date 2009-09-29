@@ -43,6 +43,19 @@ struct IntTraits : public ScalarAttributeTraits {
 
 
 /*****************************************************************************/
+/* BOOLTRAITS                                                                 */
+/*****************************************************************************/
+
+struct BoolTraits : public ScalarAttributeTraits {
+    virtual ~BoolTraits();
+
+    AttributeRef encode(bool val) const;
+    bool decode(const Attribute & attr) const;
+    virtual std::string print(const Attribute & attr) const;
+};
+
+
+/*****************************************************************************/
 /* STRINGTRAITS                                                              */
 /*****************************************************************************/
 
@@ -122,6 +135,11 @@ struct DefaultAttributeTraits<Atom> {
 template<>
 struct DefaultAttributeTraits<int> {
     typedef IntTraits Type;
+};
+
+template<>
+struct DefaultAttributeTraits<bool> {
+    typedef BoolTraits Type;
 };
 
 template<>
