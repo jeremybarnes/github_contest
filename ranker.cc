@@ -88,20 +88,20 @@ feature_space() const
         Dense_Feature_Space source_fs
             = sources[i]->specific_feature_space();
         result->add(source_fs, name + "_");
-        result->add_feature(name + "_rank", Feature_Info::REAL);
-        result->add_feature(name + "_percentile", Feature_Info::REAL);
-        result->add_feature(name + "_score", Feature_Info::REAL);
+        result->add_feature(name + "_rank", REAL);
+        result->add_feature(name + "_percentile", REAL);
+        result->add_feature(name + "_score", REAL);
     }
 
-    result->add_feature("gen_total_rank", Feature_Info::REAL);
-    result->add_feature("gen_min_rank", Feature_Info::REAL);
-    result->add_feature("gen_max_rank", Feature_Info::REAL);
-    result->add_feature("gen_num_in", Feature_Info::REAL);
-    result->add_feature("gen_avg_rank", Feature_Info::REAL);
-    result->add_feature("gen_total_score", Feature_Info::REAL);
-    result->add_feature("gen_min_score", Feature_Info::REAL);
-    result->add_feature("gen_max_score", Feature_Info::REAL);
-    result->add_feature("gen_avg_score", Feature_Info::REAL);
+    result->add_feature("gen_total_rank", REAL);
+    result->add_feature("gen_min_rank", REAL);
+    result->add_feature("gen_max_rank", REAL);
+    result->add_feature("gen_num_in", REAL);
+    result->add_feature("gen_avg_rank", REAL);
+    result->add_feature("gen_total_score", REAL);
+    result->add_feature("gen_min_score", REAL);
+    result->add_feature("gen_max_score", REAL);
+    result->add_feature("gen_avg_score", REAL);
 
     return result;
 }  
@@ -374,151 +374,151 @@ feature_space() const
     result.reset(new ML::Dense_Feature_Space(*generator->feature_space()));
 
     // user features
-    result->add_feature("user_min_popularity", Feature_Info::REAL);
-    result->add_feature("user_max_popularity", Feature_Info::REAL);
-    result->add_feature("user_avg_popularity", Feature_Info::REAL);
+    result->add_feature("user_min_popularity", REAL);
+    result->add_feature("user_max_popularity", REAL);
+    result->add_feature("user_avg_popularity", REAL);
 
-    result->add_feature("user_min_watchers", Feature_Info::REAL);
-    result->add_feature("user_max_watchers", Feature_Info::REAL);
-    result->add_feature("user_avg_watchers", Feature_Info::REAL);
+    result->add_feature("user_min_watchers", REAL);
+    result->add_feature("user_max_watchers", REAL);
+    result->add_feature("user_avg_watchers", REAL);
 
-    result->add_feature("user_num_watched_authors", Feature_Info::REAL);
-    result->add_feature("user_num_watched_per_author", Feature_Info::REAL);
+    result->add_feature("user_num_watched_authors", REAL);
+    result->add_feature("user_num_watched_per_author", REAL);
 
-    result->add_feature("user_num_watched_names", Feature_Info::REAL);
-    result->add_feature("user_num_watched_per_name", Feature_Info::REAL);
+    result->add_feature("user_num_watched_names", REAL);
+    result->add_feature("user_num_watched_per_name", REAL);
 
-    result->add_feature("user_min_author_watches", Feature_Info::REAL);
-    result->add_feature("user_max_author_watches", Feature_Info::REAL);
-    result->add_feature("user_avg_author_watches", Feature_Info::REAL);
+    result->add_feature("user_min_author_watches", REAL);
+    result->add_feature("user_max_author_watches", REAL);
+    result->add_feature("user_avg_author_watches", REAL);
 
-    result->add_feature("user_min_author_watches_prop", Feature_Info::REAL);
-    result->add_feature("user_max_author_watches_prop", Feature_Info::REAL);
-    result->add_feature("user_avg_author_watches_prop", Feature_Info::REAL);
+    result->add_feature("user_min_author_watches_prop", REAL);
+    result->add_feature("user_max_author_watches_prop", REAL);
+    result->add_feature("user_avg_author_watches_prop", REAL);
 
-    result->add_feature("user_min_name_watches", Feature_Info::REAL);
-    result->add_feature("user_max_name_watches", Feature_Info::REAL);
-    result->add_feature("user_avg_name_watches", Feature_Info::REAL);
+    result->add_feature("user_min_name_watches", REAL);
+    result->add_feature("user_max_name_watches", REAL);
+    result->add_feature("user_avg_name_watches", REAL);
 
-    result->add_feature("user_min_name_watches_prop", Feature_Info::REAL);
-    result->add_feature("user_max_name_watches_prop", Feature_Info::REAL);
-    result->add_feature("user_avg_name_watches_prop", Feature_Info::REAL);
+    result->add_feature("user_min_name_watches_prop", REAL);
+    result->add_feature("user_max_name_watches_prop", REAL);
+    result->add_feature("user_avg_name_watches_prop", REAL);
 
-    result->add_feature("user_num_collaborates_on_api", Feature_Info::REAL);
+    result->add_feature("user_num_collaborates_on_api", REAL);
 
-    result->add_feature("user_num_following", Feature_Info::REAL);
-    result->add_feature("user_num_followers", Feature_Info::REAL);
+    result->add_feature("user_num_following", REAL);
+    result->add_feature("user_num_followers", REAL);
 
     // user-repo features
-    result->add_feature("heuristic_score", Feature_Info::REAL);
-    result->add_feature("heuristic_rank",  Feature_Info::REAL);
-    result->add_feature("heuristic_percentile", Feature_Info::REAL);
+    result->add_feature("heuristic_score", REAL);
+    result->add_feature("heuristic_rank",  REAL);
+    result->add_feature("heuristic_percentile", REAL);
 
-    result->add_feature("language_dprod", Feature_Info::REAL);
-    result->add_feature("language_cosine", Feature_Info::REAL);
+    result->add_feature("language_dprod", REAL);
+    result->add_feature("language_cosine", REAL);
 
-    result->add_feature("user_repo_singular_dp", Feature_Info::REAL);
-    result->add_feature("user_repo_singular_unscaled_dp", Feature_Info::REAL);
+    result->add_feature("user_repo_singular_dp", REAL);
+    result->add_feature("user_repo_singular_unscaled_dp", REAL);
     result->add_feature("user_repo_singular_unscaled_dp_max",
-                        Feature_Info::REAL);
+                        REAL);
     result->add_feature("user_repo_singular_unscaled_dp_max_norm",
-                        Feature_Info::REAL);
-    result->add_feature("user_repo_centroid_repo_cosine", Feature_Info::REAL);
+                        REAL);
+    result->add_feature("user_repo_centroid_repo_cosine", REAL);
 
-    result->add_feature("repo_name_contains_user", Feature_Info::BOOLEAN);
-    result->add_feature("user_name_contains_repo", Feature_Info::BOOLEAN);
-    result->add_feature("repos_authored_by", Feature_Info::REAL);
-    result->add_feature("author_has_watchers", Feature_Info::REAL);
-    result->add_feature("num_repos_with_same_name", Feature_Info::REAL);
-    result->add_feature("num_watchers_of_repos_with_same_name", Feature_Info::REAL);
+    result->add_feature("repo_name_contains_user", BOOLEAN);
+    result->add_feature("user_name_contains_repo", BOOLEAN);
+    result->add_feature("repos_authored_by", REAL);
+    result->add_feature("author_has_watchers", REAL);
+    result->add_feature("num_repos_with_same_name", REAL);
+    result->add_feature("num_watchers_of_repos_with_same_name", REAL);
 
-    result->add_feature("user_name_inferred", Feature_Info::BOOLEAN);
-    result->add_feature("user_num_inferred_authors", Feature_Info::BOOLEAN);
+    result->add_feature("user_name_inferred", BOOLEAN);
+    result->add_feature("user_num_inferred_authors", BOOLEAN);
 
-    result->add_feature("user_repo_cooccurrences", Feature_Info::REAL);
-    result->add_feature("user_repo_cooccurrences_avg", Feature_Info::REAL);
-    result->add_feature("user_repo_cooccurrences_max", Feature_Info::REAL);
-    result->add_feature("user_num_cooccurrences", Feature_Info::REAL);
+    result->add_feature("user_repo_cooccurrences", REAL);
+    result->add_feature("user_repo_cooccurrences_avg", REAL);
+    result->add_feature("user_repo_cooccurrences_max", REAL);
+    result->add_feature("user_num_cooccurrences", REAL);
 
-    result->add_feature("user_repo_cooccurrences2", Feature_Info::REAL);
-    result->add_feature("user_repo_cooccurrences_avg2", Feature_Info::REAL);
-    result->add_feature("user_repo_cooccurrences_max2", Feature_Info::REAL);
-    result->add_feature("user_num_cooccurrences2", Feature_Info::REAL);
+    result->add_feature("user_repo_cooccurrences2", REAL);
+    result->add_feature("user_repo_cooccurrences_avg2", REAL);
+    result->add_feature("user_repo_cooccurrences_max2", REAL);
+    result->add_feature("user_num_cooccurrences2", REAL);
 
-    result->add_feature("repo_user_cooccurrences", Feature_Info::REAL);
-    result->add_feature("repo_user_cooccurrences_avg", Feature_Info::REAL);
-    result->add_feature("repo_user_cooccurrences_max", Feature_Info::REAL);
-    result->add_feature("repo_num_cooccurrences", Feature_Info::REAL);
+    result->add_feature("repo_user_cooccurrences", REAL);
+    result->add_feature("repo_user_cooccurrences_avg", REAL);
+    result->add_feature("repo_user_cooccurrences_max", REAL);
+    result->add_feature("repo_num_cooccurrences", REAL);
 
-    result->add_feature("repo_user_cooccurrences2", Feature_Info::REAL);
-    result->add_feature("repo_user_cooccurrences_avg2", Feature_Info::REAL);
-    result->add_feature("repo_user_cooccurrences_max2", Feature_Info::REAL);
-    result->add_feature("repo_num_cooccurrences2", Feature_Info::REAL);
+    result->add_feature("repo_user_cooccurrences2", REAL);
+    result->add_feature("repo_user_cooccurrences_avg2", REAL);
+    result->add_feature("repo_user_cooccurrences_max2", REAL);
+    result->add_feature("repo_num_cooccurrences2", REAL);
 
-    result->add_feature("repo_date", Feature_Info::REAL);
-    result->add_feature("author_date", Feature_Info::REAL);
-    result->add_feature("author_repo_date_difference", Feature_Info::REAL);
-    result->add_feature("author_num_followers", Feature_Info::REAL);
-    result->add_feature("author_num_following", Feature_Info::REAL);
+    result->add_feature("repo_date", REAL);
+    result->add_feature("author_date", REAL);
+    result->add_feature("author_repo_date_difference", REAL);
+    result->add_feature("author_num_followers", REAL);
+    result->add_feature("author_num_following", REAL);
 
-    result->add_feature("user_date", Feature_Info::REAL);
-    result->add_feature("user_repo_date_difference", Feature_Info::REAL);
-    result->add_feature("user_author_date_difference", Feature_Info::REAL);
-    result->add_feature("user_num_followers_author", Feature_Info::REAL);
-    result->add_feature("user_num_following_author", Feature_Info::REAL);
+    result->add_feature("user_date", REAL);
+    result->add_feature("user_repo_date_difference", REAL);
+    result->add_feature("user_author_date_difference", REAL);
+    result->add_feature("user_num_followers_author", REAL);
+    result->add_feature("user_num_following_author", REAL);
 
-    result->add_feature("repo_in_id_range", Feature_Info::BOOLEAN);
-    result->add_feature("user_in_id_range", Feature_Info::BOOLEAN);
-    result->add_feature("repo_id_range_size", Feature_Info::REAL);
-    result->add_feature("user_id_range_size", Feature_Info::REAL);
-    result->add_feature("id_range_suspicious_repo", Feature_Info::BOOLEAN);
-    result->add_feature("id_range_suspicious_user", Feature_Info::BOOLEAN);
-    result->add_feature("id_range_score", Feature_Info::REAL);
+    result->add_feature("repo_in_id_range", BOOLEAN);
+    result->add_feature("user_in_id_range", BOOLEAN);
+    result->add_feature("repo_id_range_size", REAL);
+    result->add_feature("user_id_range_size", REAL);
+    result->add_feature("id_range_suspicious_repo", BOOLEAN);
+    result->add_feature("id_range_suspicious_user", BOOLEAN);
+    result->add_feature("id_range_score", REAL);
 
-    result->add_feature("keyword_overlap_score", Feature_Info::REAL);
-    result->add_feature("keyword_overlap_score_norm", Feature_Info::REAL);
-    result->add_feature("keyword_overlap_idf", Feature_Info::REAL);
-    result->add_feature("keyword_overlap_idf_norm", Feature_Info::REAL);
-    result->add_feature("keyword_overlap_count", Feature_Info::REAL);
-    result->add_feature("user_nkeywords", Feature_Info::REAL);
-    result->add_feature("user_keyword_factor", Feature_Info::REAL);
-    result->add_feature("user_keyword_idf_factor", Feature_Info::REAL);
-    result->add_feature("repo_nkeywords", Feature_Info::REAL);
-    result->add_feature("repo_keyword_factor", Feature_Info::REAL);
-    result->add_feature("repo_keyword_idf_factor", Feature_Info::REAL);
+    result->add_feature("keyword_overlap_score", REAL);
+    result->add_feature("keyword_overlap_score_norm", REAL);
+    result->add_feature("keyword_overlap_idf", REAL);
+    result->add_feature("keyword_overlap_idf_norm", REAL);
+    result->add_feature("keyword_overlap_count", REAL);
+    result->add_feature("user_nkeywords", REAL);
+    result->add_feature("user_keyword_factor", REAL);
+    result->add_feature("user_keyword_idf_factor", REAL);
+    result->add_feature("repo_nkeywords", REAL);
+    result->add_feature("repo_keyword_factor", REAL);
+    result->add_feature("repo_keyword_idf_factor", REAL);
 
-    result->add_feature("user_keyword_max", Feature_Info::REAL);
-    result->add_feature("repo_keyword_max", Feature_Info::REAL);
-    result->add_feature("user_keyword_max_norm", Feature_Info::REAL);
-    result->add_feature("repo_keyword_max_norm", Feature_Info::REAL);
+    result->add_feature("user_keyword_max", REAL);
+    result->add_feature("repo_keyword_max", REAL);
+    result->add_feature("user_keyword_max_norm", REAL);
+    result->add_feature("repo_keyword_max_norm", REAL);
 
-    result->add_feature("author_user_dp", Feature_Info::REAL);
-    result->add_feature("author_user_dp_norm", Feature_Info::REAL);
+    result->add_feature("author_user_dp", REAL);
+    result->add_feature("author_user_dp_norm", REAL);
 
-    result->add_feature("max_dp_with_watched", Feature_Info::REAL);
-    result->add_feature("max_dp_with_watched_norm", Feature_Info::REAL);
+    result->add_feature("max_dp_with_watched", REAL);
+    result->add_feature("max_dp_with_watched_norm", REAL);
 
-    result->add_feature("max_keyword_dp_with_watched", Feature_Info::REAL);
-    result->add_feature("max_keyword_dp_with_watched_norm", Feature_Info::REAL);
+    result->add_feature("max_keyword_dp_with_watched", REAL);
+    result->add_feature("max_keyword_dp_with_watched_norm", REAL);
 
-    result->add_feature("user_repo_keyword_dotprod", Feature_Info::REAL);
-    result->add_feature("user_repo_keyword_dotprod_max", Feature_Info::REAL);
-    result->add_feature("user_repo_keyword_dotprod_avg", Feature_Info::REAL);
+    result->add_feature("user_repo_keyword_dotprod", REAL);
+    result->add_feature("user_repo_keyword_dotprod_max", REAL);
+    result->add_feature("user_repo_keyword_dotprod_avg", REAL);
 
-    result->add_feature("user_repo_keyword_cosine", Feature_Info::REAL);
-    result->add_feature("user_repo_keyword_cosine_max", Feature_Info::REAL);
-    result->add_feature("user_repo_keyword_cosine_avg", Feature_Info::REAL);
+    result->add_feature("user_repo_keyword_cosine", REAL);
+    result->add_feature("user_repo_keyword_cosine_max", REAL);
+    result->add_feature("user_repo_keyword_cosine_avg", REAL);
 
-    result->add_feature("num_watches_api", Feature_Info::REAL);
-    result->add_feature("num_missing_watches", Feature_Info::REAL);
-    result->add_feature("num_forks_api", Feature_Info::REAL);
-    result->add_feature("num_missing_forks", Feature_Info::REAL);
+    result->add_feature("num_watches_api", REAL);
+    result->add_feature("num_missing_watches", REAL);
+    result->add_feature("num_forks_api", REAL);
+    result->add_feature("num_missing_forks", REAL);
 
-    result->add_feature("collaborates_on_api", Feature_Info::REAL);
+    result->add_feature("collaborates_on_api", REAL);
 
-    result->add_feature("user_following_author", Feature_Info::REAL);
-    result->add_feature("author_following_user", Feature_Info::REAL);
-    result->add_feature("author_num_possible_users", Feature_Info::REAL);
+    result->add_feature("user_following_author", REAL);
+    result->add_feature("author_following_user", REAL);
+    result->add_feature("author_num_possible_users", REAL);
 
     return result;
 }
@@ -1225,9 +1225,9 @@ feature_space() const
     // one is (for example, if prerank_rank > 20 then we can be sure that
     // it's the correct one as we only include a maximum of 20 incorrect
     // examples, and these are the top ranked ones.
-    result->add_feature("prerank_score", Feature_Info::REAL);
-    result->add_feature("prerank_rank", Feature_Info::REAL);
-    result->add_feature("prerank_percentile", Feature_Info::REAL);
+    result->add_feature("prerank_score", REAL);
+    result->add_feature("prerank_rank", REAL);
+    result->add_feature("prerank_percentile", REAL);
     return result;
 }
 
