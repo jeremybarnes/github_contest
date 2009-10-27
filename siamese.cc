@@ -29,9 +29,9 @@ struct Siamese {
     }
 
     /// A siamese network is made up of two twins...
-    struct Twin : public vector<ML::Perceptron::Layer> {
+    struct Twin : public vector<ML::Dense_Layer<float> > {
         Twin(int ninputs)
-            : vector<ML::Perceptron::Layer>(3)
+            : vector<ML::Dense_Layer<float> >(3)
         {
         }
     };
