@@ -19,7 +19,7 @@
 #include "utils/vector_utils.h"
 #include "utils/compact_vector.h"
 
-using ML::Stats::distribution;
+using ML::distribution;
 
 // Sorted vector of integer IDs
 class IdSet {

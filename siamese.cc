@@ -16,7 +16,7 @@
 */
 
 #include "data.h"
-#include "boosting/perceptron.h"
+#include "neural/dense_layer.h"
 
 using namespace ML;
 using namespace std;
