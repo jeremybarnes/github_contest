@@ -125,6 +125,10 @@ struct RefCountedAttributeTraits : public AttributeTraits {
     virtual ~RefCountedAttributeTraits();
 
     AttributeRef encode(const Underlying & val) const;
+    const Underlying & decode(const Attribute & val) const
+    {
+        return getObject(val);
+    }
 
     virtual bool equal(const Attribute & a1, const Attribute & a2) const;
     virtual int less(const Attribute & a1, const Attribute & a2) const;

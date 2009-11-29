@@ -8,7 +8,7 @@
 #ifndef __jgraph__basic_graph_h__
 #define __jgraph__basic_graph_h__
 
-#include "jgraph_fwd.h"
+#include "jgraph.h"
 #include <string>
 #include <vector>
 #include "attribute.h"
@@ -19,6 +19,7 @@
 #include <typeinfo>
 #include <boost/function.hpp>
 #include "utils/unnamed_bool.h"
+#include <boost/iterator/iterator_facade.hpp>
 
 
 namespace JGraph {
@@ -60,6 +61,15 @@ struct BasicGraph {
     /// Set the attribute on the given node
     void setNodeAttr(int node_type, int node_handle, const Attribute & attr);
 
+    /// Set the attribute on the given node, ensuring that there is only a
+    /// single one for each node
+    void setOrReplaceNodeAttr(int node_type, int node_handle,
+                              const Attribute & attr);
+
+    /// Get the (single) value of the attribute on the given node
+    AttributeRef
+    getNodeAttr(int node_type, int node_handle, int attr_type) const;
+
     /// Print the contents of a node
     std::string printNode(int node_type, int node_handle) const;
 
@@ -76,7 +86,7 @@ struct BasicGraph {
         typedef NodeT<BasicGraph> ResultType;
 
         CoherentNodeSetGenerator()
-            : graph(0), node_type(-1), current(-1), index(0)
+            : graph(0), node_type(-1), current(-1), index(0), max_index(0)
         {
         }
 
@@ -88,12 +98,14 @@ struct BasicGraph {
             if (first == last) {
                 current = -1;
                 index = 0;
+                max_index = 0;
                 return;
             }
 
             // If possible (a single result) don't create a vector
             current = *first;
             index = 0;
+            max_index = 1;
 
             ++first;
             if (first != last) {
@@ -104,9 +116,25 @@ struct BasicGraph {
                 std::sort(values->begin(), values->end());
                 current = (*values)[0];
                 index = 0;
+                max_index = values->size();
             }
         }
+        
+        CoherentNodeSetGenerator(BasicGraph * graph, int node_type,
+                                 int num_nodes)
+            : graph(graph), node_type(node_type)
+        {
+            if (num_nodes == 0) {
+                current = -1;
+                index = 0;
+                return;
+            }
 
+            current = 0;
+            max_index = num_nodes;
+            index = 0;
+        }
+        
         JML_IMPLEMENT_OPERATOR_BOOL(current != -1);
 
         NodeT<BasicGraph> curr() const;
@@ -119,6 +147,7 @@ struct BasicGraph {
         boost::shared_ptr<std::vector<int> > values;
         int current;
         int index;
+        int max_index;
     };
 
     /// Query nodes of the given type with the given attribute
@@ -131,6 +160,10 @@ struct BasicGraph {
 
     /// Return the number of nodes of the given type in the graph
     int numNodesOfType(int node_type) const;
+
+    /// Return the maximum index value of nodes of the given type in the
+    /// graph
+    int maxIndexOfType(int node_type) const;
 
 private:
     int handle;
@@ -167,11 +200,15 @@ private:
 
     struct AttributeSet : public AttributeSetBase {
         const AttributeRef & find(int type) const;
+
+        /// Find or add the given attribute.  Returns the old value if it was
+        /// modified, or a null attribute if not.
+        AttributeRef replace(const Attribute & attr);
     };
 
     // TODO: compact...
     struct EdgeRef {
-        EdgeRef(EdgeDirection dir = ED_FORWARDS, int edge_type = 0,
+        EdgeRef(EdgeDirection direction = ED_FORWARDS, int edge_type = 0,
                 int dest_type = -1, int dest_node = -1,
                 int index = -1)
             : direction(direction), edge_type(edge_type), dest_type(dest_type),
@@ -195,7 +232,47 @@ private:
         }
     };
  
-    typedef ML::compact_vector<EdgeRef, 2> EdgeRefList;
+    typedef ML::compact_vector<EdgeRef, 2> EdgeRefListBase;
+
+    struct EdgeRefList {
+        EdgeRefList()
+            : sorted(true)
+        {
+        }
+
+        void sort() const
+        {
+            std::sort(edges.begin(), edges.end());
+            sorted = true;
+        }
+
+        typedef EdgeRefListBase::const_iterator const_iterator;
+
+        const_iterator begin() const
+        {
+            return edges.begin();
+        }
+
+        const_iterator end() const
+        {
+            return edges.end();
+        }
+
+        void insert(const EdgeRef & ref)
+        {
+            bool new_sorted = false;
+            if (!empty() && sorted)
+                new_sorted = edges.back() < ref;
+            edges.push_back(ref);
+            sorted = new_sorted;
+        }
+
+        bool empty() const { return edges.empty(); }
+        size_t size() const { return edges.size(); }
+
+        mutable EdgeRefListBase edges;
+        mutable bool sorted;
+    };
 
     struct Node {
         AttributeSet attributes;
@@ -244,6 +321,64 @@ private:
 
     NodeCollection & getNodeCollection(int node_type) const;
     EdgeCollection & getEdgeCollection(int edge_type) const;
+
+public:
+    struct IncidentEdgeIterator
+        : public boost::iterator_facade<IncidentEdgeIterator,
+                                        EdgeT<BasicGraph>,
+                                        boost::bidirectional_traversal_tag,
+                                        EdgeT<BasicGraph> > {
+        typedef EdgeRefList::const_iterator Underlying;
+    public:
+        IncidentEdgeIterator()
+            : graph(0)
+        {
+        }
+
+        IncidentEdgeIterator(const Underlying & it,
+                             BasicGraph * graph,
+                             int from_type, int from_handle)
+            : it(it), graph(graph),
+              from_type(from_type), from_handle(from_handle)
+        {
+        }
+
+private:
+        Underlying it;
+        BasicGraph * graph;
+        int from_type;
+        int from_handle;
+        friend class boost::iterator_core_access;
+
+        EdgeT<BasicGraph> dereference() const
+        {
+            return EdgeT<BasicGraph>(graph, it->edge_type, it->index,
+                                     it->direction, from_type, from_handle,
+                                     it->dest_type, it->dest_node);
+        }
+
+        bool equal(const IncidentEdgeIterator & other) const
+        {
+            return it == other.it;
+        }
+
+        void increment()
+        {
+            ++it;
+        }
+
+        void decrement()
+        {
+            --it;
+        }
+    };
+
+    std::pair<IncidentEdgeIterator, IncidentEdgeIterator>
+    getIncidentEdges(int node_type, int node_handle,
+                     int edge_type, bool out_edges) const;
+
+    int getIncidentEdgeCount(int node_type, int node_handle,
+                             int edge_type, bool out_edges) const;
 };
 
 } // namespace JGraph

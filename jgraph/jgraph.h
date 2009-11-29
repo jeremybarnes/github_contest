@@ -1,4 +1,4 @@
-/* jgraph.h                                                        -*- C++ -*-
+/*  jgraph.h                                                        -*- C++ -*-
     Jeremy Barnes, 14 September 2009
     Copyright (c) 2009 Jeremy Barnes.  All rights reserved.
 */
@@ -34,14 +34,41 @@ struct NodeT {
     /// Set the given attribute
     void setAttr(const Attribute & value);
 
+    /// Set the given attribute or replace it with a new value
+    void setOrReplaceAttr(const Attribute & value);
+
     /// Does the node have any attribute of the given type?
     bool hasAttr(int attr_type) const;
+
+    /// Get the value of the attribute.  Throws an exception if it's not there.
+    template<class Schema>
+    typename Schema::PayloadType
+    getAttr(const Schema & schema) const;
+
+    /// Get the value of the attribute, or a default value if it's not there.
+    template<class Schema>
+    typename Schema::PayloadType
+    getAttrOrDefault(const Schema & schema,
+                     const typename Schema::PayloadType & if_not_found
+                         = typename Schema::PayloadType()) const;
 
     /// How many attributes does the node have of the given type?
     int attrCount(int attr_type) const;
 
     /// Does the node have the given attribute value?
     bool hasAttrValue(const Attribute & attr) const;
+
+    /// Out edges
+    template<class EdgeSchema>
+    std::pair<typename Graph::IncidentEdgeIterator,
+              typename Graph::IncidentEdgeIterator>
+    outEdges(const EdgeSchema & type) const;
+
+    /// In edges
+    template<class EdgeSchema>
+    std::pair<typename Graph::IncidentEdgeIterator,
+              typename Graph::IncidentEdgeIterator>
+    inEdges(const EdgeSchema & schema) const;
 
     /// Debugging code to make sure node is initialized before we call any
     /// functions on it.  Compiling with NDEBUG will make this check a NOP.
@@ -188,6 +215,7 @@ private:
     void check_initialized() const;
 };
 
+
 /*****************************************************************************/
 /* UNIPARTITEEDGESCHEMAT                                                     */
 /*****************************************************************************/
@@ -231,6 +259,9 @@ struct DefaultGraphAttributeTraits {
 template<typename Payload,
          class Traits = typename DefaultAttributeTraits<Payload>::Type>
 struct AttributeSchema {
+    typedef Payload PayloadType;
+    typedef Traits TraitsType;
+
     template<class Graph>
     AttributeSchema(const std::string & name,
                     const NodeSchemaT<Graph> & node);
@@ -248,6 +279,10 @@ struct AttributeSchema {
     const Traits * traits;
 };
 
+enum Uniqueness {
+    UNIQUE,
+    NOT_UNIQUE
+};
 
 /*****************************************************************************/
 /* NODEATTRIBUTESCHEMA                                                       */
@@ -259,7 +294,8 @@ template<class Graph, class Payload,
 struct NodeAttributeSchema
     : AttributeSchema<Payload, Traits> {
     NodeAttributeSchema(const std::string & name,
-                        const NodeSchemaT<Graph> & node_schema);
+                        const NodeSchemaT<Graph> & node_schema,
+                        Uniqueness unique = UNIQUE);
 
     using AttributeSchema<Payload>::operator ();
     using AttributeSchema<Payload>::traits;
@@ -275,6 +311,8 @@ struct NodeAttributeSchema
 
     int node_type() const { return node_schema.node_type(); }
     Graph * graph() const { return node_schema.graph(); }
+
+    Uniqueness unique;
 };
 
 

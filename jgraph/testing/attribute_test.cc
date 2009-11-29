@@ -107,6 +107,7 @@ BOOST_AUTO_TEST_CASE( test1 )
     BOOST_CHECK_EQUAL(attr < attr, false);
     BOOST_CHECK_EQUAL(attr != attr, false);
     BOOST_CHECK_EQUAL(attr.compare(attr), 0);
+    BOOST_CHECK_EQUAL(traits.decode(attr), 1);
 }
 
 // Reference counted attribute (string)
@@ -121,6 +122,7 @@ BOOST_AUTO_TEST_CASE( test2 )
     BOOST_CHECK_EQUAL(attr < attr, false);
     BOOST_CHECK_EQUAL(attr != attr, false);
     BOOST_CHECK_EQUAL(attr.compare(attr), 0);
+    BOOST_CHECK_EQUAL(traits.decode(attr), "hello");
 
     AttributeRef attr2 = traits.encode("bonus");
 
@@ -129,6 +131,7 @@ BOOST_AUTO_TEST_CASE( test2 )
     BOOST_CHECK_EQUAL(attr2 < attr2, false);
     BOOST_CHECK_EQUAL(attr2 != attr2, false);
     BOOST_CHECK_EQUAL(attr2.compare(attr2), 0);
+    BOOST_CHECK_EQUAL(traits.decode(attr2), "bonus");
 
     BOOST_CHECK_EQUAL(attr == attr2, false);
     BOOST_CHECK_EQUAL(attr2 == attr, false);
@@ -180,7 +183,7 @@ BOOST_AUTO_TEST_CASE( test3 )
         BOOST_CHECK_EQUAL(attr < attr, false);
         BOOST_CHECK_EQUAL(attr != attr, false);
         BOOST_CHECK_EQUAL(attr.compare(attr), 0);
-
+        BOOST_CHECK_EQUAL(traits.decode(attr), 3);
 
         BOOST_CHECK_EQUAL(destroyed + 1, constructed);
 

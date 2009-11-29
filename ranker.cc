@@ -13,6 +13,7 @@
 #include "arch/exception.h"
 #include "math/xdiv.h"
 #include "stats/distribution_simd.h"
+#include "stats/distribution_ops.h"
 #include "utils/hash_map.h"
 
 #include "boosting/dense_features.h"

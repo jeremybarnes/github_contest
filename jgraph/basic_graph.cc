@@ -45,6 +45,40 @@ setNodeAttr(int node_type, int node_handle, const Attribute & attr)
     }
 }
 
+void
+BasicGraph::
+setOrReplaceNodeAttr(int node_type, int node_handle, const Attribute & attr)
+{
+    NodeCollection & ncoll = getNodeCollection(node_type);
+
+    if (node_handle < 0 || node_handle >= ncoll.nodes.size())
+        throw Exception("BasicGraph::setNodeAttr: invalid node handle");
+    Node & node = ncoll.nodes[node_handle];
+
+    AttributeRef old_attr = node.attributes.replace(attr);
+
+    if (ncoll.attribute_index[attr.type()] && old_attr && old_attr != attr) {
+        AttributeIndex & aindex = *ncoll.attribute_index[attr.type()];
+        aindex.erase(old_attr);
+        aindex.insert(make_pair(AttributeRef(attr), node_handle));
+    }
+}
+
+AttributeRef
+BasicGraph::
+getNodeAttr(int node_type, int node_handle, int attr_type) const
+{
+    NodeCollection & ncoll = getNodeCollection(node_type);
+
+    if (node_handle < 0 || node_handle >= ncoll.nodes.size())
+        throw Exception("BasicGraph::setNodeAttr: invalid node handle");
+
+    const AttributeRef & attr
+        = ncoll.nodes[node_handle].attributes.find(attr_type);
+
+    return attr;
+}
+
 int
 BasicGraph::
 addNodeType(const std::string & name)
@@ -58,6 +92,7 @@ addEdgeType(const std::string & name,
             const EdgeBehavior & behavior)
 {
     int result = edge_metadata.getOrCreate(name);
+    edge_metadata.entries[result].behavior = behavior;
     return result;
 }
 
@@ -149,11 +184,11 @@ getOrCreateEdge(int from_node_type,
     new_edge.to_type = to_node_type;
     ecoll.edges.push_back(new_edge);
 
-    from_node.edges.push_back(EdgeRef(direction,
-                                      edge_type,
-                                      to_node_type,
-                                      to_node_handle,
-                                      result));
+    from_node.edges.insert(EdgeRef(direction,
+                                   edge_type,
+                                   to_node_type,
+                                   to_node_handle,
+                                   result));
 
     if (!targetNodeKnowsEdge(metadata.behavior))
         return make_pair(result, direction);
@@ -163,11 +198,11 @@ getOrCreateEdge(int from_node_type,
     
     Node & to_node = ncoll_to.nodes.at(to_node_handle);
     
-    to_node.edges.push_back(EdgeRef(!direction,
-                                    edge_type,
-                                    from_node_type,
-                                    from_node_handle,
-                                    result));
+    to_node.edges.insert(EdgeRef(!direction,
+                                 edge_type,
+                                 from_node_type,
+                                 from_node_handle,
+                                 result));
 
     return make_pair(result, direction);
 }
@@ -202,8 +237,11 @@ printNode(int node_type, int node_handle) const
                          attributes[i].print().c_str());
     }
 
-    for (unsigned i = 0;  i < node.edges.size();  ++i) {
-        const EdgeRef & edge = node.edges[i];
+    for (EdgeRefList::const_iterator
+             it = node.edges.begin(),
+             end = node.edges.end();
+         it != end;  ++it) {
+        const EdgeRef & edge = *it;
         string edge_type = edge_metadata.entries.at(edge.edge_type).name;
         string tofrom = (edge.direction == ED_FORWARDS
                          ? "TO"
@@ -253,6 +291,76 @@ nodesMatchingAttr(int node_type, const Attribute & attr) const
                             /*, lock the index for reading and release when done*/);
 }
 
+BasicGraph::CoherentNodeSetGenerator
+BasicGraph::
+allNodesOfType(int node_type) const
+{
+    NodeCollection & ncoll = getNodeCollection(node_type);
+
+    // TODO: deleted nodes
+    return CoherentNodeSetGenerator(const_cast<BasicGraph *>(this),
+                                    node_type, ncoll.nodes.size());
+}
+
+int
+BasicGraph::
+maxIndexOfType(int node_type) const
+{
+    NodeCollection & ncoll = getNodeCollection(node_type);
+    return ncoll.nodes.size();
+}
+
+std::pair<BasicGraph::IncidentEdgeIterator, BasicGraph::IncidentEdgeIterator>
+BasicGraph::
+getIncidentEdges(int node_type, int node_handle,
+                 int edge_type, bool out_edges) const
+{
+    const NodeCollection & ncoll
+        = getNodeCollection(node_type);
+    if (node_handle < 0 || node_handle >= ncoll.nodes.size())
+        throw Exception("invalid node");
+    const Node & node = ncoll.nodes[node_handle];
+
+    if (!node.edges.sorted) node.edges.sort();
+
+    // Find the direction to look for
+    const EdgeMetadataEntry & metadata
+        = edge_metadata.entries[edge_type];
+    EdgeDirection direction = defaultDirection(metadata.behavior);
+    if (!out_edges) direction = !direction;
+
+    // Keys so that lower_bound can be used
+    EdgeRef lower_key(direction, edge_type);
+    EdgeRef upper_key(direction, edge_type + 1);
+
+    EdgeRefList::const_iterator lower
+        = std::lower_bound(node.edges.begin(),
+                           node.edges.end(),
+                           lower_key);
+
+    EdgeRefList::const_iterator upper
+        = std::lower_bound(lower,
+                           node.edges.end(),
+                           upper_key);
+    
+    BasicGraph * non_const_this
+        = const_cast<BasicGraph *>(this);
+
+    return std::make_pair
+        (IncidentEdgeIterator(lower, non_const_this, node_type, node_handle),
+         IncidentEdgeIterator(upper, non_const_this, node_type, node_handle));
+}
+
+int
+BasicGraph::
+getIncidentEdgeCount(int node_type, int node_handle,
+                     int edge_type, bool out_edges) const
+{
+    std::pair<IncidentEdgeIterator, IncidentEdgeIterator> its
+        = getIncidentEdges(node_type, node_handle, edge_type, out_edges);
+    return std::distance(its.first, its.second);
+}
+
 BasicGraph::NodeCollection &
 BasicGraph::
 getNodeCollection(int node_type) const
@@ -281,6 +389,11 @@ getEdgeCollection(int edge_type) const
     return  *edges_of_type[edge_type];
 }
 
+
+/*****************************************************************************/
+/* HELPER CLASSES                                                            */
+/*****************************************************************************/
+
 const AttributeRef &
 BasicGraph::AttributeSet::
 find(int type) const
@@ -290,6 +403,26 @@ find(int type) const
          it != e;  ++it)
         if (it->type() == type) return *it;
     return none;
+}
+
+AttributeRef
+BasicGraph::AttributeSet::
+replace(const Attribute & attr)
+{
+    AttributeRef result;
+
+    for (iterator it = begin(), e = end();
+         it != e;  ++it) {
+        if (it->type() == attr.type()) {
+            result = *it;
+            *it = AttributeRef(attr);
+            return result;
+        }
+    }
+    
+    push_back(AttributeRef(attr));
+
+    return result;
 }
 
 template<class Entry>
@@ -344,12 +477,19 @@ bool
 BasicGraph::CoherentNodeSetGenerator::
 next()
 {
-    if (!values || index == values->size() - 1) {
+    if (index == max_index - 1) {
         current = -1;
         return false;
     }
-    current = (*values)[++index];
-    return current != -1;
+
+    if (values)
+        current = (*values)[++index];
+    else current = ++index;
+
+    if (current == -1)
+        throw Exception("not finished but current == -1");
+
+    return true;
 }
 
 } // namespace JGraph

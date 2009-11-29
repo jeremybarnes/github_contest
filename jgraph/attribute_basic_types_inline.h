@@ -10,6 +10,7 @@
 
 namespace JGraph {
 
+
 /*****************************************************************************/
 /* INTTRAITS                                                                 */
 /*****************************************************************************/
@@ -20,6 +21,33 @@ encode(int val) const
 {
     return createScalarAttribute(val, FLAGS);
 }
+
+inline int
+IntTraits::
+decode(const Attribute & attr) const
+{
+    return getValue(attr);
+}
+
+
+/*****************************************************************************/
+/* BOOLTRAITS                                                                */
+/*****************************************************************************/
+
+inline AttributeRef
+BoolTraits::
+encode(bool val) const
+{
+    return createScalarAttribute(val, FLAGS);
+}
+
+inline bool
+BoolTraits::
+decode(const Attribute & attr) const
+{
+    return getValue(attr);
+}
+
 
 } // namespace JGraph
 
