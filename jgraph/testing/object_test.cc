@@ -126,8 +126,8 @@ struct Circular_Buffer {
 
     void reserve(int new_capacity)
     {
-        cerr << "reserve: capacity = " << capacity_ << " new_capacity = "
-             << new_capacity << endl;
+        //cerr << "reserve: capacity = " << capacity_ << " new_capacity = "
+        //     << new_capacity << endl;
 
         if (new_capacity <= capacity_) return;
         if (capacity_ == 0)
@@ -349,7 +349,7 @@ struct History {
 
         if (entries.empty())
             throw Exception("set_current_value with no entries");
-        if (entries.front().epoch > old_epoch)
+        if (entries.back().epoch > old_epoch)
             return false;  // something updated before us
         
         entries.push_back(Entry(new_epoch, new_value));
@@ -508,6 +508,9 @@ struct Sandbox {
                 it->first->rollback(new_epoch, it->second.val);
         }
 
+        // TODO: for failed transactions, we'd do better to keep this
+        local_values.clear();
+
         return result;
     }
 };
@@ -517,7 +520,9 @@ struct Transaction : public Snapshot, public Sandbox {
 
     bool commit()
     {
-        return Sandbox::commit(epoch);
+        bool result = Sandbox::commit(epoch);
+        if (!result) epoch = current_epoch;
+        return result;
     }
 };
 
@@ -612,37 +617,69 @@ void object_test_thread(Value<int> & var, int iter, boost::barrier & barrier)
     // Wait for all threads to start up before we continue
     barrier.wait();
 
+    int errors = 0;
+
     for (unsigned i = 0;  i < iter;  ++i) {
         // Keep going until we succeed
         int old_val = var.read();
 
         {
             Local_Transaction trans;
-            cerr << "transaction at epoch " << trans.epoch << endl;
+            //cerr << "transaction at epoch " << trans.epoch << endl;
             do {
                 int & val = var.mutate();
-                BOOST_CHECK_EQUAL(val % 2, 0);
+                if (val % 2 != 0) {
+                    cerr << "val should be even: " << val << endl;
+                    ++errors;
+                }
+
+                //BOOST_CHECK_EQUAL(val % 2, 0);
+
                 val += 1;
-                BOOST_CHECK_EQUAL(val % 2, 1);
+                if (val % 2 != 1) {
+                    cerr << "val should be odd: " << val << endl;
+                    ++errors;
+                }
+
+                //BOOST_CHECK_EQUAL(val % 2, 1);
+
                 val += 1;
-                BOOST_CHECK_EQUAL(val % 2, 0);
+                if (val % 2 != 0) {
+                    cerr << "val should be even 2: " << val << endl;
+                    ++errors;
+                }
+                //BOOST_CHECK_EQUAL(val % 2, 0);
                 
-                cerr << "trying commit iter " << i << " val = " << val << endl;
+                //cerr << "trying commit iter " << i << " val = " << val << endl;
             } while (!trans.commit());
 
-            BOOST_CHECK_EQUAL(var.read() % 2, 0);
+            if (var.read() % 2 != 0) {
+                ++errors;
+                cerr << "val should be even after trans: " << var.read()
+                     << endl;
+            }
+            //BOOST_CHECK_EQUAL(var.read() % 2, 0);
         }
 
-        BOOST_CHECK(var.read() > old_val);
+        if (var.read() <= old_val) {
+            ++errors;
+            cerr << "no progress made: " << old_val << " >= " << var.read()
+                 << endl;
+        }
+        //BOOST_CHECK(var.read() > old_val);
     }
 
+    static Lock lock;
+    Guard guard(lock);
+
+    BOOST_CHECK_EQUAL(errors, 0);
 }
 
 void run_object_test()
 {
     Value<int> val(0);
-    int niter = 10;
-    int nthreads = 1;
+    int niter = 1000;
+    int nthreads = 8;
     boost::barrier barrier(nthreads);
     boost::thread_group tg;
     for (unsigned i = 0;  i < nthreads;  ++i)
@@ -652,10 +689,15 @@ void run_object_test()
     
     tg.join_all();
 
+    cerr << "val.history.entries.size() = " << val.history.entries.size()
+         << endl;
+
+#if 0
     cerr << "current_epoch: " << current_epoch << endl;
     for (unsigned i = 0;  i < val.history.entries.size();  ++i)
         cerr << "value at epoch " << val.history.entries[i].epoch << ": "
              << val.history.entries[i].value << endl;
+#endif
 
     BOOST_CHECK_EQUAL(val.read(), niter * nthreads * 2);
 }
