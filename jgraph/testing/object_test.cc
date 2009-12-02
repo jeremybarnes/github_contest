@@ -20,6 +20,7 @@
 #include <boost/tuple/tuple.hpp>
 #include "arch/cmp_xchg.h"
 #include "arch/threads.h"
+#include "arch/exception_handler.h"
 
 using namespace ML;
 using namespace JGraph;
@@ -61,18 +62,58 @@ struct Circular_Buffer {
     Circular_Buffer(int initial_capacity = 0)
         : vals_(0), start_(0), size_(0), capacity_(0)
     {
-        reserve(initial_capacity);
+        if (initial_capacity != 0) reserve(initial_capacity);
+    }
+
+    void swap(Circular_Buffer & other)
+    {
+        std::swap(vals_, other.vals_);
+        std::swap(start_, other.start_);
+        std::swap(size_, other.size_);
+        std::swap(capacity_, other.capacity_);
+    }
+
+    Circular_Buffer(const Circular_Buffer & other)
+        : vals_(0), start_(0), size_(0), capacity_(0)
+    {
+        reserve(other.size());
+        for (unsigned i = 0;  i < other.size();  ++i)
+            vals_[i] = other[i];
+    }
+
+    Circular_Buffer & operator = (const Circular_Buffer & other)
+    {
+        Circular_Buffer new_me(other);
+        swap(new_me);
+        return *this;
     }
 
     bool empty() const { return size_ == 0; }
     size_t size() const { return size_; }
     size_t capacity() const { return capacity_; }
 
+    ~Circular_Buffer()
+    {
+        destroy();
+    }
+
+    void destroy()
+    {
+        delete[] vals_;
+        vals_ = 0;
+        start_ = size_ = capacity_ = 0;
+    }
+
+    void clear()
+    {
+        start_ = size_ = 0;
+    }
+
     const T & operator [](int index) const
     {
         if (size_ == 0)
             throw Exception("Circular_Buffer: empty array");
-        if (index <= -size_ || index >= size_)
+        if (index < -size_ || index >= size_)
             throw Exception("Circular_Buffer: invalid size");
         return *element_at(index);
     }
@@ -85,6 +126,9 @@ struct Circular_Buffer {
 
     void reserve(int new_capacity)
     {
+        cerr << "reserve: capacity = " << capacity_ << " new_capacity = "
+             << new_capacity << endl;
+
         if (new_capacity <= capacity_) return;
         if (capacity_ == 0)
             capacity_ = new_capacity;
@@ -133,14 +177,14 @@ struct Circular_Buffer {
 
     void push_back(const T & val)
     {
-        if (size_ == capacity_) reserve(capacity_ * 2);
+        if (size_ == capacity_) reserve(std::max(1, capacity_ * 2));
         *element_at(size_) = val;
         ++size_;
     }
 
     void push_front(const T & val)
     {
-        if (size_ == capacity_) reserve(capacity_ * 2);
+        if (size_ == capacity_) reserve(std::max(1, capacity_ * 2));
         *element_at(-1) = val;
         if (start_ == 0) start_ = capacity_ - 1;
         else --start_;
@@ -169,14 +213,81 @@ private:
 
     T * element_at(int index)
     {
-        return vals_ + ((start_ + index) % capacity_);
+        if (capacity_ == 0)
+            throw Exception("empty circular buffer");
+
+        //cerr << "element_at: index " << index << " start_ " << start_
+        //     << " capacity_ " << capacity_ << " offset "
+        //     << ((start_ + index) % capacity_) << endl;
+
+        int offset = (start_ + index) % capacity_;
+        if (offset < 0) offset += size_;
+
+        return vals_ + offset;
     }
     
     const T * element_at(int index) const
     {
-        return vals_ + ((start_ + index) % capacity_);
+        if (capacity_ == 0)
+            throw Exception("empty circular buffer");
+
+        //cerr << "element_at: index " << index << " start_ " << start_
+        //     << " capacity_ " << capacity_ << " offset "
+        //     << ((start_ + index) % capacity_) << endl;
+
+        int offset = (start_ + index) % capacity_;
+        if (offset < 0) offset += size_;
+
+        return vals_ + offset;
     }
 };
+
+BOOST_AUTO_TEST_CASE( circular_buffer_test )
+{
+    Circular_Buffer<int> buf;
+    BOOST_CHECK(buf.empty());
+    BOOST_CHECK_EQUAL(buf.capacity(), 0);
+    {
+        JML_TRACE_EXCEPTIONS(false);
+        BOOST_CHECK_THROW(buf.front(), Exception);
+        BOOST_CHECK_THROW(buf.back(), Exception);
+        BOOST_CHECK_THROW(buf[0], Exception);
+    }
+
+    buf.push_back(1);
+    BOOST_CHECK_EQUAL(buf.size(), 1);
+    BOOST_CHECK(buf.capacity() >= 1);
+    BOOST_CHECK_EQUAL(buf[0], 1);
+    BOOST_CHECK_EQUAL(buf[-1], 1);
+    BOOST_CHECK_EQUAL(buf.front(), 1);
+    BOOST_CHECK_EQUAL(buf.back(), 1);
+    {
+        JML_TRACE_EXCEPTIONS(false);
+        BOOST_CHECK_THROW(buf[-2], Exception);
+        BOOST_CHECK_THROW(buf[1], Exception);
+    }
+
+    buf.push_back(2);
+    BOOST_CHECK_EQUAL(buf.size(), 2);
+    BOOST_CHECK(buf.capacity() >= 2);
+    BOOST_CHECK_EQUAL(buf[0], 1);
+    BOOST_CHECK_EQUAL(buf[1], 2);
+    BOOST_CHECK_EQUAL(buf[-1], 2);
+    BOOST_CHECK_EQUAL(buf[-2], 1);
+    BOOST_CHECK_EQUAL(buf.front(), 1);
+    BOOST_CHECK_EQUAL(buf.back(), 2);
+
+    {
+        JML_TRACE_EXCEPTIONS(false);
+        BOOST_CHECK_THROW(buf[-3], Exception);
+        BOOST_CHECK_THROW(buf[2], Exception);
+    }
+
+    Circular_Buffer<int> buf2;
+    buf2 = buf;
+
+
+}
 
 /// Object that records the history of committed values.  Only the values
 /// needed for active transactions are kept.
@@ -210,7 +321,7 @@ struct History {
             throw Exception("attempt to obtain value for object that never "
                             "existed");
 
-        return entries[0].value;
+        return entries.back().value;
     }
 
     /// Return the value for the given epoch
@@ -222,7 +333,7 @@ struct History {
             throw Exception("attempt to obtain value for object that never "
                             "existed");
 
-        for (unsigned i = 0, sz = entries.size();  i < sz;  ++i)
+        for (int i = entries.size() - 1;  i >= 0;  --i)
             if (entries[i].epoch <= epoch) return entries[i].value;
 
         throw Exception("attempt to obtain value for expired epoch");
@@ -238,7 +349,7 @@ struct History {
 
         if (entries.empty())
             throw Exception("set_current_value with no entries");
-        if (entries.front().epoch != old_epoch)
+        if (entries.front().epoch > old_epoch)
             return false;  // something updated before us
         
         entries.push_back(Entry(new_epoch, new_value));
@@ -264,7 +375,7 @@ struct History {
     /// the object itself can now be reused.
     bool prune(size_t curr_epoch, size_t next_epoch);
     
-private:
+    //private:
     struct Entry {
         Entry()
             : epoch(0)
@@ -350,7 +461,7 @@ struct Sandbox {
         Local_Values::iterator it;
         boost::tie(it, inserted)
             = local_values.insert(make_pair(obj, Entry()));
-        if (!inserted) {
+        if (inserted) {
             it->second.val = new T(initial_value);
             it->second.size = sizeof(T);
         }
@@ -450,6 +561,9 @@ struct Value : public Object {
         if (!local) {
             T value = history.value_at_epoch(current_trans->epoch);
             local = current_trans->local_value<int>(this, value);
+
+            if (!local)
+                throw Exception("mutate(): no local was created");
         }
 
         return *local;
@@ -466,7 +580,7 @@ struct Value : public Object {
         else return history.value_at_epoch(current_trans->epoch);
     }
 
-private:
+    //private:
     // Implement object interface
 
     History<T> history;
@@ -500,18 +614,28 @@ void object_test_thread(Value<int> & var, int iter, boost::barrier & barrier)
 
     for (unsigned i = 0;  i < iter;  ++i) {
         // Keep going until we succeed
-        Local_Transaction trans;
-        do {
-            int & i = var.mutate();
-            BOOST_CHECK_EQUAL(i % 2, 0);
-            i += 1;
-            BOOST_CHECK_EQUAL(i % 2, 1);
-            i += 1;
-            BOOST_CHECK_EQUAL(i % 2, 0);
-        } while (!trans.commit());
+        int old_val = var.read();
 
-        BOOST_CHECK_EQUAL(var.read() % 2, 0);
+        {
+            Local_Transaction trans;
+            cerr << "transaction at epoch " << trans.epoch << endl;
+            do {
+                int & val = var.mutate();
+                BOOST_CHECK_EQUAL(val % 2, 0);
+                val += 1;
+                BOOST_CHECK_EQUAL(val % 2, 1);
+                val += 1;
+                BOOST_CHECK_EQUAL(val % 2, 0);
+                
+                cerr << "trying commit iter " << i << " val = " << val << endl;
+            } while (!trans.commit());
+
+            BOOST_CHECK_EQUAL(var.read() % 2, 0);
+        }
+
+        BOOST_CHECK(var.read() > old_val);
     }
+
 }
 
 void run_object_test()
@@ -527,6 +651,11 @@ void run_object_test()
                                      boost::ref(barrier)));
     
     tg.join_all();
+
+    cerr << "current_epoch: " << current_epoch << endl;
+    for (unsigned i = 0;  i < val.history.entries.size();  ++i)
+        cerr << "value at epoch " << val.history.entries[i].epoch << ": "
+             << val.history.entries[i].value << endl;
 
     BOOST_CHECK_EQUAL(val.read(), niter * nthreads * 2);
 }
