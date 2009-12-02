@@ -17,7 +17,9 @@
 #include <boost/thread.hpp>
 #include <boost/thread/barrier.hpp>
 #include <boost/bind.hpp>
+#include <boost/tuple/tuple.hpp>
 #include "arch/cmp_xchg.h"
+#include "arch/threads.h"
 
 using namespace ML;
 using namespace JGraph;
@@ -25,55 +27,237 @@ using namespace std;
 
 using boost::unit_test::test_suite;
 
-struct Updater {
-    virtual bool update() const = 0;
-};
+struct Transaction;
 
-struct Ref {
-    
-    struct Value {
-        Value * next;
-        void * data;
-    };
-};
-
-/// Global variable giving the current epoch; non-decreasing
+/// Global variable giving the number of committed transactions since the
+/// beginning of the program
 size_t current_epoch = 0;
 
 /// Global variable giving the earliest epoch for which there is a snapshot
 size_t earliest_epoch = 0;
 
-struct Type {
-};
+/// Current transaction for this thread
+__thread Transaction * current_trans = 0;
 
 
-/// Base class for a value.  An object at any given epoch has an instantaneous
-/// value.
-struct Value {
+namespace JML_HASH_NS {
+
+template<typename T>
+struct hash<T *> {
+    size_t operator () (const T * ptr) const
+    {
+        return reinterpret_cast<size_t>(ptr);
+    }
+
 };
+
+} // namespace HASH_NS
 
 struct RWSpinlock {
+};
+
+template<typename T>
+struct Circular_Buffer {
+    Circular_Buffer(int initial_capacity = 0)
+        : vals_(0), start_(0), size_(0), capacity_(0)
+    {
+        reserve(initial_capacity);
+    }
+
+    bool empty() const { return size_ == 0; }
+    size_t size() const { return size_; }
+    size_t capacity() const { return capacity_; }
+
+    const T & operator [](int index) const
+    {
+        if (size_ == 0)
+            throw Exception("Circular_Buffer: empty array");
+        if (index <= -size_ || index >= size_)
+            throw Exception("Circular_Buffer: invalid size");
+        return *element_at(index);
+    }
+
+    T & operator [](int index)
+    {
+        const Circular_Buffer * cthis = this;
+        return const_cast<T &>(cthis->operator [] (index));
+    }
+
+    void reserve(int new_capacity)
+    {
+        if (new_capacity <= capacity_) return;
+        if (capacity_ == 0)
+            capacity_ = new_capacity;
+        else capacity_ = std::max(capacity_ * 2, new_capacity);
+
+        T * new_vals = new T[capacity_];
+        int nfirst_half = std::min(capacity_ - start_, size_);
+        std::copy(vals_ + start_, vals_ + start_ + nfirst_half,
+                  new_vals);
+        int nsecond_half = std::max(0, size_ - nfirst_half);
+        std::copy(vals_ + start_ - nsecond_half, vals_ + start_,
+                  new_vals + nfirst_half);
+
+        delete[] vals_;
+
+        vals_ = new_vals;
+    }
+
+    const T & front() const
+    {
+        if (empty())
+            throw Exception("front() with empty circular array");
+        return vals_[start_];
+    }
+
+    T & front()
+    {
+        if (empty())
+            throw Exception("front() with empty circular array");
+        return vals_[start_];
+    }
+
+    const T & back() const
+    {
+        if (empty())
+            throw Exception("back() with empty circular array");
+        return *element_at(size_ - 1);
+    }
+
+    T & back()
+    {
+        if (empty())
+            throw Exception("back() with empty circular array");
+        return *element_at(size_ - 1);
+    }
+
+    void push_back(const T & val)
+    {
+        if (size_ == capacity_) reserve(capacity_ * 2);
+        *element_at(size_) = val;
+        ++size_;
+    }
+
+    void push_front(const T & val)
+    {
+        if (size_ == capacity_) reserve(capacity_ * 2);
+        *element_at(-1) = val;
+        if (start_ == 0) start_ = capacity_ - 1;
+        else --start_;
+    }
+
+    void pop_back()
+    {
+        if (empty())
+            throw Exception("pop_back with empty circular array");
+        --size_;
+    }
+
+    void pop_front()
+    {
+        if (empty())
+            throw Exception("pop_front with empty circular array");
+        ++start_;
+        if (start_ == capacity_) start_ = 0;
+    }
+
+private:
+    T * vals_;
+    int start_;
+    int size_;
+    int capacity_;
+
+    T * element_at(int index)
+    {
+        return vals_ + ((start_ + index) % capacity_);
+    }
+    
+    const T * element_at(int index) const
+    {
+        return vals_ + ((start_ + index) % capacity_);
+    }
 };
 
 /// Object that records the history of committed values.  Only the values
 /// needed for active transactions are kept.
 template<typename T>
 struct History {
+    History()
+        : entries(0)
+    {
+    }
+
+    History(const T & initial)
+        : entries(1)
+    {
+        entries.push_back(Entry());
+        entries[0].epoch = current_epoch;
+        entries[0].value = initial;
+    }
+
+    History(const History & other)
+    {
+        Guard guard(other.lock);
+        entries = other.entries;
+    }
 
     /// Once it goes into the history, it's immutable
-    const T & latest_value() const;
+    const T & latest_value() const
+    {
+        Guard guard(lock);
+
+        if (entries.empty())
+            throw Exception("attempt to obtain value for object that never "
+                            "existed");
+
+        return entries[0].value;
+    }
 
     /// Return the value for the given epoch
-    const T & value_at_epoch(size_t epoch) const;
+    const T & value_at_epoch(size_t epoch) const
+    {
+        Guard guard(lock);
+
+        if (entries.empty())
+            throw Exception("attempt to obtain value for object that never "
+                            "existed");
+
+        for (unsigned i = 0, sz = entries.size();  i < sz;  ++i)
+            if (entries[i].epoch <= epoch) return entries[i].value;
+
+        throw Exception("attempt to obtain value for expired epoch");
+    }
 
     /// Update the current value at a new epoch.  Returns true if it
     /// succeeded.  If the value has changed since the old epoch, it will
     /// not succeed.
-    bool set_current_value(size_t old_epoch, const T & new_value);
+    bool set_current_value(size_t old_epoch, size_t new_epoch,
+                           const T & new_value)
+    {
+        Guard guard(lock);
+
+        if (entries.empty())
+            throw Exception("set_current_value with no entries");
+        if (entries.front().epoch != old_epoch)
+            return false;  // something updated before us
+        
+        entries.push_back(Entry(new_epoch, new_value));
+
+        return true;
+    }
 
     /// Erase the current value.  Will fail if the object was modified since
     /// the given epoch.
-    void erase(size_t old_epoch) const;
+    void erase(size_t old_epoch)
+    {
+        if (entries.empty())
+            throw Exception("entries was empty");
+
+        if (entries.back().epoch != old_epoch)
+            throw Exception("erasing the wrong entry");
+
+        entries.pop_back();
+    }
 
     /// Clean out any history entries that are associated with the given
     /// epoch and not the next epoch.  Works atomically.  Returns true if
@@ -82,66 +266,37 @@ struct History {
     
 private:
     struct Entry {
+        Entry()
+            : epoch(0)
+        {
+        }
+
+        Entry(size_t epoch, const T & value)
+            : epoch(epoch), value(value)
+        {
+        }
+
         size_t epoch;
         T value;
-        bool deleted;  // If true, object has disappeared
     };
-    
-    Entry * entries;
-    int start;
-    int size;
 
-    RWSpinlock lock;
+    Circular_Buffer<Entry> entries;
+
+    //RWSpinlock lock;
+    mutable Lock lock;
 };
 
 /// This is an actual object.  Contains metadata and value history of an
 /// object.
 struct Object {
 
-    // Lock the current value into memory, so that 
-    virtual void lock_value() const = 0;
+    // Lock the current value into memory, so that no other transaction is
+    // allowed to modify it
+    //virtual void lock_value() const = 0;
+
+    virtual bool commit(size_t old_epoch, size_t new_epoch, void * data) = 0;
+    virtual void rollback(size_t new_epoch, void * data) = 0;
 };
-
-template<typename T>
-struct Value : public Object {
-
-    // Client interface.  Just two methods to get at the current value.
-    T & mutate_value()
-    {
-        if (!current_trans) no_transaction_exception(this);
-        T * local = current_trans->local_value<T>(this);
-
-        if (!local) {
-            T value = history.value_at_epoch(current_trans->epoch);
-            local = current_trans->local_value<int>(this, value);
-        }
-
-        return *local;
-    }
-    
-    const int & read_value() const
-    {
-        if (!current_trans) return history.latest_value();
-        else return history.value_at_epoch(current_trans->epoch);
-    }
-
-private:
-    // Implement object interface
-
-    History<int> history;
-
-
-    // Question: should the local value storage for transactions go in here
-    // as well?
-    // Pros: allows a global view that can find conflicts
-    // Cons: May cause lots of extra memory allocations
-};
-
-
-// What about list of objects?
-struct List : public Object {
-};
-
 
 /// A snapshot provides a view of all objects that is frozen at the moment
 /// the shapshot was created.  Provides a read-only view.
@@ -151,28 +306,109 @@ struct List : public Object {
 /// do so.
 
 struct Snapshot {
+    Snapshot()
+        : epoch(current_epoch)
+    {
+    }
+
     size_t epoch;  ///< Epoch at which snapshot was taken
-    Snapshot * prev;  ///< Previous snapshot (by epoch)
-    Snapshot * next;  ///< Next snapshot (by epoch)
 };
 
 struct Local_Snapshot {
 };
 
+/// For the moment, only one commit can happen at a time
+Lock commit_lock;
 
 /// A sandbox provides a place where writes don't affect the underlying
 /// objects.  These writes can then be committed, with 
 struct Sandbox {
-    hash_map<Object *, size_t> local_values;
+    struct Entry {
+        Entry() : val(0), size(0)
+        {
+        }
+
+        void * val;
+        size_t size;
+    };
+
+    typedef hash_map<Object *, Entry> Local_Values;
+    Local_Values local_values;
+
+    template<typename T>
+    T * local_value(Object * obj)
+    {
+        Local_Values::const_iterator it = local_values.find(obj);
+        if (it == local_values.end()) return 0;
+        return reinterpret_cast<T *>(it->second.val);
+    }
+
+    template<typename T>
+    T * local_value(Object * obj, const T & initial_value)
+    {
+        bool inserted;
+        Local_Values::iterator it;
+        boost::tie(it, inserted)
+            = local_values.insert(make_pair(obj, Entry()));
+        if (!inserted) {
+            it->second.val = new T(initial_value);
+            it->second.size = sizeof(T);
+        }
+        return reinterpret_cast<T *>(it->second.val);
+    }
+
+    template<typename T>
+    const T * local_value(const Object * obj)
+    {
+        return local_value<T>(const_cast<Object *>(obj));
+    }
+
+    template<typename T>
+    const T * local_value(const Object * obj, const T & initial_value)
+    {
+        return local_value(const_cast<Object *>(obj), initial_value);
+    }
+
+    bool commit(size_t old_epoch)
+    {
+        Guard guard(commit_lock);
+
+        size_t new_epoch = current_epoch + 1;
+
+        bool result = true;
+
+        Local_Values::iterator
+            it = local_values.begin(),
+            end = local_values.end();
+
+        // Commit everything
+        for (; result && it != end;  ++it)
+            result = it->first->commit(old_epoch, new_epoch, it->second.val);
+
+        if (result) {
+            // Success: we are in a new epoch
+            current_epoch = new_epoch;
+        }
+        else {
+            // Rollback if there was a problem
+            end = it;
+            it = local_values.begin();
+            for (end = it, it = local_values.begin();  it != end;  ++it)
+                it->first->rollback(new_epoch, it->second.val);
+        }
+
+        return result;
+    }
 };
 
 /// A transaction is both a snapshot and a sandbox.
 struct Transaction : public Snapshot, public Sandbox {
-};
 
-__thread Sandbox * current_sandbox;
-__thread Snapshot * current_snapshot;
-__thread Transaction * current_trans;
+    bool commit()
+    {
+        return Sandbox::commit(epoch);
+    }
+};
 
 struct Local_Transaction : public Transaction {
     Local_Transaction()
@@ -189,131 +425,75 @@ struct Local_Transaction : public Transaction {
     Transaction * old_trans;
 };
 
-#if 0
+void no_transaction_exception(const Object * obj)
+{
+    throw Exception("not in a transaction");
+}
+
 template<typename T>
-struct UpdaterT : public Updater {
-    UpdaterT(T * where, T old_val, T * new_val)
-        : where(where), old_val(old_val), new_val(new_val)
+struct Value : public Object {
+    Value()
     {
     }
 
-    T * where;
-    T old_val;
-    T * new_val;
-
-    virtual bool update() const
-    {
-        T old = old_val;
-
-        if (*where != old) return false;  // changed; update impossible
-        
-        bool success = cmp_xchg(*where, old, *new_val);
-
-        cerr << "after update: old = " << old << " new = " << *where << endl;
-
-        return success;
-
-
-
-        // Garbage collect either the old or the new
-    }
-
-
-    virtual void rollback() const
-    {
-    }
-};
-
-struct Transaction {
-    void restart()
+    Value(const T & val)
+        : history(val)
     {
     }
 
-    bool commit()
+    // Client interface.  Just two methods to get at the current value.
+    T & mutate()
     {
-        bool succeeded = true;
+        if (!current_trans) no_transaction_exception(this);
+        T * local = current_trans->local_value<T>(this);
 
-        for (Updaters::iterator
-                 it = updaters.begin(),
-                 end = updaters.end();
-             it != end;  ++it) {
-            if (succeeded)
-                succeeded = it->second->update();
-            delete it->second;
+        if (!local) {
+            T value = history.value_at_epoch(current_trans->epoch);
+            local = current_trans->local_value<int>(this, value);
         }
-        
-        updaters.clear();
 
-        cerr << "commit: success = " << succeeded << endl;
-
-        return succeeded;
+        return *local;
     }
 
-    void abort()
+    void write(const T & val)
     {
-        for (Updaters::iterator
-                 it = updaters.begin(),
-                 end = updaters.end();
-             it != end;  ++it) {
-            delete it->second;
-        }
-        updaters.clear();
+        mutate() = val;
     }
     
-    template<typename T>
-    T * get_local(T * val)
+    const int & read() const
     {
-        T * new_val = new T(*val);
-
-        size_t address = reinterpret_cast<size_t>(val);
-        
-        updaters[address] = new UpdaterT<T>(val, *new_val, new_val);
-
-        return new_val;
-    }
-
-    void update(Object & obj, const Object & new_value)
-    {
-    }
-
-    typedef hash_map<size_t, Updater *> Updaters;
-    Updaters updaters;
-};
-
-__thread Transaction * current_trans = 0;
-
-
-template<class Payload>
-struct Variable {
-    Variable(Payload * val, bool is_local = false)
-        : val(val), is_local(is_local)
-    {
-    }
-
-    operator const Payload & () const { return *val; }
-
-    void mutate()
-    {
-        if (!current_trans) return;
-
-        // Tell that transaction that when it commits, it needs to transfer
-        // from our new value to its value
-        val = current_trans->get_local(val);
-    }
-
-    Variable operator + (Payload amount)
-    {
-        Variable result(current_trans->get_local(val));
+        if (!current_trans) return history.latest_value();
+        else return history.value_at_epoch(current_trans->epoch);
     }
 
 private:
-    Payload * val;
-    bool is_local;
+    // Implement object interface
+
+    History<T> history;
+
+    virtual bool commit(size_t old_epoch, size_t new_epoch, void * data)
+    {
+        return history.set_current_value(old_epoch, new_epoch,
+                                         *reinterpret_cast<T *>(data));
+    }
+
+    virtual void rollback(size_t new_epoch, void * data)
+    {
+        history.erase(new_epoch);
+    }
+
+    // Question: should the local value storage for transactions go in here
+    // as well?
+    // Pros: allows a global view that can find conflicts
+    // Cons: May cause lots of extra memory allocations
 };
 
-#endif
 
-void object_test_thread(Variable<int> var, int iter, boost::barrier & barrier)
+// What about list of objects?
+struct List : public Object {
+};
+
+void object_test_thread(Value<int> & var, int iter, boost::barrier & barrier)
 {
     // Wait for all threads to start up before we continue
     barrier.wait();
@@ -322,29 +502,33 @@ void object_test_thread(Variable<int> var, int iter, boost::barrier & barrier)
         // Keep going until we succeed
         Local_Transaction trans;
         do {
-            trans->update(var, var + 1);
-            BOOST_CHECK_EQUAL(var % 2, 1);
-            trans->update(var, var + 1);
+            int & i = var.mutate();
+            BOOST_CHECK_EQUAL(i % 2, 0);
+            i += 1;
+            BOOST_CHECK_EQUAL(i % 2, 1);
+            i += 1;
+            BOOST_CHECK_EQUAL(i % 2, 0);
         } while (!trans.commit());
 
-        BOOST_CHECK_EQUAL(var % 2, 0);
+        BOOST_CHECK_EQUAL(var.read() % 2, 0);
     }
 }
 
 void run_object_test()
 {
-    int value = 0;
-    Variable<int> var(&value);
+    Value<int> val(0);
     int niter = 10;
     int nthreads = 1;
     boost::barrier barrier(nthreads);
     boost::thread_group tg;
     for (unsigned i = 0;  i < nthreads;  ++i)
-        tg.create_thread(boost::bind(&object_test_thread, var, niter, boost::ref(barrier)));
-
+        tg.create_thread(boost::bind(&object_test_thread, boost::ref(val),
+                                     niter,
+                                     boost::ref(barrier)));
+    
     tg.join_all();
 
-    BOOST_CHECK_EQUAL(var, niter * nthreads * 2);
+    BOOST_CHECK_EQUAL(val.read(), niter * nthreads * 2);
 }
 
 
