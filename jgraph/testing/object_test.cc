@@ -21,6 +21,7 @@
 #include "arch/cmp_xchg.h"
 #include "arch/threads.h"
 #include "arch/exception_handler.h"
+#include <set>
 
 using namespace ML;
 using namespace JGraph;
@@ -28,34 +29,7 @@ using namespace std;
 
 using boost::unit_test::test_suite;
 
-struct Transaction;
 
-/// Global variable giving the number of committed transactions since the
-/// beginning of the program
-size_t current_epoch = 0;
-
-/// Global variable giving the earliest epoch for which there is a snapshot
-size_t earliest_epoch = 0;
-
-/// Current transaction for this thread
-__thread Transaction * current_trans = 0;
-
-
-namespace JML_HASH_NS {
-
-template<typename T>
-struct hash<T *> {
-    size_t operator () (const T * ptr) const
-    {
-        return reinterpret_cast<size_t>(ptr);
-    }
-
-};
-
-} // namespace HASH_NS
-
-struct RWSpinlock {
-};
 
 template<typename T>
 struct Circular_Buffer {
@@ -205,6 +179,43 @@ struct Circular_Buffer {
         if (start_ == capacity_) start_ = 0;
     }
 
+    void erase_element(int el)
+    {
+        cerr << "erase_element: el = " << el << " size = " << size()
+             << endl;
+
+        if (el >= size() || el < -(int)size())
+            throw Exception("erase_element(): invalid value");
+        if (el < 0) el += size_;
+
+        if (capacity_ == 0)
+            throw Exception("empty circular buffer");
+
+        int offset = (start_ + el) % capacity_;
+
+        // TODO: could be done more efficiently
+
+        if (el == 0) {
+            pop_front();
+            return;
+        }
+        else if (el == size() - 1) {
+            pop_back();
+            return;
+        }
+        else if (offset < start_) {
+            // slide everything back
+            std::copy(vals_ + offset + 1, vals_ + size_, vals_ + offset);
+            --size_;
+        }
+        else {
+            for (int i = offset;  i > 0;  --i)
+                vals_[i] = vals_[i - 1];
+            --size_;
+            ++start_;
+        }
+    }
+
 private:
     T * vals_;
     int start_;
@@ -289,6 +300,70 @@ BOOST_AUTO_TEST_CASE( circular_buffer_test )
 
 }
 
+
+struct Transaction;
+struct Snapshot;
+struct Object;
+
+/// Global variable giving the number of committed transactions since the
+/// beginning of the program
+size_t current_epoch = 1;
+
+/// Global variable giving the earliest epoch for which there is a snapshot
+size_t earliest_epoch = 1;
+
+/// Current transaction for this thread
+__thread Transaction * current_trans = 0;
+
+
+/* WHEN WE DESTROY A SNAPSHOT, we can clean up the entries upon which only
+   this snapshot depends.
+
+   How to keep track of which snapshot a history enrtry depends upon:
+   - With no transaction active, there should only be one single entry in
+     each history
+   - Each snapshot has a list of entries that can be cleaned up after it
+     dies
+
+ */
+
+/// Information about transactions in progress
+struct Snapshot_Info {
+    Lock lock;
+
+    struct Entry {
+        set<Snapshot *> snapshots;
+        vector<pair<Object *, size_t> > cleanups;
+    };
+
+    typedef map<size_t, Entry> Entries;
+    Entries entries;
+
+    void register_snapshot(Snapshot * snapshot, size_t epoch);
+
+    void remove_snapshot(Snapshot * snapshot);
+
+    void register_cleanup(Object * obj, size_t epoch_to_cleanup);
+
+} snapshot_info;
+
+
+namespace JML_HASH_NS {
+
+template<typename T>
+struct hash<T *> {
+    size_t operator () (const T * ptr) const
+    {
+        return reinterpret_cast<size_t>(ptr);
+    }
+
+};
+
+} // namespace HASH_NS
+
+struct RWSpinlock {
+};
+
 /// Object that records the history of committed values.  Only the values
 /// needed for active transactions are kept.
 template<typename T>
@@ -310,18 +385,6 @@ struct History {
     {
         Guard guard(other.lock);
         entries = other.entries;
-    }
-
-    /// Once it goes into the history, it's immutable
-    const T & latest_value() const
-    {
-        Guard guard(lock);
-
-        if (entries.empty())
-            throw Exception("attempt to obtain value for object that never "
-                            "existed");
-
-        return entries.back().value;
     }
 
     /// Return the value for the given epoch
@@ -357,10 +420,27 @@ struct History {
         return true;
     }
 
-    /// Erase the current value.  Will fail if the object was modified since
-    /// the given epoch.
-    void erase(size_t old_epoch)
+    void cleanup_old_value(Object * obj)
     {
+        Guard guard(lock);
+
+        if (entries.size() < 2) return;  // nothing to clean up
+
+        // Do the common case where the previous one is no longer needed
+        //while (entries.front().epoch < earliest_epoch && entries.size() > 1)
+        //    entries.pop_front();
+
+        //if (entries.size() < 2) return;
+
+        // The second last entry needs to be cleaned up by the last snapshot
+        snapshot_info.register_cleanup(obj, entries[-2].epoch);
+    }
+
+    /// Erase the entry that was speculatively added
+    void rollback(size_t old_epoch)
+    {
+        Guard guard(lock);
+
         if (entries.empty())
             throw Exception("entries was empty");
 
@@ -368,6 +448,19 @@ struct History {
             throw Exception("erasing the wrong entry");
 
         entries.pop_back();
+    }
+
+    /// Clean up the entry for an unneeded epoch
+    void cleanup(size_t unneeded_epoch)
+    {
+        Guard guard(lock);
+
+        for (unsigned i = 0;  i < entries.size();  ++i) {
+            if (entries[i].epoch == unneeded_epoch) {
+                entries.erase_element(i);
+                return;
+            }
+        }
     }
 
     /// Clean out any history entries that are associated with the given
@@ -386,7 +479,7 @@ struct History {
             : epoch(epoch), value(value)
         {
         }
-
+        
         size_t epoch;
         T value;
     };
@@ -405,8 +498,18 @@ struct Object {
     // allowed to modify it
     //virtual void lock_value() const = 0;
 
-    virtual bool commit(size_t old_epoch, size_t new_epoch, void * data) = 0;
-    virtual void rollback(size_t new_epoch, void * data) = 0;
+    // Get the commit ready and check that everything can go ahead, but
+    // don't actually perform the commit
+    virtual bool setup(size_t old_epoch, size_t new_epoch, void * data) = 0;
+
+    // Confirm a setup commit, making it permanent
+    virtual void commit(size_t new_epoch) throw () = 0;
+
+    // Roll back a setup commit
+    virtual void rollback(size_t new_epoch, void * data) throw () = 0;
+
+    // Clean up information from an unused epoch
+    virtual void cleanup(size_t unused_epoch) throw () = 0;
 };
 
 /// A snapshot provides a view of all objects that is frozen at the moment
@@ -418,15 +521,232 @@ struct Object {
 
 struct Snapshot {
     Snapshot()
-        : epoch(current_epoch)
+        : epoch_(current_epoch)
     {
+        snapshot_info.register_snapshot(this, epoch_);
     }
 
-    size_t epoch;  ///< Epoch at which snapshot was taken
+    ~Snapshot()
+    {
+        snapshot_info.remove_snapshot(this);
+    }
+
+    void restart()
+    {
+        size_t new_epoch = current_epoch;
+        if (new_epoch != epoch_) {
+            snapshot_info.remove_snapshot(this);
+            epoch_ = new_epoch;
+        }
+    }
+
+    size_t epoch() const { return epoch_; }
+
+private:
+    size_t epoch_;  ///< Epoch at which snapshot was taken
 };
 
-struct Local_Snapshot {
-};
+/* Obsolete Version Cleanups
+
+   The goal of this code is to make sure that each version of each object
+   gets cleaned up exactly once, at the point when the last snapshot that
+   references the version is removed.
+
+   One way to do this is to make sure that each version is either:
+   a) the newest version of the object, or
+   b) on a list of versions to clean up somewhere, or
+   c) cleaned up
+
+   Here, we describe how we maintain and shuffle these lists.
+
+   Snapshot to Version Mapping
+   ---------------------------
+
+   Each version will have one or more snapshots that sees it (the exception is
+   the newest version of an object, which may not have any snapshots that see
+   it).
+
+   versions    snapshots
+   --------    ---------
+        v0
+                  s10
+                  s15
+
+       v20        s20
+                  s30
+                  s40
+
+       v50
+                  s70
+
+       v80
+                  s90
+                  s600
+
+   In this diagram, we have 4 versions of the object (v0, v20, v50 and v80)
+   and 6 snapshots.  A version is visible to all snapshots that have an
+   epoch >= the version number but < the next version number.  So v0 is
+   visible to s10 and s15; v20 is visible to s20, s30 and s40; v40 is visible
+   to s70 and v80 is visible to s90 and s600.
+
+   We need to make sure that the version is cleaned up when the *last*
+   snapshot that refers to it is destroyed.
+
+   The way that we do this is as follows.  We assume that a later snapshot
+   will live longer than an earlier one, and so we put the version to destroy
+   on the list for the latest snapshot.  So we have the following lists of
+   objects to clean up:
+
+   versions    snapshots    tocleanup
+   --------    ---------    ---------
+        v0
+                  s10
+                  s15       v0
+
+       v20        s20
+                  s30
+                  s40       v20
+
+       v50
+                  s70       v50
+
+       v80
+                  s90
+                  s600
+   
+   Note that v80, as the most recent value, is not on any free list.
+   When snapshot 20 is destroyed, there is nothing to clean up and so it
+   simply is removed.  Same story for snapshot 30; now when snapshot 40 is
+   destroyed it will clean up v20.
+
+   However, there is no guarantee that the order of creation of the snapshots
+   will be the reverse order of destruction.  Let's consider what happens
+   if snapshot 40 finishes before snapshot 30 and snapshot 20.  In this case,
+   it is not correct to clean up v20 as s20 and s30 still refer to it.  Instead,
+   it needs to be moved to the cleanup list for s30.  We know that the version
+   is still referenced because the epoch for the version (20) is less than or
+   equal to the epoch for the previous snapshot (30).
+
+   As a result, we simply move it to the cleanup list for s30.
+
+   versions    snapshots    tocleanup      deleted
+   --------    ---------    ---------      -------
+        v0
+                  s10
+                  s15       v0
+
+       v20        s20
+                  s30       v20
+                                           s40       
+
+       v50
+                  s70       v50
+
+       v80
+                  s90
+                  s600
+   
+   Thus, the invariant is that a version will always be on the cleanup list of
+   the latest snapshot that references it.
+   
+   When we cleanup, we look at the previous snapshot.  If the epoch of that
+   snapshot is >= the epoch for our version, then we move it to the free
+   list of that snapshot.  Otherwise, we clean it up.
+
+   Finally, when we create a new version, we need to arrange for the previous
+   most recent version to go onto a free list.  Consider a new version of the
+   object on epoch 900:
+
+   versions    snapshots    tocleanup      deleted
+   --------    ---------    ---------      -------
+        v0
+                  s10
+                  s15       v0
+
+       v20        s20
+                  s30       v20
+                                           s40       
+
+       v50
+                  s70       v50
+
+       v80
+                  s90
+                  s600      v80 <-- added
+      v900
+   
+*/
+
+void
+Snapshot_Info::
+register_snapshot(Snapshot * snapshot, size_t epoch)
+{
+    Guard guard(lock);
+    entries[epoch].snapshots.insert(snapshot);
+}
+
+void
+Snapshot_Info::
+remove_snapshot(Snapshot * snapshot)
+{
+    Guard guard(lock);
+
+    Entries::iterator it = entries.find(snapshot->epoch());
+    if (it == entries.end())
+        throw Exception("snapshot not found");
+
+    Entry & entry = it->second;
+    if (!entry.snapshots.count(snapshot))
+        throw Exception("snapshots out of sync");
+    
+    entry.snapshots.erase(snapshot);
+    
+    if (entry.snapshots.empty()) {
+        /* Find where the previous snapshot is; any that can't be deleted
+           here will need to be moved to that list */
+        Entry * prev_snapshot = 0;
+        size_t prev_epoch = 0;
+
+        if (it != entries.begin()) {
+            Entries::iterator jt = it;
+            --jt;
+
+            prev_snapshot = &jt->second;
+            prev_epoch = jt->first;
+        }
+
+        cerr << "prev_epoch = " << prev_epoch << endl;
+        cerr << "prev_snapshot = " << prev_snapshot << endl;
+
+        /* Check if there's another snapshot that still needs it */
+        for (unsigned i = 0;  i < entry.cleanups.size();  ++i) {
+            Object * obj = entry.cleanups[i].first;
+            size_t epoch = entry.cleanups[i].second;
+
+            cerr << "epoch = " << epoch << endl;
+
+            /* Is the object needed by the previous snapshot? */
+            if (prev_epoch >= epoch) // still needed by prev snapshot
+                prev_snapshot->cleanups.push_back(make_pair(obj, epoch));
+            else obj->cleanup(epoch);  // not needed anymore
+        }
+        entries.erase(it);
+    }
+}
+
+void
+Snapshot_Info::
+register_cleanup(Object * obj, size_t epoch_to_cleanup)
+{
+    Guard guard(lock);
+
+    if (entries.empty())
+        throw Exception("register_cleanup with no snapshots");
+
+    Entries::iterator it = boost::prior(entries.end());
+    it->second.cleanups.push_back(make_pair(obj, epoch_to_cleanup));
+}
+
 
 /// For the moment, only one commit can happen at a time
 Lock commit_lock;
@@ -494,23 +814,27 @@ struct Sandbox {
 
         // Commit everything
         for (; result && it != end;  ++it)
-            result = it->first->commit(old_epoch, new_epoch, it->second.val);
+            result = it->first->setup(old_epoch, new_epoch, it->second.val);
 
         if (result) {
             // Success: we are in a new epoch
+            for (it = local_values.begin(); it != end;  ++it)
+                it->first->commit(new_epoch);
+            
             current_epoch = new_epoch;
         }
         else {
-            // Rollback if there was a problem
+            // Rollback any that were set up if there was a problem
             end = it;
             it = local_values.begin();
             for (end = it, it = local_values.begin();  it != end;  ++it)
                 it->first->rollback(new_epoch, it->second.val);
         }
 
-        // TODO: for failed transactions, we'd do better to keep this
+        // TODO: for failed transactions, we'd do better to keep the
+        // structure to avoid reallocations
         local_values.clear();
-
+        
         return result;
     }
 };
@@ -520,8 +844,8 @@ struct Transaction : public Snapshot, public Sandbox {
 
     bool commit()
     {
-        bool result = Sandbox::commit(epoch);
-        if (!result) epoch = current_epoch;
+        bool result = Sandbox::commit(epoch());
+        if (!result) restart();
         return result;
     }
 };
@@ -564,7 +888,7 @@ struct Value : public Object {
         T * local = current_trans->local_value<T>(this);
 
         if (!local) {
-            T value = history.value_at_epoch(current_trans->epoch);
+            T value = history.value_at_epoch(current_trans->epoch());
             local = current_trans->local_value<int>(this, value);
 
             if (!local)
@@ -581,8 +905,8 @@ struct Value : public Object {
     
     const int & read() const
     {
-        if (!current_trans) return history.latest_value();
-        else return history.value_at_epoch(current_trans->epoch);
+        if (!current_trans) return history.value_at_epoch(current_epoch);
+        else return history.value_at_epoch(current_trans->epoch());
     }
 
     //private:
@@ -590,15 +914,26 @@ struct Value : public Object {
 
     History<T> history;
 
-    virtual bool commit(size_t old_epoch, size_t new_epoch, void * data)
+    virtual bool setup(size_t old_epoch, size_t new_epoch, void * data)
     {
         return history.set_current_value(old_epoch, new_epoch,
                                          *reinterpret_cast<T *>(data));
     }
 
-    virtual void rollback(size_t new_epoch, void * data)
+    virtual void commit(size_t new_epoch) throw ()
     {
-        history.erase(new_epoch);
+        // Now that it's definitive, we can clean up any old values
+        history.cleanup_old_value(this);
+    }
+
+    virtual void rollback(size_t new_epoch, void * data) throw ()
+    {
+        history.rollback(new_epoch);
+    }
+
+    virtual void cleanup(size_t unused_epoch) throw ()
+    {
+        history.cleanup(unused_epoch);
     }
 
     // Question: should the local value storage for transactions go in here
@@ -678,8 +1013,8 @@ void object_test_thread(Value<int> & var, int iter, boost::barrier & barrier)
 void run_object_test()
 {
     Value<int> val(0);
-    int niter = 1000;
-    int nthreads = 8;
+    int niter = 10;
+    int nthreads = 1;
     boost::barrier barrier(nthreads);
     boost::thread_group tg;
     for (unsigned i = 0;  i < nthreads;  ++i)
@@ -691,6 +1026,8 @@ void run_object_test()
 
     cerr << "val.history.entries.size() = " << val.history.entries.size()
          << endl;
+
+    cerr << "current_epoch = " << current_epoch << endl;
 
 #if 0
     cerr << "current_epoch: " << current_epoch << endl;
