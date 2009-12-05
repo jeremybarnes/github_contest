@@ -158,6 +158,9 @@ struct BasicGraph {
     CoherentNodeSetGenerator
     allNodesOfType(int node_type) const;
 
+    /// Return the type of the node with the given name
+    int nodeTypeFromName(const std::string & name) const;
+
     /// Return the number of nodes of the given type in the graph
     int numNodesOfType(int node_type) const;
 
@@ -190,6 +193,7 @@ private:
         std::vector<Entry> entries;
 
         int getOrCreate(const std::string & name);
+        int getOrError(const std::string & name) const;
     };
 
     Metadata<NodeMetadataEntry> node_metadata;

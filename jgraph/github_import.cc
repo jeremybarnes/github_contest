@@ -77,6 +77,34 @@ std::string unescape_json_string(const std::string & str)
     return str;
 }
 
+struct Stats {
+    
+};
+
+/* Goal: mine the relationship between parent links and watching links */
+
+void stats(const Graph & graph)
+{
+    // Get all nodes with a parent link
+
+    int repo_node_type = graph.nodeTypeFromName("repo");
+
+    Graph::CoherentNodeSetGenerator repo_nodes
+        = graph.allNodesOfType(repo_node_type);
+
+    int nnodes = 0;
+    for (;  repo_nodes;  repo_nodes.next()) {
+        Node node = repo_nodes.curr();
+
+        set<Node> adjacent_parent;
+        set<Node> adjacent_watching;
+
+        ++nnodes;
+    }
+
+    cerr << "found " << nnodes << " repo nodes" << endl;
+}
+
 void import_github()
 {
     Graph graph("github");
@@ -391,8 +419,9 @@ void import_github()
     cerr << Node(unique(repo_node[repo_node.attr1 == 18407])) << endl;
     cerr << Node(unique(user_node[user_node.attr1 == 407])) << endl;
     cerr << Node(unique(author_node[author_node.attr1 == "petdance"])) << endl;
-}
 
+    stats(graph);
+}
 
 int main(int argc, char ** argv)
 {

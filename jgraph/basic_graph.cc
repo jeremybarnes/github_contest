@@ -304,6 +304,13 @@ allNodesOfType(int node_type) const
 
 int
 BasicGraph::
+nodeTypeFromName(const std::string & name) const
+{
+    return node_metadata.getOrError(name);
+}
+
+int
+BasicGraph::
 maxIndexOfType(int node_type) const
 {
     NodeCollection & ncoll = getNodeCollection(node_type);
@@ -444,6 +451,17 @@ getOrCreate(const std::string & name)
     else result = it->second;
 
     return result;
+}
+
+template<class Entry>
+int
+BasicGraph::Metadata<Entry>::
+getOrError(const std::string & name) const
+{
+    typename Index::const_iterator it = index.find(name);
+    if (it == index.end())
+        throw Exception("Entry with name " + name + " not found");
+    return it->second;
 }
 
 BasicGraph::AttributeIndex &
