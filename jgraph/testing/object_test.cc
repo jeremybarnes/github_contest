@@ -104,21 +104,26 @@ struct Circular_Buffer {
         //     << new_capacity << endl;
 
         if (new_capacity <= capacity_) return;
-        if (capacity_ == 0)
-            capacity_ = new_capacity;
-        else capacity_ = std::max(capacity_ * 2, new_capacity);
+        new_capacity = std::max(capacity_ * 2, new_capacity);
 
-        T * new_vals = new T[capacity_];
+        T * new_vals = new T[new_capacity];
+
         int nfirst_half = std::min(capacity_ - start_, size_);
+        int nsecond_half = std::max(0, size_ - nfirst_half);
+
+        //cerr << "start_ = " << start_ << " size_ = " << size_ << endl;
+        //cerr << "nfirst_half = " << nfirst_half << endl;
+        //cerr << "nsecond_half = " << nsecond_half << endl;
+
         std::copy(vals_ + start_, vals_ + start_ + nfirst_half,
                   new_vals);
-        int nsecond_half = std::max(0, size_ - nfirst_half);
         std::copy(vals_ + start_ - nsecond_half, vals_ + start_,
                   new_vals + nfirst_half);
 
         delete[] vals_;
 
         vals_ = new_vals;
+        capacity_ = new_capacity;
     }
 
     const T & front() const
@@ -176,6 +181,9 @@ struct Circular_Buffer {
         if (empty())
             throw Exception("pop_front with empty circular array");
         ++start_;
+        --size_;
+
+        // Point back to the start if empty
         if (start_ == capacity_) start_ = 0;
     }
 
@@ -192,6 +200,10 @@ struct Circular_Buffer {
             throw Exception("empty circular buffer");
 
         int offset = (start_ + el) % capacity_;
+
+        cerr << "offset = " << offset << " start_ = " << start_
+             << " size_ = " << size_ << " capacity_ = " << capacity_
+             << endl;
 
         // TODO: could be done more efficiently
 
@@ -345,6 +357,8 @@ struct Snapshot_Info {
 
     void register_cleanup(Object * obj, size_t epoch_to_cleanup);
 
+    void dump();
+
 } snapshot_info;
 
 
@@ -386,6 +400,8 @@ struct History {
         Guard guard(other.lock);
         entries = other.entries;
     }
+
+    size_t size() const { return entries.size(); }
 
     /// Return the value for the given epoch
     const T & value_at_epoch(size_t epoch) const
@@ -510,6 +526,16 @@ struct Object {
 
     // Clean up information from an unused epoch
     virtual void cleanup(size_t unused_epoch) throw () = 0;
+    
+    virtual void dump(int indent = 0) const
+    {
+    }
+
+    virtual std::string print_local_value(void * val) const
+    {
+        return format("%08p", val);
+    }
+
 };
 
 /// A snapshot provides a view of all objects that is frozen at the moment
@@ -747,6 +773,35 @@ register_cleanup(Object * obj, size_t epoch_to_cleanup)
     it->second.cleanups.push_back(make_pair(obj, epoch_to_cleanup));
 }
 
+void
+Snapshot_Info::
+dump()
+{
+    cerr << "global state: " << endl;
+    cerr << "  current_epoch: " << current_epoch << endl;
+    cerr << "  earliest_epoch: " << earliest_epoch << endl;
+    cerr << "  current_trans: " << current_trans << endl;
+    cerr << "  snapshot epochs: " << entries.size() << endl;
+    int i = 0;
+    for (map<size_t, Entry>::const_iterator
+             it = entries.begin(), end = entries.end();
+         it != end;  ++it, ++i) {
+        const Entry & entry = it->second;
+        cerr << "  " << i << " at epoch " << it->first << endl;
+        cerr << "    " << entry.snapshots.size() << " snapshots"
+             << endl;
+        int j = 0;
+        for (set<Snapshot *>::const_iterator
+                 jt = entry.snapshots.begin(), jend = entry.snapshots.end();
+             jt != jend;  ++jt, ++j)
+            cerr << "      " << j << " " << *jt << " epoch "
+                 << (*jt)->epoch() << endl;
+        cerr << "    " << entry.cleanups.size() << " cleanups" << endl;
+        for (unsigned j = 0;  j < entry.cleanups.size();  ++j)
+            cerr << "      " << j << ": object " << entry.cleanups[j].first
+                 << " with version " << entry.cleanups[j].second << endl;
+    }
+}
 
 /// For the moment, only one commit can happen at a time
 Lock commit_lock;
@@ -837,6 +892,21 @@ struct Sandbox {
         
         return result;
     }
+
+    void dump(int indent = 0) const
+    {
+        string s(indent, ' ');
+        cerr << "sandbox: " << local_values.size() << " local values"
+             << endl;
+        int i = 0;
+        for (Local_Values::const_iterator
+                 it = local_values.begin(), end = local_values.end();
+             it != end;  ++it, ++i) {
+            cerr << s << "  " << i << " at " << it->first << ": value "
+                 << it->first->print_local_value(it->second.val)
+                 << endl;
+        }
+    }
 };
 
 /// A transaction is both a snapshot and a sandbox.
@@ -847,6 +917,14 @@ struct Transaction : public Snapshot, public Sandbox {
         bool result = Sandbox::commit(epoch());
         if (!result) restart();
         return result;
+    }
+
+    void dump(int indent = 0)
+    {
+        string s(indent, ' ');
+        cerr << s << "snapshot: epoch " << epoch() << endl;
+        cerr << s << "sandbox" << endl;
+        Sandbox::dump(indent);
     }
 };
 
@@ -903,10 +981,14 @@ struct Value : public Object {
         mutate() = val;
     }
     
-    const int & read() const
+    const T & read() const
     {
         if (!current_trans) return history.value_at_epoch(current_epoch);
-        else return history.value_at_epoch(current_trans->epoch());
+        
+        const T * val = current_trans->local_value<T>(this);
+
+        if (val) return *val;
+        return history.value_at_epoch(current_trans->epoch());
     }
 
     //private:
@@ -936,6 +1018,22 @@ struct Value : public Object {
         history.cleanup(unused_epoch);
     }
 
+    virtual void dump(int indent = 0) const
+    {
+        string s(indent, ' ');
+        cerr << s << "object at " << this << " with " << history.size()
+             << " values" << endl;
+        for (unsigned i = 0;  i < history.size();  ++i) {
+            cerr << s << "  " << i << ": epoch " << history.entries[i].epoch
+                 << " value " << history.entries[i].value << endl;
+        }
+    }
+
+    virtual std::string print_local_value(void * val) const
+    {
+        return ostream_format(*reinterpret_cast<T *>(val));
+    }
+
     // Question: should the local value storage for transactions go in here
     // as well?
     // Pros: allows a global view that can find conflicts
@@ -947,6 +1045,61 @@ struct Value : public Object {
 struct List : public Object {
 };
 
+BOOST_AUTO_TEST_CASE( test0 )
+{
+    // Check basic invariants
+    BOOST_CHECK_EQUAL(current_trans, (Transaction *)0);
+    BOOST_CHECK_EQUAL(snapshot_info.entries.size(), 0);
+
+    size_t starting_epoch = current_epoch;
+
+    Value<int> myval(6);
+
+    BOOST_CHECK_EQUAL(snapshot_info.entries.size(), 0);
+    BOOST_CHECK_EQUAL(myval.history.size(), 1);
+    BOOST_CHECK_EQUAL(myval.read(), 6);
+    
+    {
+        // Should throw an exception when we mutate out of a transaction
+        JML_TRACE_EXCEPTIONS(false);
+        BOOST_CHECK_THROW(myval.mutate(), Exception);
+    }
+
+    // Check strong exception safety
+    BOOST_CHECK_EQUAL(myval.history.size(), 1);
+    BOOST_CHECK_EQUAL(myval.read(), 6);
+    
+    // Create a transaction
+    {
+        Local_Transaction trans1;
+        
+        BOOST_CHECK_EQUAL(myval.history.size(), 1);
+        BOOST_CHECK_EQUAL(myval.read(), 6);
+        
+        BOOST_CHECK_EQUAL(snapshot_info.entries.size(), 1);
+
+        // Check that the correct value is copied over
+        BOOST_CHECK_EQUAL(myval.mutate(), 6);
+
+        // Check that read and mutate point to the same thing
+        BOOST_CHECK_EQUAL(&myval.read(), &myval.mutate());
+
+        // Check that we can increment it
+        BOOST_CHECK_EQUAL(++myval.mutate(), 7);
+
+        // Check that it was recorded
+        BOOST_CHECK_EQUAL(trans1.local_values.size(), 1);
+
+        // Finish the transaction without committing it
+    }
+
+    BOOST_CHECK_EQUAL(myval.history.size(), 1);
+    BOOST_CHECK_EQUAL(myval.read(), 6);
+    BOOST_CHECK_EQUAL(snapshot_info.entries.size(), 0);
+    BOOST_CHECK_EQUAL(current_epoch, starting_epoch);
+}
+
+
 void object_test_thread(Value<int> & var, int iter, boost::barrier & barrier)
 {
     // Wait for all threads to start up before we continue
@@ -957,42 +1110,116 @@ void object_test_thread(Value<int> & var, int iter, boost::barrier & barrier)
     for (unsigned i = 0;  i < iter;  ++i) {
         // Keep going until we succeed
         int old_val = var.read();
+        cerr << endl << "=======================" << endl;
+        cerr << "i = " << i << " old_val = " << old_val << endl;
 
         {
-            Local_Transaction trans;
-            //cerr << "transaction at epoch " << trans.epoch << endl;
-            do {
-                int & val = var.mutate();
-                if (val % 2 != 0) {
-                    cerr << "val should be even: " << val << endl;
+            {
+                cerr << "-------------" << endl << "state before trans"
+                     << endl;
+                snapshot_info.dump();
+                var.dump();
+                cerr << "-------------" << endl;
+
+                Local_Transaction trans;
+
+                cerr << "-------------" << endl << "state after trans"
+                     << endl;
+                snapshot_info.dump();
+                var.dump();
+                trans.dump();
+                cerr << "-------------" << endl;
+
+                int old_val2 = var.read();
+                //cerr << "transaction at epoch " << trans.epoch << endl;
+
+                cerr << "-------------" << endl << "state before read"
+                     << endl;
+                snapshot_info.dump();
+                var.dump();
+                trans.dump();
+                cerr << "-------------" << endl;
+
+
+
+                do {
+                    int & val = var.mutate();
+
+                    cerr << "old_val2 = " << old_val2 << endl;
+                    cerr << "&val = " << &val << " val = " << val << endl;
+                    cerr << "&var.read() = " << &var.read() << endl;
+                    cerr << "&var.mutate() = " << &var.mutate() << endl;
+
+                    cerr << "-------------" << endl << "state after read"
+                         << endl;
+                    snapshot_info.dump();
+                    var.dump();
+                    trans.dump();
+                    cerr << "-------------" << endl;
+                    
+                    if (val % 2 != 0) {
+                        cerr << "val should be even: " << val << endl;
+                        ++errors;
+                    }
+                    
+                    //BOOST_CHECK_EQUAL(val % 2, 0);
+                    
+                    val += 1;
+                    if (val % 2 != 1) {
+                        cerr << "val should be odd: " << val << endl;
+                        ++errors;
+                    }
+                    
+                    //BOOST_CHECK_EQUAL(val % 2, 1);
+                    
+                    val += 1;
+                    if (val % 2 != 0) {
+                        cerr << "val should be even 2: " << val << endl;
+                        ++errors;
+                    }
+                    //BOOST_CHECK_EQUAL(val % 2, 0);
+                    
+                    //cerr << "trying commit iter " << i << " val = "
+                    //     << val << endl;
+
+                    cerr << "-------------" << endl << "state before commit"
+                         << endl;
+                    snapshot_info.dump();
+                    var.dump();
+                    trans.dump();
+                    cerr << "-------------" << endl;
+
+                } while (!trans.commit());
+
+                cerr << "-------------" << endl << "state after commit"
+                     << endl;
+                snapshot_info.dump();
+                var.dump();
+                trans.dump();
+                cerr << "-------------" << endl;
+
+                cerr << "var.history.size() = " << var.history.entries.size()
+                     << endl;
+            
+                if (var.read() % 2 != 0) {
                     ++errors;
+                    cerr << "val should be even after trans: " << var.read()
+                         << endl;
                 }
+            }
 
-                //BOOST_CHECK_EQUAL(val % 2, 0);
-
-                val += 1;
-                if (val % 2 != 1) {
-                    cerr << "val should be odd: " << val << endl;
-                    ++errors;
-                }
-
-                //BOOST_CHECK_EQUAL(val % 2, 1);
-
-                val += 1;
-                if (val % 2 != 0) {
-                    cerr << "val should be even 2: " << val << endl;
-                    ++errors;
-                }
-                //BOOST_CHECK_EQUAL(val % 2, 0);
-                
-                //cerr << "trying commit iter " << i << " val = " << val << endl;
-            } while (!trans.commit());
-
+            cerr << "-------------" << endl << "state after trans destroyed"
+                 << endl;
+            snapshot_info.dump();
+            var.dump();
+            cerr << "-------------" << endl;
+            
             if (var.read() % 2 != 0) {
                 ++errors;
                 cerr << "val should be even after trans: " << var.read()
                      << endl;
             }
+            
             //BOOST_CHECK_EQUAL(var.read() % 2, 0);
         }
 
