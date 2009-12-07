@@ -81,6 +81,7 @@ struct Circular_Buffer {
     void clear()
     {
         start_ = size_ = 0;
+        memset(vals_, 0xaa, sizeof(T) * capacity_);
     }
 
     const T & operator [](int index) const
@@ -107,6 +108,7 @@ struct Circular_Buffer {
         new_capacity = std::max(capacity_ * 2, new_capacity);
 
         T * new_vals = new T[new_capacity];
+        memset(new_vals, 0xaa, sizeof(T) * new_capacity);
 
         int nfirst_half = std::min(capacity_ - start_, size_);
         int nsecond_half = std::max(0, size_ - nfirst_half);
@@ -119,6 +121,8 @@ struct Circular_Buffer {
                   new_vals);
         std::copy(vals_ + start_ - nsecond_half, vals_ + start_,
                   new_vals + nfirst_half);
+
+        memset(vals_, 0xaa, sizeof(T) * capacity_);
 
         delete[] vals_;
 
@@ -157,8 +161,8 @@ struct Circular_Buffer {
     void push_back(const T & val)
     {
         if (size_ == capacity_) reserve(std::max(1, capacity_ * 2));
-        *element_at(size_) = val;
         ++size_;
+        *element_at(size_) = val;
     }
 
     void push_front(const T & val)
@@ -173,6 +177,7 @@ struct Circular_Buffer {
     {
         if (empty())
             throw Exception("pop_back with empty circular array");
+        memset(element_at(size_ - 1), 0xaa, sizeof(T));
         --size_;
     }
 
@@ -180,6 +185,7 @@ struct Circular_Buffer {
     {
         if (empty())
             throw Exception("pop_front with empty circular array");
+        memset(vals_ + start_, 0xaa, sizeof(T));
         ++start_;
         --size_;
 
@@ -209,15 +215,15 @@ struct Circular_Buffer {
 
         if (el == 0) {
             pop_front();
-            return;
         }
         else if (el == size() - 1) {
             pop_back();
-            return;
         }
         else if (offset < start_) {
-            // slide everything back
-            std::copy(vals_ + offset + 1, vals_ + size_, vals_ + offset);
+            // slide everything 
+            int num_to_do = size_ - el - 1;
+            std::copy(vals_ + offset + 1, vals_ + offset + 1 + num_to_do,
+                      vals_ + offset);
             --size_;
         }
         else {
@@ -501,6 +507,14 @@ struct History {
         for (int i = entries.size() - 1;  i >= 0;  --i)
             if (entries[i]->epoch <= epoch) return entries[i]->value;
         
+        cerr << "--------------- expired epoch -------------" << endl;
+        cerr << "epoch = " << epoch << endl;
+        dump();
+        cerr << "--------------- end expired epoch" << endl;
+
+        abort();
+
+
         throw Exception("attempt to obtain value for expired epoch");
     }
 
@@ -572,8 +586,10 @@ struct History {
         // TODO: optimize
         for (unsigned i = 0;  i < entries.size();  ++i) {
             if (entries[i]->epoch == unneeded_epoch) {
+                validate();
                 delete entries[i];
                 entries.erase_element(i);
+                validate();
                 return;
             }
         }
@@ -584,6 +600,19 @@ struct History {
         cerr << "----------- end cleaning up didn't exist ---------" << endl;
 
         throw Exception("attempt to clean up something that didn't exist");
+    }
+
+    void dump(int indent = 0) const
+    {
+        string s(indent, ' ');
+        cerr << s << "history with " << size()
+             << " values" << endl;
+        for (unsigned i = 0;  i < size();  ++i) {
+            cerr << s << "  " << i << ": epoch " << entries[i]->epoch;
+            cerr << " addr " << entries[i];
+            cerr << " value " << entries[i]->value;
+            cerr << endl;
+        }
     }
 
 private:
@@ -603,6 +632,30 @@ private:
     };
 
     Circular_Buffer<Entry *> entries;
+
+    void validate() const
+    {
+        ssize_t e = 0;  // epoch we are up to
+
+        for (unsigned i = 0;  i < entries.size();  ++i) {
+            size_t e2 = entries[i]->epoch;
+            if (e2 > current_epoch + 1) {
+                cerr << "e = " << e << " e2 = " << e2 << endl;
+                dump();
+                cerr << "invalid current epoch" << endl;
+                abort();
+                throw Exception("invalid current epoch");
+            }
+            if (e2 <= e) {
+                cerr << "e = " << e << " e2 = " << e2 << endl;
+                dump();
+                cerr << "invalid current epoch" << endl;
+                abort();
+                throw Exception("invalid epoch order");
+            }
+            e = e2;
+        }
+    }
 
     template<typename TT> friend class Value;
 };
@@ -1099,6 +1152,7 @@ struct Value : public Object {
             T value;
             {
                 Guard guard(lock);
+                history.validate();
                 value = history.value_at_epoch(current_trans->epoch());
             }
             local = current_trans->local_value<int>(this, value);
@@ -1118,8 +1172,15 @@ struct Value : public Object {
     const T read() const
     {
         if (!current_trans) {
+            size_t ce;
+            {
+                Guard guard(commit_lock);
+                ce = current_epoch;
+            }
+
             Guard guard(lock);
-            return history.value_at_epoch(current_epoch);
+            history.validate();
+            return history.value_at_epoch(ce);
         }
         
         const T * val = current_trans->local_value<T>(this);
@@ -1139,41 +1200,46 @@ struct Value : public Object {
     virtual bool setup(size_t old_epoch, size_t new_epoch, void * data)
     {
         Guard guard(lock);
-        return history.set_current_value(old_epoch, new_epoch,
-                                         *reinterpret_cast<T *>(data));
+        history.validate();
+        bool result = history.set_current_value(old_epoch, new_epoch,
+                                                *reinterpret_cast<T *>(data));
+        cerr << "result = " << result << endl;
+        history.validate();
+        return result;
     }
 
     virtual void commit(size_t new_epoch) throw ()
     {
         // Now that it's definitive, we can clean up any old values
         Guard guard(lock);
+        history.validate();
         history.cleanup_old_value(this);
+        history.validate();
     }
 
     virtual void rollback(size_t new_epoch, void * data) throw ()
     {
         Guard guard(lock);
+        history.validate();
         history.rollback(new_epoch);
+        history.validate();
     }
 
     virtual void cleanup(size_t unused_epoch) throw ()
     {
         Guard guard(lock);
+        history.validate();
         history.cleanup(unused_epoch, this);
+        history.validate();
     }
 
     virtual void dump(int indent = 0) const
     {
         Guard guard(lock);
         string s(indent, ' ');
-        cerr << s << "object at " << this << " with " << history.size()
-             << " values" << endl;
-        for (unsigned i = 0;  i < history.size();  ++i) {
-            cerr << s << "  " << i << ": epoch " << history.entries[i]->epoch;
-            cerr << " addr " << history.entries[i];
-            cerr << " value " << history.entries[i]->value;
-            cerr << endl;
-        }
+        cerr << s << "object at " << this << endl;
+        history.dump(indent + 2);
+        history.validate();
     }
 
     virtual std::string print_local_value(void * val) const
@@ -1254,7 +1320,7 @@ BOOST_AUTO_TEST_CASE( test0 )
     BOOST_CHECK_EQUAL(snapshot_info.entries.size(), 0);
     BOOST_CHECK_EQUAL(current_epoch, starting_epoch + 1);
 
-    current_epoch = 0;
+    current_epoch = 1;
 }
 
 
@@ -1415,8 +1481,8 @@ void object_test_thread(Value<int> & var, int iter, boost::barrier & barrier)
 void run_object_test()
 {
     Value<int> val(0);
-    int niter = 1000;
-    int nthreads = 2;
+    int niter = 100;
+    int nthreads = 8;
     boost::barrier barrier(nthreads);
     boost::thread_group tg;
     for (unsigned i = 0;  i < nthreads;  ++i)
