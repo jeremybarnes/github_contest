@@ -189,8 +189,8 @@ struct Circular_Buffer {
 
     void erase_element(int el)
     {
-        cerr << "erase_element: el = " << el << " size = " << size()
-             << endl;
+        //cerr << "erase_element: el = " << el << " size = " << size()
+        //     << endl;
 
         if (el >= size() || el < -(int)size())
             throw Exception("erase_element(): invalid value");
@@ -201,9 +201,9 @@ struct Circular_Buffer {
 
         int offset = (start_ + el) % capacity_;
 
-        cerr << "offset = " << offset << " start_ = " << start_
-             << " size_ = " << size_ << " capacity_ = " << capacity_
-             << endl;
+        //cerr << "offset = " << offset << " start_ = " << start_
+        //     << " size_ = " << size_ << " capacity_ = " << capacity_
+        //     << endl;
 
         // TODO: could be done more efficiently
 
@@ -240,11 +240,13 @@ private:
             throw Exception("empty circular buffer");
 
         //cerr << "element_at: index " << index << " start_ " << start_
-        //     << " capacity_ " << capacity_ << " offset "
-        //     << ((start_ + index) % capacity_) << endl;
+        //     << " capacity_ " << capacity_ << " size_ " << size_;
+
+        if (index < 0) index += size_;
 
         int offset = (start_ + index) % capacity_;
-        if (offset < 0) offset += size_;
+
+        //cerr << "  offset " << offset << endl;
 
         return vals_ + offset;
     }
@@ -255,11 +257,13 @@ private:
             throw Exception("empty circular buffer");
 
         //cerr << "element_at: index " << index << " start_ " << start_
-        //     << " capacity_ " << capacity_ << " offset "
-        //     << ((start_ + index) % capacity_) << endl;
+        //     << " capacity_ " << capacity_ << " size_ " << size_;
+
+        if (index < 0) index += size_;
 
         int offset = (start_ + index) % capacity_;
-        if (offset < 0) offset += size_;
+
+        //cerr << "  offset " << offset << endl;
 
         return vals_ + offset;
     }
@@ -309,13 +313,90 @@ BOOST_AUTO_TEST_CASE( circular_buffer_test )
     Circular_Buffer<int> buf2;
     buf2 = buf;
 
+    Circular_Buffer<int> buf3;
+    buf3.push_back(1);
+    buf3.push_back(2);
+    buf3.push_back(3);
+    buf3.push_back(4);
 
+    BOOST_CHECK_EQUAL(buf3.capacity(), 4);
+    BOOST_CHECK_EQUAL(buf3.size(), 4);
+    BOOST_CHECK_EQUAL(buf3[0], 1);
+    BOOST_CHECK_EQUAL(buf3[1], 2);
+    BOOST_CHECK_EQUAL(buf3[2], 3);
+    BOOST_CHECK_EQUAL(buf3[3], 4);
+    BOOST_CHECK_EQUAL(buf3[-1], 4);
+    BOOST_CHECK_EQUAL(buf3[-2], 3);
+    BOOST_CHECK_EQUAL(buf3[-3], 2);
+    BOOST_CHECK_EQUAL(buf3[-4], 1);
+
+    buf3.pop_front();
+
+    BOOST_CHECK_EQUAL(buf3.size(), 3);
+    BOOST_CHECK_EQUAL(buf3.capacity(), 4);
+    BOOST_CHECK_EQUAL(buf3[0], 2);
+    BOOST_CHECK_EQUAL(buf3[1], 3);
+    BOOST_CHECK_EQUAL(buf3[2], 4);
+    BOOST_CHECK_EQUAL(buf3[-1], 4);
+    BOOST_CHECK_EQUAL(buf3[-2], 3);
+    BOOST_CHECK_EQUAL(buf3[-3], 2);
+    
+    buf3.pop_front();
+
+    BOOST_CHECK_EQUAL(buf3.size(), 2);
+    BOOST_CHECK_EQUAL(buf3.capacity(), 4);
+    BOOST_CHECK_EQUAL(buf3[0], 3);
+    BOOST_CHECK_EQUAL(buf3[1], 4);
+    BOOST_CHECK_EQUAL(buf3[-1], 4);
+    BOOST_CHECK_EQUAL(buf3[-2], 3);
+    
+    buf3.push_back(5);
+
+    BOOST_CHECK_EQUAL(buf3.size(), 3);
+    BOOST_CHECK_EQUAL(buf3.capacity(), 4);
+    BOOST_CHECK_EQUAL(buf3[0], 3);
+    BOOST_CHECK_EQUAL(buf3[1], 4);
+    BOOST_CHECK_EQUAL(buf3[2], 5);
+    BOOST_CHECK_EQUAL(buf3[-1], 5);
+    BOOST_CHECK_EQUAL(buf3[-2], 4);
+    BOOST_CHECK_EQUAL(buf3[-3], 3);
 }
 
 
 struct Transaction;
 struct Snapshot;
-struct Object;
+
+/// This is an actual object.  Contains metadata and value history of an
+/// object.
+struct Object {
+
+    // Lock the current value into memory, so that no other transaction is
+    // allowed to modify it
+    //virtual void lock_value() const = 0;
+
+    // Get the commit ready and check that everything can go ahead, but
+    // don't actually perform the commit
+    virtual bool setup(size_t old_epoch, size_t new_epoch, void * data) = 0;
+
+    // Confirm a setup commit, making it permanent
+    virtual void commit(size_t new_epoch) throw () = 0;
+
+    // Roll back a setup commit
+    virtual void rollback(size_t new_epoch, void * data) throw () = 0;
+
+    // Clean up information from an unused epoch
+    virtual void cleanup(size_t unused_epoch) throw () = 0;
+    
+    virtual void dump(int indent = 0) const
+    {
+    }
+
+    virtual std::string print_local_value(void * val) const
+    {
+        return format("%08p", val);
+    }
+
+};
 
 /// Global variable giving the number of committed transactions since the
 /// beginning of the program
@@ -326,6 +407,9 @@ size_t earliest_epoch = 1;
 
 /// Current transaction for this thread
 __thread Transaction * current_trans = 0;
+
+/// For the moment, only one commit can happen at a time
+Lock commit_lock;
 
 
 /* WHEN WE DESTROY A SNAPSHOT, we can clean up the entries upon which only
@@ -375,9 +459,6 @@ struct hash<T *> {
 
 } // namespace HASH_NS
 
-struct RWSpinlock {
-};
-
 /// Object that records the history of committed values.  Only the values
 /// needed for active transactions are kept.
 template<typename T>
@@ -390,31 +471,36 @@ struct History {
     History(const T & initial)
         : entries(1)
     {
-        entries.push_back(Entry());
-        entries[0].epoch = current_epoch;
-        entries[0].value = initial;
+        Guard guard(commit_lock);
+        entries.push_back(new Entry(current_epoch, initial));
     }
 
     History(const History & other)
     {
-        Guard guard(other.lock);
         entries = other.entries;
     }
 
-    size_t size() const { return entries.size(); }
+    ~History()
+    {
+        for (unsigned i = 0;  i < entries.size();  ++i)
+            delete entries[i];
+    }
+
+    size_t size() const
+    {
+        return entries.size();
+    }
 
     /// Return the value for the given epoch
     const T & value_at_epoch(size_t epoch) const
     {
-        Guard guard(lock);
-
         if (entries.empty())
             throw Exception("attempt to obtain value for object that never "
                             "existed");
 
         for (int i = entries.size() - 1;  i >= 0;  --i)
-            if (entries[i].epoch <= epoch) return entries[i].value;
-
+            if (entries[i]->epoch <= epoch) return entries[i]->value;
+        
         throw Exception("attempt to obtain value for expired epoch");
     }
 
@@ -424,23 +510,28 @@ struct History {
     bool set_current_value(size_t old_epoch, size_t new_epoch,
                            const T & new_value)
     {
-        Guard guard(lock);
-
         if (entries.empty())
             throw Exception("set_current_value with no entries");
-        if (entries.back().epoch > old_epoch)
+        if (entries.back()->epoch > old_epoch)
             return false;  // something updated before us
         
-        entries.push_back(Entry(new_epoch, new_value));
+        Entry * new_entry = new Entry(new_epoch, new_value);
+        try {
+            entries.push_back(new_entry);
+        }
+        catch (...) {
+            delete new_entry;
+            throw;
+        }
 
         return true;
     }
 
     void cleanup_old_value(Object * obj)
     {
-        Guard guard(lock);
-
         if (entries.size() < 2) return;  // nothing to clean up
+
+        //cerr << "entries.size() = " << entries.size() << endl;
 
         // Do the common case where the previous one is no longer needed
         //while (entries.front().epoch < earliest_epoch && entries.size() > 1)
@@ -449,42 +540,53 @@ struct History {
         //if (entries.size() < 2) return;
 
         // The second last entry needs to be cleaned up by the last snapshot
-        snapshot_info.register_cleanup(obj, entries[-2].epoch);
+        //cerr << "entries[-2] = " << entries[-2] << endl;
+        //cerr << "entries[entries.size() -2 ] = " << entries[entries.size() -2] << endl;
+        //for (unsigned i = 0;  i < entries.size();  ++i)
+        //    cerr << "entries[" << i << "] = " << entries[i] << endl;
+
+        obj->dump();
+        obj->dump();
+
+        size_t epoch = entries[-2]->epoch;
+
+        snapshot_info.register_cleanup(obj, epoch);
     }
 
     /// Erase the entry that was speculatively added
     void rollback(size_t old_epoch)
     {
-        Guard guard(lock);
-
         if (entries.empty())
             throw Exception("entries was empty");
 
-        if (entries.back().epoch != old_epoch)
+        if (entries.back()->epoch != old_epoch)
             throw Exception("erasing the wrong entry");
 
+        delete entries.back();
         entries.pop_back();
     }
 
     /// Clean up the entry for an unneeded epoch
-    void cleanup(size_t unneeded_epoch)
+    void cleanup(size_t unneeded_epoch, const Object * obj)
     {
-        Guard guard(lock);
-
+        // TODO: optimize
         for (unsigned i = 0;  i < entries.size();  ++i) {
-            if (entries[i].epoch == unneeded_epoch) {
+            if (entries[i]->epoch == unneeded_epoch) {
+                delete entries[i];
                 entries.erase_element(i);
                 return;
             }
         }
+
+        cerr << "----------- cleaning up didn't exist ---------" << endl;
+        obj->dump();
+        cerr << "unneeded_epoch = " << unneeded_epoch << endl;
+        cerr << "----------- end cleaning up didn't exist ---------" << endl;
+
+        throw Exception("attempt to clean up something that didn't exist");
     }
 
-    /// Clean out any history entries that are associated with the given
-    /// epoch and not the next epoch.  Works atomically.  Returns true if
-    /// the object itself can now be reused.
-    bool prune(size_t curr_epoch, size_t next_epoch);
-    
-    //private:
+private:
     struct Entry {
         Entry()
             : epoch(0)
@@ -500,42 +602,9 @@ struct History {
         T value;
     };
 
-    Circular_Buffer<Entry> entries;
+    Circular_Buffer<Entry *> entries;
 
-    //RWSpinlock lock;
-    mutable Lock lock;
-};
-
-/// This is an actual object.  Contains metadata and value history of an
-/// object.
-struct Object {
-
-    // Lock the current value into memory, so that no other transaction is
-    // allowed to modify it
-    //virtual void lock_value() const = 0;
-
-    // Get the commit ready and check that everything can go ahead, but
-    // don't actually perform the commit
-    virtual bool setup(size_t old_epoch, size_t new_epoch, void * data) = 0;
-
-    // Confirm a setup commit, making it permanent
-    virtual void commit(size_t new_epoch) throw () = 0;
-
-    // Roll back a setup commit
-    virtual void rollback(size_t new_epoch, void * data) throw () = 0;
-
-    // Clean up information from an unused epoch
-    virtual void cleanup(size_t unused_epoch) throw () = 0;
-    
-    virtual void dump(int indent = 0) const
-    {
-    }
-
-    virtual std::string print_local_value(void * val) const
-    {
-        return format("%08p", val);
-    }
-
+    template<typename TT> friend class Value;
 };
 
 /// A snapshot provides a view of all objects that is frozen at the moment
@@ -545,10 +614,11 @@ struct Object {
 /// hot backups or for replication).  We need to be efficient in order to
 /// do so.
 
-struct Snapshot {
+struct Snapshot : boost::noncopyable {
     Snapshot()
-        : epoch_(current_epoch)
     {
+        Guard guard(commit_lock);
+        epoch_ = current_epoch;
         snapshot_info.register_snapshot(this, epoch_);
     }
 
@@ -559,10 +629,16 @@ struct Snapshot {
 
     void restart()
     {
+        Guard guard(commit_lock);
         size_t new_epoch = current_epoch;
         if (new_epoch != epoch_) {
+
+            // Remove from the old epoch
             snapshot_info.remove_snapshot(this);
             epoch_ = new_epoch;
+
+            // Register with the new epoch
+            snapshot_info.register_snapshot(this, epoch_);
         }
     }
 
@@ -703,109 +779,6 @@ private:
    
 */
 
-void
-Snapshot_Info::
-register_snapshot(Snapshot * snapshot, size_t epoch)
-{
-    Guard guard(lock);
-    entries[epoch].snapshots.insert(snapshot);
-}
-
-void
-Snapshot_Info::
-remove_snapshot(Snapshot * snapshot)
-{
-    Guard guard(lock);
-
-    Entries::iterator it = entries.find(snapshot->epoch());
-    if (it == entries.end())
-        throw Exception("snapshot not found");
-
-    Entry & entry = it->second;
-    if (!entry.snapshots.count(snapshot))
-        throw Exception("snapshots out of sync");
-    
-    entry.snapshots.erase(snapshot);
-    
-    if (entry.snapshots.empty()) {
-        /* Find where the previous snapshot is; any that can't be deleted
-           here will need to be moved to that list */
-        Entry * prev_snapshot = 0;
-        size_t prev_epoch = 0;
-
-        if (it != entries.begin()) {
-            Entries::iterator jt = it;
-            --jt;
-
-            prev_snapshot = &jt->second;
-            prev_epoch = jt->first;
-        }
-
-        cerr << "prev_epoch = " << prev_epoch << endl;
-        cerr << "prev_snapshot = " << prev_snapshot << endl;
-
-        /* Check if there's another snapshot that still needs it */
-        for (unsigned i = 0;  i < entry.cleanups.size();  ++i) {
-            Object * obj = entry.cleanups[i].first;
-            size_t epoch = entry.cleanups[i].second;
-
-            cerr << "epoch = " << epoch << endl;
-
-            /* Is the object needed by the previous snapshot? */
-            if (prev_epoch >= epoch) // still needed by prev snapshot
-                prev_snapshot->cleanups.push_back(make_pair(obj, epoch));
-            else obj->cleanup(epoch);  // not needed anymore
-        }
-        entries.erase(it);
-    }
-}
-
-void
-Snapshot_Info::
-register_cleanup(Object * obj, size_t epoch_to_cleanup)
-{
-    Guard guard(lock);
-
-    if (entries.empty())
-        throw Exception("register_cleanup with no snapshots");
-
-    Entries::iterator it = boost::prior(entries.end());
-    it->second.cleanups.push_back(make_pair(obj, epoch_to_cleanup));
-}
-
-void
-Snapshot_Info::
-dump()
-{
-    cerr << "global state: " << endl;
-    cerr << "  current_epoch: " << current_epoch << endl;
-    cerr << "  earliest_epoch: " << earliest_epoch << endl;
-    cerr << "  current_trans: " << current_trans << endl;
-    cerr << "  snapshot epochs: " << entries.size() << endl;
-    int i = 0;
-    for (map<size_t, Entry>::const_iterator
-             it = entries.begin(), end = entries.end();
-         it != end;  ++it, ++i) {
-        const Entry & entry = it->second;
-        cerr << "  " << i << " at epoch " << it->first << endl;
-        cerr << "    " << entry.snapshots.size() << " snapshots"
-             << endl;
-        int j = 0;
-        for (set<Snapshot *>::const_iterator
-                 jt = entry.snapshots.begin(), jend = entry.snapshots.end();
-             jt != jend;  ++jt, ++j)
-            cerr << "      " << j << " " << *jt << " epoch "
-                 << (*jt)->epoch() << endl;
-        cerr << "    " << entry.cleanups.size() << " cleanups" << endl;
-        for (unsigned j = 0;  j < entry.cleanups.size();  ++j)
-            cerr << "      " << j << ": object " << entry.cleanups[j].first
-                 << " with version " << entry.cleanups[j].second << endl;
-    }
-}
-
-/// For the moment, only one commit can happen at a time
-Lock commit_lock;
-
 /// A sandbox provides a place where writes don't affect the underlying
 /// objects.  These writes can then be committed, with 
 struct Sandbox {
@@ -943,6 +916,163 @@ struct Local_Transaction : public Transaction {
     Transaction * old_trans;
 };
 
+void
+Snapshot_Info::
+register_snapshot(Snapshot * snapshot, size_t epoch)
+{
+    Guard guard(lock);
+    entries[epoch].snapshots.insert(snapshot);
+
+    //cerr << "registering snapshot " << snapshot << " at epoch "
+    //     << epoch << " ss->epoch() = " << snapshot->epoch() << endl;
+}
+
+void
+Snapshot_Info::
+remove_snapshot(Snapshot * snapshot)
+{
+    vector<pair<Object *, size_t> > to_clean_up;
+    {
+        Guard guard(lock);
+        
+        Entries::iterator it = entries.find(snapshot->epoch());
+        if (it == entries.end()) {
+            cerr << "-------- snapshot not found -----------" << endl;
+            cerr << "snapshot = " << snapshot << endl;
+            cerr << "current_trans = " << current_trans << endl;
+            cerr << "snapshot->epoch() = " << snapshot->epoch() << endl;
+            snapshot_info.dump();
+            //snapshot->dump();
+            if (current_trans)
+                current_trans->dump();
+            cerr << "-------- end snapshot not found -----------" << endl;
+            throw Exception("snapshot not found");
+        }
+        
+        Entry & entry = it->second;
+        if (!entry.snapshots.count(snapshot)) {
+            cerr << "-------- snapshot out of sync -----------" << endl;
+            snapshot_info.dump();
+            //snapshot->dump();
+            if (current_trans)
+                current_trans->dump();
+            cerr << "-------- end snapshot out of sync -----------" << endl;
+            
+            throw Exception("snapshots out of sync");
+        }
+
+    
+        entry.snapshots.erase(snapshot);
+    
+        // TODO: try to hold the lock for less time here.  We only really need
+        // the lock to add things to the previous snapshot.
+
+        if (entry.snapshots.empty()) {
+            /* Find where the previous snapshot is; any that can't be deleted
+               here will need to be moved to that list */
+            Entry * prev_snapshot = 0;
+            size_t prev_epoch = 0;
+            
+            if (it != entries.begin()) {
+                Entries::iterator jt = it;
+                --jt;
+                
+                prev_snapshot = &jt->second;
+                prev_epoch = jt->first;
+            }
+            
+            //cerr << "prev_epoch = " << prev_epoch << endl;
+            //cerr << "prev_snapshot = " << prev_snapshot << endl;
+            
+            int num_to_cleanup = 0;
+
+            for (unsigned i = 0;  i < entry.cleanups.size();  ++i) {
+                Object * obj = entry.cleanups[i].first;
+                size_t epoch = entry.cleanups[i].second;
+                
+                //cerr << "epoch = " << epoch << endl;
+                
+                /* Is the object needed by the previous snapshot? */
+                if (prev_epoch >= epoch && prev_snapshot) { // still needed by prev snapshot
+                    if (!prev_snapshot) {
+                        cerr << "--------- no prev snapshot -----------" << endl;
+                        cerr << "---- snapshot_info:" << endl;
+                        dump();
+                        cerr << "---- obj:" << endl;
+                        obj->dump();
+                        cerr << "--------- end no prev snapshot -----------"
+                             << endl;
+                        throw Exception("no prev snapshot");
+                        
+                    }
+                    prev_snapshot->cleanups.push_back(make_pair(obj, epoch));
+                }
+                else entry.cleanups[num_to_cleanup++] = entry.cleanups[i]; // not needed anymore
+            }
+
+            entry.cleanups.resize(num_to_cleanup);
+
+            to_clean_up.swap(entry.cleanups);
+
+            entries.erase(it);
+        }
+    }
+
+    // Now do the actual cleanups with no lock held, to avoid deadlock (we can't
+    // take the object lock with the snapshot_info lock held).
+    for (unsigned i = 0;  i < to_clean_up.size();  ++i) {
+        Object * obj = to_clean_up[i].first;
+        size_t epoch = to_clean_up[i].second;
+        obj->cleanup(epoch);
+    }
+}
+
+void
+Snapshot_Info::
+register_cleanup(Object * obj, size_t epoch_to_cleanup)
+{
+    // NOTE: this is called with the object's lock held
+    Guard guard(lock);
+
+    if (entries.empty())
+        throw Exception("register_cleanup with no snapshots");
+
+    Entries::iterator it = boost::prior(entries.end());
+    it->second.cleanups.push_back(make_pair(obj, epoch_to_cleanup));
+}
+
+void
+Snapshot_Info::
+dump()
+{
+    Guard guard (lock);
+
+    cerr << "global state: " << endl;
+    cerr << "  current_epoch: " << current_epoch << endl;
+    cerr << "  earliest_epoch: " << earliest_epoch << endl;
+    cerr << "  current_trans: " << current_trans << endl;
+    cerr << "  snapshot epochs: " << entries.size() << endl;
+    int i = 0;
+    for (map<size_t, Entry>::const_iterator
+             it = entries.begin(), end = entries.end();
+         it != end;  ++it, ++i) {
+        const Entry & entry = it->second;
+        cerr << "  " << i << " at epoch " << it->first << endl;
+        cerr << "    " << entry.snapshots.size() << " snapshots"
+             << endl;
+        int j = 0;
+        for (set<Snapshot *>::const_iterator
+                 jt = entry.snapshots.begin(), jend = entry.snapshots.end();
+             jt != jend;  ++jt, ++j)
+            cerr << "      " << j << " " << *jt << " epoch "
+                 << (*jt)->epoch() << endl;
+        cerr << "    " << entry.cleanups.size() << " cleanups" << endl;
+        for (unsigned j = 0;  j < entry.cleanups.size();  ++j)
+            cerr << "      " << j << ": object " << entry.cleanups[j].first
+                 << " with version " << entry.cleanups[j].second << endl;
+    }
+}
+
 void no_transaction_exception(const Object * obj)
 {
     throw Exception("not in a transaction");
@@ -966,13 +1096,17 @@ struct Value : public Object {
         T * local = current_trans->local_value<T>(this);
 
         if (!local) {
-            T value = history.value_at_epoch(current_trans->epoch());
+            T value;
+            {
+                Guard guard(lock);
+                value = history.value_at_epoch(current_trans->epoch());
+            }
             local = current_trans->local_value<int>(this, value);
 
             if (!local)
                 throw Exception("mutate(): no local was created");
         }
-
+        
         return *local;
     }
 
@@ -981,13 +1115,18 @@ struct Value : public Object {
         mutate() = val;
     }
     
-    const T & read() const
+    const T read() const
     {
-        if (!current_trans) return history.value_at_epoch(current_epoch);
+        if (!current_trans) {
+            Guard guard(lock);
+            return history.value_at_epoch(current_epoch);
+        }
         
         const T * val = current_trans->local_value<T>(this);
-
+        
         if (val) return *val;
+     
+        Guard guard(lock);
         return history.value_at_epoch(current_trans->epoch());
     }
 
@@ -995,9 +1134,11 @@ struct Value : public Object {
     // Implement object interface
 
     History<T> history;
+    mutable Lock lock;
 
     virtual bool setup(size_t old_epoch, size_t new_epoch, void * data)
     {
+        Guard guard(lock);
         return history.set_current_value(old_epoch, new_epoch,
                                          *reinterpret_cast<T *>(data));
     }
@@ -1005,27 +1146,33 @@ struct Value : public Object {
     virtual void commit(size_t new_epoch) throw ()
     {
         // Now that it's definitive, we can clean up any old values
+        Guard guard(lock);
         history.cleanup_old_value(this);
     }
 
     virtual void rollback(size_t new_epoch, void * data) throw ()
     {
+        Guard guard(lock);
         history.rollback(new_epoch);
     }
 
     virtual void cleanup(size_t unused_epoch) throw ()
     {
-        history.cleanup(unused_epoch);
+        Guard guard(lock);
+        history.cleanup(unused_epoch, this);
     }
 
     virtual void dump(int indent = 0) const
     {
+        Guard guard(lock);
         string s(indent, ' ');
         cerr << s << "object at " << this << " with " << history.size()
              << " values" << endl;
         for (unsigned i = 0;  i < history.size();  ++i) {
-            cerr << s << "  " << i << ": epoch " << history.entries[i].epoch
-                 << " value " << history.entries[i].value << endl;
+            cerr << s << "  " << i << ": epoch " << history.entries[i]->epoch;
+            cerr << " addr " << history.entries[i];
+            cerr << " value " << history.entries[i]->value;
+            cerr << endl;
         }
     }
 
@@ -1033,11 +1180,6 @@ struct Value : public Object {
     {
         return ostream_format(*reinterpret_cast<T *>(val));
     }
-
-    // Question: should the local value storage for transactions go in here
-    // as well?
-    // Pros: allows a global view that can find conflicts
-    // Cons: May cause lots of extra memory allocations
 };
 
 
@@ -1076,13 +1218,14 @@ BOOST_AUTO_TEST_CASE( test0 )
         BOOST_CHECK_EQUAL(myval.history.size(), 1);
         BOOST_CHECK_EQUAL(myval.read(), 6);
         
-        BOOST_CHECK_EQUAL(snapshot_info.entries.size(), 1);
-
+        // Check that the snapshot is properly there
+        BOOST_REQUIRE_EQUAL(snapshot_info.entries.size(), 1);
+        BOOST_CHECK_EQUAL(snapshot_info.entries.begin()->first, current_epoch);
+        BOOST_REQUIRE_EQUAL(snapshot_info.entries.begin()->second.snapshots.size(), 1);
+        BOOST_CHECK_EQUAL(*snapshot_info.entries.begin()->second.snapshots.begin(), &trans1);
+        
         // Check that the correct value is copied over
         BOOST_CHECK_EQUAL(myval.mutate(), 6);
-
-        // Check that read and mutate point to the same thing
-        BOOST_CHECK_EQUAL(&myval.read(), &myval.mutate());
 
         // Check that we can increment it
         BOOST_CHECK_EQUAL(++myval.mutate(), 7);
@@ -1090,13 +1233,28 @@ BOOST_AUTO_TEST_CASE( test0 )
         // Check that it was recorded
         BOOST_CHECK_EQUAL(trans1.local_values.size(), 1);
 
+        // FOR TESTING, increment the current epoch
+        ++current_epoch;
+
+        // Restart the transaction; check that it was properly recorded by the
+        // snapshot info
+        trans1.restart();
+
+        // Check that the snapshot is properly there
+        BOOST_REQUIRE_EQUAL(snapshot_info.entries.size(), 1);
+        BOOST_CHECK_EQUAL(snapshot_info.entries.begin()->first, current_epoch);
+        BOOST_REQUIRE_EQUAL(snapshot_info.entries.begin()->second.snapshots.size(), 1);
+        BOOST_CHECK_EQUAL(*snapshot_info.entries.begin()->second.snapshots.begin(), &trans1);
+
         // Finish the transaction without committing it
     }
 
     BOOST_CHECK_EQUAL(myval.history.size(), 1);
     BOOST_CHECK_EQUAL(myval.read(), 6);
     BOOST_CHECK_EQUAL(snapshot_info.entries.size(), 0);
-    BOOST_CHECK_EQUAL(current_epoch, starting_epoch);
+    BOOST_CHECK_EQUAL(current_epoch, starting_epoch + 1);
+
+    current_epoch = 0;
 }
 
 
@@ -1108,43 +1266,53 @@ void object_test_thread(Value<int> & var, int iter, boost::barrier & barrier)
     int errors = 0;
 
     for (unsigned i = 0;  i < iter;  ++i) {
+        //static Lock lock;
+        //Guard guard(lock);
+
         // Keep going until we succeed
         int old_val = var.read();
+#if 0
         cerr << endl << "=======================" << endl;
         cerr << "i = " << i << " old_val = " << old_val << endl;
-
+#endif
         {
             {
+#if 0
                 cerr << "-------------" << endl << "state before trans"
                      << endl;
                 snapshot_info.dump();
                 var.dump();
                 cerr << "-------------" << endl;
+#endif
 
                 Local_Transaction trans;
 
+#if 0
                 cerr << "-------------" << endl << "state after trans"
                      << endl;
                 snapshot_info.dump();
                 var.dump();
                 trans.dump();
                 cerr << "-------------" << endl;
-
                 int old_val2 = var.read();
+#endif
+
                 //cerr << "transaction at epoch " << trans.epoch << endl;
 
+#if 0
                 cerr << "-------------" << endl << "state before read"
                      << endl;
                 snapshot_info.dump();
                 var.dump();
                 trans.dump();
                 cerr << "-------------" << endl;
-
+#endif
 
 
                 do {
                     int & val = var.mutate();
 
+#if 0
                     cerr << "old_val2 = " << old_val2 << endl;
                     cerr << "&val = " << &val << " val = " << val << endl;
                     cerr << "&var.read() = " << &var.read() << endl;
@@ -1156,6 +1324,7 @@ void object_test_thread(Value<int> & var, int iter, boost::barrier & barrier)
                     var.dump();
                     trans.dump();
                     cerr << "-------------" << endl;
+#endif
                     
                     if (val % 2 != 0) {
                         cerr << "val should be even: " << val << endl;
@@ -1182,24 +1351,28 @@ void object_test_thread(Value<int> & var, int iter, boost::barrier & barrier)
                     //cerr << "trying commit iter " << i << " val = "
                     //     << val << endl;
 
+#if 0
                     cerr << "-------------" << endl << "state before commit"
                          << endl;
                     snapshot_info.dump();
                     var.dump();
                     trans.dump();
                     cerr << "-------------" << endl;
+#endif
 
                 } while (!trans.commit());
 
+#if 0
                 cerr << "-------------" << endl << "state after commit"
                      << endl;
                 snapshot_info.dump();
                 var.dump();
                 trans.dump();
                 cerr << "-------------" << endl;
+#endif
 
-                cerr << "var.history.size() = " << var.history.entries.size()
-                     << endl;
+                //cerr << "var.history.size() = " << var.history.entries.size()
+                //     << endl;
             
                 if (var.read() % 2 != 0) {
                     ++errors;
@@ -1208,11 +1381,13 @@ void object_test_thread(Value<int> & var, int iter, boost::barrier & barrier)
                 }
             }
 
+#if 0
             cerr << "-------------" << endl << "state after trans destroyed"
                  << endl;
             snapshot_info.dump();
             var.dump();
             cerr << "-------------" << endl;
+#endif
             
             if (var.read() % 2 != 0) {
                 ++errors;
@@ -1240,8 +1415,8 @@ void object_test_thread(Value<int> & var, int iter, boost::barrier & barrier)
 void run_object_test()
 {
     Value<int> val(0);
-    int niter = 10;
-    int nthreads = 1;
+    int niter = 1000;
+    int nthreads = 2;
     boost::barrier barrier(nthreads);
     boost::thread_group tg;
     for (unsigned i = 0;  i < nthreads;  ++i)
@@ -1251,7 +1426,7 @@ void run_object_test()
     
     tg.join_all();
 
-    cerr << "val.history.entries.size() = " << val.history.entries.size()
+    cerr << "val.history.entries.size() = " << val.history.size()
          << endl;
 
     cerr << "current_epoch = " << current_epoch << endl;
