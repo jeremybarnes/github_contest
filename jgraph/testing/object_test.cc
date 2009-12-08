@@ -262,10 +262,10 @@ struct History {
         // TODO: optimize
         for (unsigned i = 0;  i < entries.size();  ++i) {
             if (entries[i]->epoch == unneeded_epoch) {
-                validate();
+                //validate();
                 delete entries[i];
                 entries.erase_element(i);
-                validate();
+                //validate();
                 return;
             }
         }
@@ -355,7 +355,6 @@ struct Snapshot : boost::noncopyable {
 
     void restart()
     {
-        __sync_synchronize();
         size_t new_epoch = current_epoch;
         if (new_epoch != epoch_) {
             snapshot_info.remove_snapshot(this);
@@ -506,6 +505,11 @@ private:
    
 */
 
+template<typename Key, typename Value, class Hash = std::hash<Key> >
+struct Lightweight_Hash {
+    
+};
+
 /// A sandbox provides a place where writes don't affect the underlying
 /// objects.  These writes can then be committed, with 
 struct Sandbox {
@@ -559,8 +563,6 @@ struct Sandbox {
     {
         ACE_Guard<ACE_Mutex> guard(commit_lock);
 
-        __sync_synchronize();
-
         size_t new_epoch = current_epoch + 1;
 
         bool result = true;
@@ -578,6 +580,7 @@ struct Sandbox {
             for (it = local_values.begin(); it != end;  ++it)
                 it->first->commit(new_epoch);
             
+            // Make sure these writes are seen before we update the epoch
             __sync_synchronize();
 
             current_epoch = new_epoch;
@@ -652,7 +655,6 @@ Snapshot_Info::
 register_snapshot(Snapshot * snapshot)
 {
     ACE_Guard<ACE_Mutex> guard(lock);
-    __sync_synchronize();
     snapshot->epoch_ = current_epoch;
     entries[snapshot->epoch_].snapshots.insert(snapshot);
     return snapshot->epoch_;
@@ -830,7 +832,7 @@ struct Value : public Object {
             T value;
             {
                 ACE_Guard<ACE_Mutex> guard(lock);
-                history.validate();
+                //history.validate();
                 value = history.value_at_epoch(current_trans->epoch());
             }
             local = current_trans->local_value<int>(this, value);
@@ -851,7 +853,7 @@ struct Value : public Object {
     {
         if (!current_trans) {
             ACE_Guard<ACE_Mutex> guard(lock);
-            history.validate();
+            //history.validate();
             return history.most_recent_value();
         }
         
@@ -872,11 +874,11 @@ struct Value : public Object {
     virtual bool setup(size_t old_epoch, size_t new_epoch, void * data)
     {
         ACE_Guard<ACE_Mutex> guard(lock);
-        history.validate();
+        //history.validate();
         bool result = history.set_current_value(old_epoch, new_epoch,
                                                 *reinterpret_cast<T *>(data));
         //cerr << "result = " << result << endl;
-        history.validate();
+        //history.validate();
         return result;
     }
 
@@ -884,25 +886,25 @@ struct Value : public Object {
     {
         // Now that it's definitive, we can clean up any old values
         ACE_Guard<ACE_Mutex> guard(lock);
-        history.validate();
+        //history.validate();
         history.cleanup_old_value(this);
-        history.validate();
+        //history.validate();
     }
 
     virtual void rollback(size_t new_epoch, void * data) throw ()
     {
         ACE_Guard<ACE_Mutex> guard(lock);
-        history.validate();
+        //history.validate();
         history.rollback(new_epoch);
-        history.validate();
+        //history.validate();
     }
 
     virtual void cleanup(size_t unused_epoch) throw ()
     {
         ACE_Guard<ACE_Mutex> guard(lock);
-        history.validate();
+        //history.validate();
         history.cleanup(unused_epoch, this);
-        history.validate();
+        //history.validate();
     }
 
     virtual void dump(int indent = 0) const
@@ -911,7 +913,7 @@ struct Value : public Object {
         string s(indent, ' ');
         cerr << s << "object at " << this << endl;
         history.dump(indent + 2);
-        history.validate();
+        //history.validate();
     }
 
     virtual std::string print_local_value(void * val) const
@@ -996,12 +998,14 @@ BOOST_AUTO_TEST_CASE( test0 )
 }
 
 
-void object_test_thread(Value<int> & var, int iter, boost::barrier & barrier)
+void object_test_thread(Value<int> & var, int iter, boost::barrier & barrier,
+                        size_t & failures)
 {
     // Wait for all threads to start up before we continue
     barrier.wait();
 
     int errors = 0;
+    int local_failures = 0;
 
     for (unsigned i = 0;  i < iter;  ++i) {
         //static Lock lock;
@@ -1047,8 +1051,11 @@ void object_test_thread(Value<int> & var, int iter, boost::barrier & barrier)
 #endif
 
 
+                int tries = 0;
                 do {
+                    ++tries;
                     int & val = var.mutate();
+                    
 
 #if 0
                     cerr << "old_val2 = " << old_val2 << endl;
@@ -1100,6 +1107,8 @@ void object_test_thread(Value<int> & var, int iter, boost::barrier & barrier)
 
                 } while (!trans.commit());
 
+                local_failures += tries - 1;
+
 #if 0
                 cerr << "-------------" << endl << "state after commit"
                      << endl;
@@ -1149,20 +1158,26 @@ void object_test_thread(Value<int> & var, int iter, boost::barrier & barrier)
     Guard guard(lock);
 
     BOOST_CHECK_EQUAL(errors, 0);
+
+    failures += local_failures;
 }
 
-void run_object_test()
+void run_object_test(int nthreads, int niter)
 {
+    cerr << "testing with " << nthreads << " threads and " << niter << " iter"
+         << endl;
     Value<int> val(0);
-    int niter = 10000;
-    int nthreads = 8;
     boost::barrier barrier(nthreads);
     boost::thread_group tg;
+
+    size_t failures = 0;
+
     Timer timer;
     for (unsigned i = 0;  i < nthreads;  ++i)
         tg.create_thread(boost::bind(&object_test_thread, boost::ref(val),
                                      niter,
-                                     boost::ref(barrier)));
+                                     boost::ref(barrier),
+                                     boost::ref(failures)));
     
     tg.join_all();
 
@@ -1172,6 +1187,7 @@ void run_object_test()
          << endl;
 
     cerr << "current_epoch = " << current_epoch << endl;
+    cerr << "failures: " << failures << endl;
 
 #if 0
     cerr << "current_epoch: " << current_epoch << endl;
@@ -1186,5 +1202,7 @@ void run_object_test()
 
 BOOST_AUTO_TEST_CASE( test1 )
 {
-    run_object_test();
+    run_object_test(1, 100000);
+    run_object_test(10, 10000);
+    run_object_test(100, 1000);
 }
