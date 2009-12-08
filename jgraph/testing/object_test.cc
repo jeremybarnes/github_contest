@@ -22,351 +22,14 @@
 #include "arch/threads.h"
 #include "arch/exception_handler.h"
 #include <set>
+#include "utils/circular_buffer.h"
+#include "arch/timers.h"
 
 using namespace ML;
 using namespace JGraph;
 using namespace std;
 
 using boost::unit_test::test_suite;
-
-
-
-template<typename T>
-struct Circular_Buffer {
-    Circular_Buffer(int initial_capacity = 0)
-        : vals_(0), start_(0), size_(0), capacity_(0)
-    {
-        if (initial_capacity != 0) reserve(initial_capacity);
-    }
-
-    void swap(Circular_Buffer & other)
-    {
-        std::swap(vals_, other.vals_);
-        std::swap(start_, other.start_);
-        std::swap(size_, other.size_);
-        std::swap(capacity_, other.capacity_);
-    }
-
-    Circular_Buffer(const Circular_Buffer & other)
-        : vals_(0), start_(0), size_(0), capacity_(0)
-    {
-        reserve(other.size());
-        for (unsigned i = 0;  i < other.size();  ++i)
-            vals_[i] = other[i];
-    }
-
-    Circular_Buffer & operator = (const Circular_Buffer & other)
-    {
-        Circular_Buffer new_me(other);
-        swap(new_me);
-        return *this;
-    }
-
-    bool empty() const { return size_ == 0; }
-    size_t size() const { return size_; }
-    size_t capacity() const { return capacity_; }
-
-    ~Circular_Buffer()
-    {
-        destroy();
-    }
-
-    void destroy()
-    {
-        delete[] vals_;
-        vals_ = 0;
-        start_ = size_ = capacity_ = 0;
-    }
-
-    void clear()
-    {
-        start_ = size_ = 0;
-        memset(vals_, 0xaa, sizeof(T) * capacity_);
-    }
-
-    const T & operator [](int index) const
-    {
-        if (size_ == 0)
-            throw Exception("Circular_Buffer: empty array");
-        if (index < -size_ || index >= size_)
-            throw Exception("Circular_Buffer: invalid size");
-        return *element_at(index);
-    }
-
-    T & operator [](int index)
-    {
-        const Circular_Buffer * cthis = this;
-        return const_cast<T &>(cthis->operator [] (index));
-    }
-
-    void reserve(int new_capacity)
-    {
-        //cerr << "reserve: capacity = " << capacity_ << " new_capacity = "
-        //     << new_capacity << endl;
-
-        if (new_capacity <= capacity_) return;
-        new_capacity = std::max(capacity_ * 2, new_capacity);
-
-        T * new_vals = new T[new_capacity];
-        memset(new_vals, 0xaa, sizeof(T) * new_capacity);
-
-        int nfirst_half = std::min(capacity_ - start_, size_);
-        int nsecond_half = std::max(0, size_ - nfirst_half);
-
-        //cerr << "start_ = " << start_ << " size_ = " << size_ << endl;
-        //cerr << "nfirst_half = " << nfirst_half << endl;
-        //cerr << "nsecond_half = " << nsecond_half << endl;
-
-        std::copy(vals_ + start_, vals_ + start_ + nfirst_half,
-                  new_vals);
-        std::copy(vals_ + start_ - nsecond_half, vals_ + start_,
-                  new_vals + nfirst_half);
-
-        memset(vals_, 0xaa, sizeof(T) * capacity_);
-
-        delete[] vals_;
-
-        vals_ = new_vals;
-        capacity_ = new_capacity;
-    }
-
-    const T & front() const
-    {
-        if (empty())
-            throw Exception("front() with empty circular array");
-        return vals_[start_];
-    }
-
-    T & front()
-    {
-        if (empty())
-            throw Exception("front() with empty circular array");
-        return vals_[start_];
-    }
-
-    const T & back() const
-    {
-        if (empty())
-            throw Exception("back() with empty circular array");
-        return *element_at(size_ - 1);
-    }
-
-    T & back()
-    {
-        if (empty())
-            throw Exception("back() with empty circular array");
-        return *element_at(size_ - 1);
-    }
-
-    void push_back(const T & val)
-    {
-        if (size_ == capacity_) reserve(std::max(1, capacity_ * 2));
-        ++size_;
-        *element_at(size_) = val;
-    }
-
-    void push_front(const T & val)
-    {
-        if (size_ == capacity_) reserve(std::max(1, capacity_ * 2));
-        *element_at(-1) = val;
-        if (start_ == 0) start_ = capacity_ - 1;
-        else --start_;
-    }
-
-    void pop_back()
-    {
-        if (empty())
-            throw Exception("pop_back with empty circular array");
-        memset(element_at(size_ - 1), 0xaa, sizeof(T));
-        --size_;
-    }
-
-    void pop_front()
-    {
-        if (empty())
-            throw Exception("pop_front with empty circular array");
-        memset(vals_ + start_, 0xaa, sizeof(T));
-        ++start_;
-        --size_;
-
-        // Point back to the start if empty
-        if (start_ == capacity_) start_ = 0;
-    }
-
-    void erase_element(int el)
-    {
-        //cerr << "erase_element: el = " << el << " size = " << size()
-        //     << endl;
-
-        if (el >= size() || el < -(int)size())
-            throw Exception("erase_element(): invalid value");
-        if (el < 0) el += size_;
-
-        if (capacity_ == 0)
-            throw Exception("empty circular buffer");
-
-        int offset = (start_ + el) % capacity_;
-
-        //cerr << "offset = " << offset << " start_ = " << start_
-        //     << " size_ = " << size_ << " capacity_ = " << capacity_
-        //     << endl;
-
-        // TODO: could be done more efficiently
-
-        if (el == 0) {
-            pop_front();
-        }
-        else if (el == size() - 1) {
-            pop_back();
-        }
-        else if (offset < start_) {
-            // slide everything 
-            int num_to_do = size_ - el - 1;
-            std::copy(vals_ + offset + 1, vals_ + offset + 1 + num_to_do,
-                      vals_ + offset);
-            --size_;
-        }
-        else {
-            for (int i = offset;  i > 0;  --i)
-                vals_[i] = vals_[i - 1];
-            --size_;
-            ++start_;
-        }
-    }
-
-private:
-    T * vals_;
-    int start_;
-    int size_;
-    int capacity_;
-
-    T * element_at(int index)
-    {
-        if (capacity_ == 0)
-            throw Exception("empty circular buffer");
-
-        //cerr << "element_at: index " << index << " start_ " << start_
-        //     << " capacity_ " << capacity_ << " size_ " << size_;
-
-        if (index < 0) index += size_;
-
-        int offset = (start_ + index) % capacity_;
-
-        //cerr << "  offset " << offset << endl;
-
-        return vals_ + offset;
-    }
-    
-    const T * element_at(int index) const
-    {
-        if (capacity_ == 0)
-            throw Exception("empty circular buffer");
-
-        //cerr << "element_at: index " << index << " start_ " << start_
-        //     << " capacity_ " << capacity_ << " size_ " << size_;
-
-        if (index < 0) index += size_;
-
-        int offset = (start_ + index) % capacity_;
-
-        //cerr << "  offset " << offset << endl;
-
-        return vals_ + offset;
-    }
-};
-
-BOOST_AUTO_TEST_CASE( circular_buffer_test )
-{
-    Circular_Buffer<int> buf;
-    BOOST_CHECK(buf.empty());
-    BOOST_CHECK_EQUAL(buf.capacity(), 0);
-    {
-        JML_TRACE_EXCEPTIONS(false);
-        BOOST_CHECK_THROW(buf.front(), Exception);
-        BOOST_CHECK_THROW(buf.back(), Exception);
-        BOOST_CHECK_THROW(buf[0], Exception);
-    }
-
-    buf.push_back(1);
-    BOOST_CHECK_EQUAL(buf.size(), 1);
-    BOOST_CHECK(buf.capacity() >= 1);
-    BOOST_CHECK_EQUAL(buf[0], 1);
-    BOOST_CHECK_EQUAL(buf[-1], 1);
-    BOOST_CHECK_EQUAL(buf.front(), 1);
-    BOOST_CHECK_EQUAL(buf.back(), 1);
-    {
-        JML_TRACE_EXCEPTIONS(false);
-        BOOST_CHECK_THROW(buf[-2], Exception);
-        BOOST_CHECK_THROW(buf[1], Exception);
-    }
-
-    buf.push_back(2);
-    BOOST_CHECK_EQUAL(buf.size(), 2);
-    BOOST_CHECK(buf.capacity() >= 2);
-    BOOST_CHECK_EQUAL(buf[0], 1);
-    BOOST_CHECK_EQUAL(buf[1], 2);
-    BOOST_CHECK_EQUAL(buf[-1], 2);
-    BOOST_CHECK_EQUAL(buf[-2], 1);
-    BOOST_CHECK_EQUAL(buf.front(), 1);
-    BOOST_CHECK_EQUAL(buf.back(), 2);
-
-    {
-        JML_TRACE_EXCEPTIONS(false);
-        BOOST_CHECK_THROW(buf[-3], Exception);
-        BOOST_CHECK_THROW(buf[2], Exception);
-    }
-
-    Circular_Buffer<int> buf2;
-    buf2 = buf;
-
-    Circular_Buffer<int> buf3;
-    buf3.push_back(1);
-    buf3.push_back(2);
-    buf3.push_back(3);
-    buf3.push_back(4);
-
-    BOOST_CHECK_EQUAL(buf3.capacity(), 4);
-    BOOST_CHECK_EQUAL(buf3.size(), 4);
-    BOOST_CHECK_EQUAL(buf3[0], 1);
-    BOOST_CHECK_EQUAL(buf3[1], 2);
-    BOOST_CHECK_EQUAL(buf3[2], 3);
-    BOOST_CHECK_EQUAL(buf3[3], 4);
-    BOOST_CHECK_EQUAL(buf3[-1], 4);
-    BOOST_CHECK_EQUAL(buf3[-2], 3);
-    BOOST_CHECK_EQUAL(buf3[-3], 2);
-    BOOST_CHECK_EQUAL(buf3[-4], 1);
-
-    buf3.pop_front();
-
-    BOOST_CHECK_EQUAL(buf3.size(), 3);
-    BOOST_CHECK_EQUAL(buf3.capacity(), 4);
-    BOOST_CHECK_EQUAL(buf3[0], 2);
-    BOOST_CHECK_EQUAL(buf3[1], 3);
-    BOOST_CHECK_EQUAL(buf3[2], 4);
-    BOOST_CHECK_EQUAL(buf3[-1], 4);
-    BOOST_CHECK_EQUAL(buf3[-2], 3);
-    BOOST_CHECK_EQUAL(buf3[-3], 2);
-    
-    buf3.pop_front();
-
-    BOOST_CHECK_EQUAL(buf3.size(), 2);
-    BOOST_CHECK_EQUAL(buf3.capacity(), 4);
-    BOOST_CHECK_EQUAL(buf3[0], 3);
-    BOOST_CHECK_EQUAL(buf3[1], 4);
-    BOOST_CHECK_EQUAL(buf3[-1], 4);
-    BOOST_CHECK_EQUAL(buf3[-2], 3);
-    
-    buf3.push_back(5);
-
-    BOOST_CHECK_EQUAL(buf3.size(), 3);
-    BOOST_CHECK_EQUAL(buf3.capacity(), 4);
-    BOOST_CHECK_EQUAL(buf3[0], 3);
-    BOOST_CHECK_EQUAL(buf3[1], 4);
-    BOOST_CHECK_EQUAL(buf3[2], 5);
-    BOOST_CHECK_EQUAL(buf3[-1], 5);
-    BOOST_CHECK_EQUAL(buf3[-2], 4);
-    BOOST_CHECK_EQUAL(buf3[-3], 3);
-}
 
 
 struct Transaction;
@@ -477,7 +140,6 @@ struct History {
     History(const T & initial)
         : entries(1)
     {
-        Guard guard(commit_lock);
         entries.push_back(new Entry(current_epoch, initial));
     }
 
@@ -559,8 +221,8 @@ struct History {
         //for (unsigned i = 0;  i < entries.size();  ++i)
         //    cerr << "entries[" << i << "] = " << entries[i] << endl;
 
-        obj->dump();
-        obj->dump();
+        //obj->dump();
+        //obj->dump();
 
         size_t epoch = entries[-2]->epoch;
 
@@ -670,7 +332,6 @@ private:
 struct Snapshot : boost::noncopyable {
     Snapshot()
     {
-        Guard guard(commit_lock);
         epoch_ = current_epoch;
         snapshot_info.register_snapshot(this, epoch_);
     }
@@ -682,7 +343,6 @@ struct Snapshot : boost::noncopyable {
 
     void restart()
     {
-        Guard guard(commit_lock);
         size_t new_epoch = current_epoch;
         if (new_epoch != epoch_) {
 
@@ -1174,7 +834,6 @@ struct Value : public Object {
         if (!current_trans) {
             size_t ce;
             {
-                Guard guard(commit_lock);
                 ce = current_epoch;
             }
 
@@ -1203,7 +862,7 @@ struct Value : public Object {
         history.validate();
         bool result = history.set_current_value(old_epoch, new_epoch,
                                                 *reinterpret_cast<T *>(data));
-        cerr << "result = " << result << endl;
+        //cerr << "result = " << result << endl;
         history.validate();
         return result;
     }
@@ -1481,16 +1140,19 @@ void object_test_thread(Value<int> & var, int iter, boost::barrier & barrier)
 void run_object_test()
 {
     Value<int> val(0);
-    int niter = 100;
+    int niter = 10000;
     int nthreads = 8;
     boost::barrier barrier(nthreads);
     boost::thread_group tg;
+    Timer timer;
     for (unsigned i = 0;  i < nthreads;  ++i)
         tg.create_thread(boost::bind(&object_test_thread, boost::ref(val),
                                      niter,
                                      boost::ref(barrier)));
     
     tg.join_all();
+
+    cerr << "elapsed: " << timer.elapsed() << endl;
 
     cerr << "val.history.entries.size() = " << val.history.size()
          << endl;
