@@ -71,7 +71,7 @@ struct Object {
 
 /// Global variable giving the number of committed transactions since the
 /// beginning of the program
-size_t current_epoch = 1;
+volatile size_t current_epoch = 1;
 
 /// Global variable giving the earliest epoch for which there is a snapshot
 size_t earliest_epoch = 1;
@@ -105,6 +105,8 @@ struct Snapshot_Info {
 
     typedef map<size_t, Entry> Entries;
     Entries entries;
+
+    set<size_t> deleted_shapshots;
 
     // Register the snapshot for the current epoch.  Returns the number of
     // the epoch it was registered under.
@@ -161,6 +163,14 @@ struct History {
     size_t size() const
     {
         return entries.size();
+    }
+
+    T most_recent_value() const
+    {
+        if (entries.empty())
+            throw Exception("attempt to obtain value for object that never "
+                            "existed");
+        return value_at_epoch(current_epoch);
     }
 
     /// Return the value for the given epoch
@@ -345,6 +355,7 @@ struct Snapshot : boost::noncopyable {
 
     void restart()
     {
+        __sync_synchronize();
         size_t new_epoch = current_epoch;
         if (new_epoch != epoch_) {
             snapshot_info.remove_snapshot(this);
@@ -548,6 +559,8 @@ struct Sandbox {
     {
         ACE_Guard<ACE_Mutex> guard(commit_lock);
 
+        __sync_synchronize();
+
         size_t new_epoch = current_epoch + 1;
 
         bool result = true;
@@ -565,6 +578,8 @@ struct Sandbox {
             for (it = local_values.begin(); it != end;  ++it)
                 it->first->commit(new_epoch);
             
+            __sync_synchronize();
+
             current_epoch = new_epoch;
         }
         else {
@@ -637,6 +652,7 @@ Snapshot_Info::
 register_snapshot(Snapshot * snapshot)
 {
     ACE_Guard<ACE_Mutex> guard(lock);
+    __sync_synchronize();
     snapshot->epoch_ = current_epoch;
     entries[snapshot->epoch_].snapshots.insert(snapshot);
     return snapshot->epoch_;
@@ -834,14 +850,9 @@ struct Value : public Object {
     const T read() const
     {
         if (!current_trans) {
-            size_t ce;
-            {
-                ce = current_epoch;
-            }
-
             ACE_Guard<ACE_Mutex> guard(lock);
             history.validate();
-            return history.value_at_epoch(ce);
+            return history.most_recent_value();
         }
         
         const T * val = current_trans->local_value<T>(this);
@@ -1125,9 +1136,10 @@ void object_test_thread(Value<int> & var, int iter, boost::barrier & barrier)
             //BOOST_CHECK_EQUAL(var.read() % 2, 0);
         }
 
-        if (var.read() <= old_val) {
+        int new_val = var.read();
+        if (new_val <= old_val) {
             ++errors;
-            cerr << "no progress made: " << old_val << " >= " << var.read()
+            cerr << "no progress made: " << new_val << " <= " << old_val
                  << endl;
         }
         //BOOST_CHECK(var.read() > old_val);
