@@ -253,40 +253,9 @@ struct History {
         for (unsigned i = 0;  i < entries.size();  ++i) {
             if (entries[i]->epoch == unneeded_epoch) {
                 validate();
-
-                //Entries old_entries(entries);
-
-                size_t old_size = entries.size();
-                int sz = entries.size(), cp = entries.capacity(),
-                    st = entries.start();
-
-                Entry * entry = entries[i];
-                //delete entries[i];
+                delete entries[i];
                 entries.erase_element(i);
-                try {
-                    validate();
-                }
-                catch (...) {
-                    cerr << "new me: " << endl;
-                    dump();
-                    cerr << "element deleted: " << i << endl;
-                    cerr << "deleted element: " << entry
-                         << " epoch " << entry->epoch << " value "
-                         << entry->value << endl;
-                    cerr << "old_size: " << old_size
-                         << " new size: " << entries.size() << endl;
-                    cerr << "size: " << sz << " cap: " << cp << " st: "
-                         << st << endl;
-                    //cerr << "old me: " << endl;
-                    //entries.swap(old_entries);
-                    //dump();
-                    //entries.swap(old_entries);
-
-                    abort();
-                    throw;
-                }
-
-                //delete entries[i];
+                validate();
                 return;
             }
         }
