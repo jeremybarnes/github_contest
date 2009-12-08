@@ -24,6 +24,8 @@
 #include <set>
 #include "utils/circular_buffer.h"
 #include "arch/timers.h"
+#include "ace/Mutex.h"
+
 
 using namespace ML;
 using namespace JGraph;
@@ -78,7 +80,7 @@ size_t earliest_epoch = 1;
 __thread Transaction * current_trans = 0;
 
 /// For the moment, only one commit can happen at a time
-Lock commit_lock;
+ACE_Mutex commit_lock;
 
 
 /* WHEN WE DESTROY A SNAPSHOT, we can clean up the entries upon which only
@@ -94,7 +96,7 @@ Lock commit_lock;
 
 /// Information about transactions in progress
 struct Snapshot_Info {
-    Lock lock;
+    ACE_Mutex lock;
 
     struct Entry {
         set<Snapshot *> snapshots;
@@ -104,7 +106,9 @@ struct Snapshot_Info {
     typedef map<size_t, Entry> Entries;
     Entries entries;
 
-    void register_snapshot(Snapshot * snapshot, size_t epoch);
+    // Register the snapshot for the current epoch.  Returns the number of
+    // the epoch it was registered under.
+    size_t register_snapshot(Snapshot * snapshot);
 
     void remove_snapshot(Snapshot * snapshot);
 
@@ -249,9 +253,40 @@ struct History {
         for (unsigned i = 0;  i < entries.size();  ++i) {
             if (entries[i]->epoch == unneeded_epoch) {
                 validate();
-                delete entries[i];
+
+                //Entries old_entries(entries);
+
+                size_t old_size = entries.size();
+                int sz = entries.size(), cp = entries.capacity(),
+                    st = entries.start();
+
+                Entry * entry = entries[i];
+                //delete entries[i];
                 entries.erase_element(i);
-                validate();
+                try {
+                    validate();
+                }
+                catch (...) {
+                    cerr << "new me: " << endl;
+                    dump();
+                    cerr << "element deleted: " << i << endl;
+                    cerr << "deleted element: " << entry
+                         << " epoch " << entry->epoch << " value "
+                         << entry->value << endl;
+                    cerr << "old_size: " << old_size
+                         << " new size: " << entries.size() << endl;
+                    cerr << "size: " << sz << " cap: " << cp << " st: "
+                         << st << endl;
+                    //cerr << "old me: " << endl;
+                    //entries.swap(old_entries);
+                    //dump();
+                    //entries.swap(old_entries);
+
+                    abort();
+                    throw;
+                }
+
+                //delete entries[i];
                 return;
             }
         }
@@ -293,7 +328,8 @@ private:
         T value;
     };
 
-    Circular_Buffer<Entry *> entries;
+    typedef Circular_Buffer<Entry *> Entries;
+    Entries entries;
 
     void validate() const
     {
@@ -305,14 +341,12 @@ private:
                 cerr << "e = " << e << " e2 = " << e2 << endl;
                 dump();
                 cerr << "invalid current epoch" << endl;
-                abort();
                 throw Exception("invalid current epoch");
             }
             if (e2 <= e) {
                 cerr << "e = " << e << " e2 = " << e2 << endl;
                 dump();
-                cerr << "invalid current epoch" << endl;
-                abort();
+                cerr << "invalid epoch order" << endl;
                 throw Exception("invalid epoch order");
             }
             e = e2;
@@ -332,8 +366,7 @@ private:
 struct Snapshot : boost::noncopyable {
     Snapshot()
     {
-        epoch_ = current_epoch;
-        snapshot_info.register_snapshot(this, epoch_);
+        register_me();
     }
 
     ~Snapshot()
@@ -345,19 +378,20 @@ struct Snapshot : boost::noncopyable {
     {
         size_t new_epoch = current_epoch;
         if (new_epoch != epoch_) {
-
-            // Remove from the old epoch
             snapshot_info.remove_snapshot(this);
-            epoch_ = new_epoch;
-
-            // Register with the new epoch
-            snapshot_info.register_snapshot(this, epoch_);
+            register_me();
         }
+    }
+
+    void register_me()
+    {
+        epoch_ = snapshot_info.register_snapshot(this);
     }
 
     size_t epoch() const { return epoch_; }
 
 private:
+    friend class Snapshot_Info;
     size_t epoch_;  ///< Epoch at which snapshot was taken
 };
 
@@ -543,7 +577,7 @@ struct Sandbox {
 
     bool commit(size_t old_epoch)
     {
-        Guard guard(commit_lock);
+        ACE_Guard<ACE_Mutex> guard(commit_lock);
 
         size_t new_epoch = current_epoch + 1;
 
@@ -629,15 +663,14 @@ struct Local_Transaction : public Transaction {
     Transaction * old_trans;
 };
 
-void
+size_t
 Snapshot_Info::
-register_snapshot(Snapshot * snapshot, size_t epoch)
+register_snapshot(Snapshot * snapshot)
 {
-    Guard guard(lock);
-    entries[epoch].snapshots.insert(snapshot);
-
-    //cerr << "registering snapshot " << snapshot << " at epoch "
-    //     << epoch << " ss->epoch() = " << snapshot->epoch() << endl;
+    ACE_Guard<ACE_Mutex> guard(lock);
+    snapshot->epoch_ = current_epoch;
+    entries[snapshot->epoch_].snapshots.insert(snapshot);
+    return snapshot->epoch_;
 }
 
 void
@@ -646,7 +679,7 @@ remove_snapshot(Snapshot * snapshot)
 {
     vector<pair<Object *, size_t> > to_clean_up;
     {
-        Guard guard(lock);
+        ACE_Guard<ACE_Mutex> guard(lock);
         
         Entries::iterator it = entries.find(snapshot->epoch());
         if (it == entries.end()) {
@@ -745,7 +778,7 @@ Snapshot_Info::
 register_cleanup(Object * obj, size_t epoch_to_cleanup)
 {
     // NOTE: this is called with the object's lock held
-    Guard guard(lock);
+    ACE_Guard<ACE_Mutex> guard(lock);
 
     if (entries.empty())
         throw Exception("register_cleanup with no snapshots");
@@ -758,7 +791,7 @@ void
 Snapshot_Info::
 dump()
 {
-    Guard guard (lock);
+    ACE_Guard<ACE_Mutex> guard (lock);
 
     cerr << "global state: " << endl;
     cerr << "  current_epoch: " << current_epoch << endl;
@@ -811,7 +844,7 @@ struct Value : public Object {
         if (!local) {
             T value;
             {
-                Guard guard(lock);
+                ACE_Guard<ACE_Mutex> guard(lock);
                 history.validate();
                 value = history.value_at_epoch(current_trans->epoch());
             }
@@ -837,7 +870,7 @@ struct Value : public Object {
                 ce = current_epoch;
             }
 
-            Guard guard(lock);
+            ACE_Guard<ACE_Mutex> guard(lock);
             history.validate();
             return history.value_at_epoch(ce);
         }
@@ -846,7 +879,7 @@ struct Value : public Object {
         
         if (val) return *val;
      
-        Guard guard(lock);
+        ACE_Guard<ACE_Mutex> guard(lock);
         return history.value_at_epoch(current_trans->epoch());
     }
 
@@ -854,11 +887,11 @@ struct Value : public Object {
     // Implement object interface
 
     History<T> history;
-    mutable Lock lock;
+    mutable ACE_Mutex lock;
 
     virtual bool setup(size_t old_epoch, size_t new_epoch, void * data)
     {
-        Guard guard(lock);
+        ACE_Guard<ACE_Mutex> guard(lock);
         history.validate();
         bool result = history.set_current_value(old_epoch, new_epoch,
                                                 *reinterpret_cast<T *>(data));
@@ -870,7 +903,7 @@ struct Value : public Object {
     virtual void commit(size_t new_epoch) throw ()
     {
         // Now that it's definitive, we can clean up any old values
-        Guard guard(lock);
+        ACE_Guard<ACE_Mutex> guard(lock);
         history.validate();
         history.cleanup_old_value(this);
         history.validate();
@@ -878,7 +911,7 @@ struct Value : public Object {
 
     virtual void rollback(size_t new_epoch, void * data) throw ()
     {
-        Guard guard(lock);
+        ACE_Guard<ACE_Mutex> guard(lock);
         history.validate();
         history.rollback(new_epoch);
         history.validate();
@@ -886,7 +919,7 @@ struct Value : public Object {
 
     virtual void cleanup(size_t unused_epoch) throw ()
     {
-        Guard guard(lock);
+        ACE_Guard<ACE_Mutex> guard(lock);
         history.validate();
         history.cleanup(unused_epoch, this);
         history.validate();
@@ -894,7 +927,7 @@ struct Value : public Object {
 
     virtual void dump(int indent = 0) const
     {
-        Guard guard(lock);
+        ACE_Guard<ACE_Mutex> guard(lock);
         string s(indent, ' ');
         cerr << s << "object at " << this << endl;
         history.dump(indent + 2);
