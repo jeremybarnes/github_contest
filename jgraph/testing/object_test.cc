@@ -56,9 +56,13 @@ struct Object {
     virtual void rollback(size_t new_epoch, void * data) throw () = 0;
 
     // Clean up information from an unused epoch
-    virtual void cleanup(size_t unused_epoch) throw () = 0;
+    virtual void cleanup(size_t unused_epoch) = 0;
     
-    virtual void dump(int indent = 0) const
+    virtual void dump(std::ostream & stream = std::cerr, int indent = 0) const
+    {
+    }
+
+    virtual void dump_unlocked(std::ostream & stream = std::cerr, int indent = 0) const
     {
     }
 
@@ -106,6 +110,8 @@ struct Snapshot_Info {
     typedef map<size_t, Entry> Entries;
     Entries entries;
 
+    vector<size_t> cleanups;
+
     set<size_t> deleted_shapshots;
 
     // Register the snapshot for the current epoch.  Returns the number of
@@ -116,7 +122,7 @@ struct Snapshot_Info {
 
     void register_cleanup(Object * obj, size_t epoch_to_cleanup);
 
-    void dump();
+    void dump(std::ostream & stream = std::cerr);
 
 } snapshot_info;
 
@@ -165,16 +171,16 @@ struct History {
         return entries.size();
     }
 
-    T most_recent_value() const
+    T most_recent_value(const Object * obj) const
     {
         if (entries.empty())
             throw Exception("attempt to obtain value for object that never "
                             "existed");
-        return value_at_epoch(current_epoch);
+        return value_at_epoch(current_epoch, obj);
     }
 
     /// Return the value for the given epoch
-    const T & value_at_epoch(size_t epoch) const;
+    const T & value_at_epoch(size_t epoch, const Object * obj) const;
 
     /// Update the current value at a new epoch.  Returns true if it
     /// succeeded.  If the value has changed since the old epoch, it will
@@ -241,9 +247,24 @@ struct History {
     /// Clean up the entry for an unneeded epoch
     void cleanup(size_t unneeded_epoch, const Object * obj)
     {
+        if (entries.size() <= 1)
+            throw Exception("cleaning up with < 2 values");
+
         // TODO: optimize
         for (unsigned i = 0, sz = entries.size();  i < sz;  ++i) {
             if (entries[i]->epoch == unneeded_epoch) {
+
+                size_t my_earliest_epoch = earliest_epoch;
+                if (i == 0 && entries[1]->epoch > my_earliest_epoch) {
+                    cerr << "*** DESTROYING EARLIEST EPOCH FOR OBJECT "
+                         << obj << endl;
+                    cerr << "  unneeded_epoch = " << unneeded_epoch << endl;
+                    cerr << "  earliest_epoch = " << my_earliest_epoch << endl;
+                    snapshot_info.dump();
+                    obj->dump_unlocked();
+                    throw Exception("destroying earliest epoch");
+                }
+
                 //validate();
                 delete entries[i];
                 entries.erase_element(i);
@@ -260,16 +281,16 @@ struct History {
         throw Exception("attempt to clean up something that didn't exist");
     }
 
-    void dump(int indent = 0) const
+    void dump(std::ostream & stream = std::cerr, int indent = 0) const
     {
         string s(indent, ' ');
-        cerr << s << "history with " << size()
-             << " values" << endl;
+        stream << s << "history with " << size()
+               << " values" << endl;
         for (unsigned i = 0;  i < size();  ++i) {
-            cerr << s << "  " << i << ": epoch " << entries[i]->epoch;
-            cerr << " addr " << entries[i];
-            cerr << " value " << entries[i]->value;
-            cerr << endl;
+            stream << s << "  " << i << ": epoch " << entries[i]->epoch;
+            stream << " addr " << entries[i];
+            stream << " value " << entries[i]->value;
+            stream << endl;
         }
     }
 
@@ -484,7 +505,6 @@ private:
                   s90
                   s600      v80 <-- added
       v900
-   
 */
 
 template<typename Key, typename Value, class Hash>
@@ -777,21 +797,21 @@ private:
 
         // No bucket found; will need to be expanded
         if (size_ != capacity_) {
-            dump();
+            dump(cerr);
             throw Exception("find_bucket: inconsistency");
         }
         return -1;
     }
 
-    void dump() const
+    void dump(std::ostream & stream) const
     {
-        cerr << "Lightweight_Hash: size " << size_ << " capacity "
-             << capacity_ << endl;
+        stream << "Lightweight_Hash: size " << size_ << " capacity "
+               << capacity_ << endl;
         for (unsigned i = 0;  i < capacity_;  ++i) {
-            cerr << "  bucket " << i << ": key " << vals_[i].first;
+            stream << "  bucket " << i << ": key " << vals_[i].first;
             if (vals_[i].first)
-                cerr << " value " << vals_[i].second;
-            cerr << endl;
+                stream << " value " << vals_[i].second;
+            stream << endl;
         }
     }
 
@@ -897,16 +917,16 @@ struct Sandbox {
         return result;
     }
 
-    void dump(int indent = 0) const
+    void dump(std::ostream & stream = std::cerr, int indent = 0) const
     {
         string s(indent, ' ');
-        cerr << "sandbox: " << local_values.size() << " local values"
+        stream << "sandbox: " << local_values.size() << " local values"
              << endl;
         int i = 0;
         for (Local_Values::const_iterator
                  it = local_values.begin(), end = local_values.end();
              it != end;  ++it, ++i) {
-            cerr << s << "  " << i << " at " << it->first << ": value "
+            stream << s << "  " << i << " at " << it->first << ": value "
                  << it->first->print_local_value(it->second.val)
                  << endl;
         }
@@ -930,12 +950,12 @@ struct Transaction : public Snapshot, public Sandbox {
         return result;
     }
 
-    void dump(int indent = 0)
+    void dump(std::ostream & stream = std::cerr, int indent = 0)
     {
         string s(indent, ' ');
-        cerr << s << "snapshot: epoch " << epoch() << endl;
-        cerr << s << "sandbox" << endl;
-        Sandbox::dump(indent);
+        stream << s << "snapshot: epoch " << epoch() << endl;
+        stream << s << "sandbox" << endl;
+        Sandbox::dump(stream, indent);
     }
 };
 
@@ -968,6 +988,10 @@ void
 Snapshot_Info::
 remove_snapshot(Snapshot * snapshot)
 {
+    ostringstream debug;
+
+    dump(debug);
+
     vector<pair<Object *, size_t> > to_clean_up;
     {
         ACE_Guard<ACE_Mutex> guard(lock);
@@ -1006,22 +1030,41 @@ remove_snapshot(Snapshot * snapshot)
 
         if (entry.snapshots.empty()) {
             /* Find where the previous snapshot is; any that can't be deleted
-               here will need to be moved to that list */
+               here (due to being needed by a later snapshot) will need to be
+               moved to that list */
             Entry * prev_snapshot = 0;
             size_t prev_epoch = 0;
             
             if (it != entries.begin()) {
-                Entries::iterator jt = it;
-                --jt;
+                Entries::iterator jt = boost::prior(it);
                 
                 prev_snapshot = &jt->second;
                 prev_epoch = jt->first;
             }
-            
+            else {
+                // Earliest epoch has changed, as this is the earliest known
+                // and it just disappeared.
+                Entries::iterator jt = boost::next(it);
+                if (jt == entries.end())
+                    earliest_epoch = current_epoch;
+                else earliest_epoch = jt->first;
+            }
+
             //cerr << "prev_epoch = " << prev_epoch << endl;
             //cerr << "prev_snapshot = " << prev_snapshot << endl;
             
             int num_to_cleanup = 0;
+
+#if 0
+            string message = format("cleaning up %zd: prev_snapshot %p prev_epoch %zd", it->first, prev_snapshot, prev_epoch);
+            cleanups[it->first] = message;
+#endif
+            if (cleanups.size() <= it->first)
+                cleanups.resize(it->first + 1);
+            cleanups[it->first] = prev_epoch;
+
+            debug << "cleaning up " << it->first << ": prev_snapshot "
+                  << prev_snapshot << " prev_epoch " << prev_epoch << endl;
 
             for (unsigned i = 0;  i < entry.cleanups.size();  ++i) {
                 Object * obj = entry.cleanups[i].first;
@@ -1029,23 +1072,19 @@ remove_snapshot(Snapshot * snapshot)
                 
                 //cerr << "epoch = " << epoch << endl;
                 
-                /* Is the object needed by the previous snapshot? */
+                //debug << "object " << obj << " epoch " << epoch << " cleanup "
+                //      << (prev_epoch >= epoch) << endl;
+                
+                /* Is the object needed by the previous snapshot?  It is if
+                   the previous shapshot's epoch is greater than or equal the
+                   current snapshot's epoch. */
                 if (prev_epoch >= epoch && prev_snapshot) { // still needed by prev snapshot
-                    if (!prev_snapshot) {
-                        cerr << "--------- no prev snapshot -----------" << endl;
-                        cerr << "---- snapshot_info:" << endl;
-                        dump();
-                        cerr << "---- obj:" << endl;
-                        obj->dump();
-                        cerr << "--------- end no prev snapshot -----------"
-                             << endl;
-                        throw Exception("no prev snapshot");
-                        
-                    }
                     prev_snapshot->cleanups.push_back(make_pair(obj, epoch));
                 }
                 else entry.cleanups[num_to_cleanup++] = entry.cleanups[i]; // not needed anymore
             }
+
+            //debug << "num_to_cleanup = " << num_to_cleanup << endl;
 
             entry.cleanups.resize(num_to_cleanup);
 
@@ -1060,7 +1099,18 @@ remove_snapshot(Snapshot * snapshot)
     for (unsigned i = 0;  i < to_clean_up.size();  ++i) {
         Object * obj = to_clean_up[i].first;
         size_t epoch = to_clean_up[i].second;
-        obj->cleanup(epoch);
+
+        //debug << "cleaning up object " << obj << " with unneeded epoch "
+        //      << epoch << endl;
+
+        try {
+            obj->cleanup(epoch);
+        }
+        catch (...) {
+            cerr << "got exception" << endl;
+            cerr << debug.str();
+            abort();
+        }
     }
 }
 
@@ -1080,32 +1130,32 @@ register_cleanup(Object * obj, size_t epoch_to_cleanup)
 
 void
 Snapshot_Info::
-dump()
+dump(std::ostream & stream)
 {
     ACE_Guard<ACE_Mutex> guard (lock);
 
-    cerr << "global state: " << endl;
-    cerr << "  current_epoch: " << current_epoch << endl;
-    cerr << "  earliest_epoch: " << earliest_epoch << endl;
-    cerr << "  current_trans: " << current_trans << endl;
-    cerr << "  snapshot epochs: " << entries.size() << endl;
+    stream << "global state: " << endl;
+    stream << "  current_epoch: " << current_epoch << endl;
+    stream << "  earliest_epoch: " << earliest_epoch << endl;
+    stream << "  current_trans: " << current_trans << endl;
+    stream << "  snapshot epochs: " << entries.size() << endl;
     int i = 0;
     for (map<size_t, Entry>::const_iterator
              it = entries.begin(), end = entries.end();
          it != end;  ++it, ++i) {
         const Entry & entry = it->second;
-        cerr << "  " << i << " at epoch " << it->first << endl;
-        cerr << "    " << entry.snapshots.size() << " snapshots"
+        stream << "  " << i << " at epoch " << it->first << endl;
+        stream << "    " << entry.snapshots.size() << " snapshots"
              << endl;
         int j = 0;
         for (set<Snapshot *>::const_iterator
                  jt = entry.snapshots.begin(), jend = entry.snapshots.end();
              jt != jend;  ++jt, ++j)
-            cerr << "      " << j << " " << *jt << " epoch "
+            stream << "      " << j << " " << *jt << " epoch "
                  << (*jt)->epoch() << endl;
-        cerr << "    " << entry.cleanups.size() << " cleanups" << endl;
+        stream << "    " << entry.cleanups.size() << " cleanups" << endl;
         for (unsigned j = 0;  j < entry.cleanups.size();  ++j)
-            cerr << "      " << j << ": object " << entry.cleanups[j].first
+            stream << "      " << j << ": object " << entry.cleanups[j].first
                  << " with version " << entry.cleanups[j].second << endl;
     }
 }
@@ -1118,7 +1168,7 @@ void no_transaction_exception(const Object * obj)
 template<typename T>
 const T &
 History<T>::
-value_at_epoch(size_t epoch) const
+value_at_epoch(size_t epoch, const Object * obj) const
 {
     if (entries.empty())
         throw Exception("attempt to obtain value for object that never "
@@ -1133,6 +1183,7 @@ value_at_epoch(size_t epoch) const
     dump();
     snapshot_info.dump();
     if (current_trans) current_trans->dump();
+    obj->dump_unlocked();
     cerr << "--------------- end expired epoch" << endl;
     
     abort();
@@ -1164,7 +1215,7 @@ struct Value : public Object {
             {
                 ACE_Guard<ACE_Mutex> guard(lock);
                 //history.validate();
-                value = history.value_at_epoch(current_trans->epoch());
+                value = history.value_at_epoch(current_trans->epoch(), this);
             }
             local = current_trans->local_value<int>(this, value);
 
@@ -1185,7 +1236,7 @@ struct Value : public Object {
         if (!current_trans) {
             ACE_Guard<ACE_Mutex> guard(lock);
             //history.validate();
-            return history.most_recent_value();
+            return history.most_recent_value(this);
         }
         
         const T * val = current_trans->local_value<T>(this);
@@ -1193,7 +1244,7 @@ struct Value : public Object {
         if (val) return *val;
      
         ACE_Guard<ACE_Mutex> guard(lock);
-        return history.value_at_epoch(current_trans->epoch());
+        return history.value_at_epoch(current_trans->epoch(), this);
     }
 
     //private:
@@ -1201,6 +1252,8 @@ struct Value : public Object {
 
     History<T> history;
     mutable ACE_Mutex lock;
+
+    std::string last_cleanup;  // debug
 
     virtual bool setup(size_t old_epoch, size_t new_epoch, void * data)
     {
@@ -1226,35 +1279,55 @@ struct Value : public Object {
     {
         ACE_Guard<ACE_Mutex> guard(lock);
         //history.validate();
-        cerr << endl << "rollback: current_epoch = " << current_epoch
-             << " new_epoch = " << new_epoch << endl;
-        cerr << "before rollback: " << endl;
-        dump_itl();
+        //cerr << endl << "rollback: current_epoch = " << current_epoch
+        //     << " new_epoch = " << new_epoch << endl;
+        //cerr << "before rollback: " << endl;
+        //dump_itl(cerr);
         history.rollback(new_epoch);
-        cerr << "after rollback: " << endl;
-        dump_itl();
+        //cerr << "after rollback: " << endl;
+        //dump_itl(cerr);
         //history.validate();
     }
 
-    virtual void cleanup(size_t unused_epoch) throw ()
+    virtual void cleanup(size_t unused_epoch)
     {
         ACE_Guard<ACE_Mutex> guard(lock);
-        //history.validate();
+        std::ostringstream stream;
+        stream << "cleaning up epoch " << unused_epoch << " for object "
+               << this << " current_epoch = " << current_epoch << endl;
+        stream << "last_epoch = " << snapshot_info.cleanups.at(unused_epoch)
+               << endl;
+        snapshot_info.dump(stream);
+        stream << "before: " << endl;
+        dump_itl(stream, 4, false);
         history.cleanup(unused_epoch, this);
-        //history.validate();
+        stream << "after: " << endl;
+        dump_itl(stream, 4, false);
+        stream << "current_epoch = " << current_epoch << endl;
+        last_cleanup = stream.str();
     }
 
-    virtual void dump(int indent = 0) const
+    virtual void dump(std::ostream & stream = std::cerr, int indent = 0) const
     {
         ACE_Guard<ACE_Mutex> guard(lock);
-        dump_itl(indent);
+        dump_itl(stream, indent);
     }
 
-    void dump_itl(int indent = 0) const
+    virtual void dump_unlocked(std::ostream & stream = std::cerr,
+                               int indent = 0) const
+    {
+        dump_itl(stream, indent);
+    }
+
+    void dump_itl(std::ostream & stream, int indent = 0, bool lc = true) const
     {
         string s(indent, ' ');
-        cerr << s << "object at " << this << endl;
-        history.dump(indent + 2);
+        stream << s << "object at " << this << endl;
+        history.dump(stream, indent + 2);
+        if (lc) {
+            stream << "last cleanup:" << endl;
+            stream << last_cleanup << endl;
+        }
     }
 
     virtual std::string print_local_value(void * val) const
