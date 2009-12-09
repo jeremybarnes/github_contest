@@ -174,25 +174,7 @@ struct History {
     }
 
     /// Return the value for the given epoch
-    const T & value_at_epoch(size_t epoch) const
-    {
-        if (entries.empty())
-            throw Exception("attempt to obtain value for object that never "
-                            "existed");
-
-        for (int i = entries.size() - 1;  i >= 0;  --i)
-            if (entries[i]->epoch <= epoch) return entries[i]->value;
-        
-        cerr << "--------------- expired epoch -------------" << endl;
-        cerr << "epoch = " << epoch << endl;
-        dump();
-        cerr << "--------------- end expired epoch" << endl;
-
-        abort();
-
-
-        throw Exception("attempt to obtain value for expired epoch");
-    }
+    const T & value_at_epoch(size_t epoch) const;
 
     /// Update the current value at a new epoch.  Returns true if it
     /// succeeded.  If the value has changed since the old epoch, it will
@@ -260,7 +242,7 @@ struct History {
     void cleanup(size_t unneeded_epoch, const Object * obj)
     {
         // TODO: optimize
-        for (unsigned i = 0;  i < entries.size();  ++i) {
+        for (unsigned i = 0, sz = entries.size();  i < sz;  ++i) {
             if (entries[i]->epoch == unneeded_epoch) {
                 //validate();
                 delete entries[i];
@@ -903,9 +885,8 @@ struct Sandbox {
         }
         else {
             // Rollback any that were set up if there was a problem
-            end = it;
-            it = local_values.begin();
-            for (end = it, it = local_values.begin();  it != end;  ++it)
+            for (end = boost::prior(it), it = local_values.begin();
+                 it != end;  ++it)
                 it->first->rollback(new_epoch, it->second.val);
         }
 
@@ -1135,8 +1116,35 @@ void no_transaction_exception(const Object * obj)
 }
 
 template<typename T>
+const T &
+History<T>::
+value_at_epoch(size_t epoch) const
+{
+    if (entries.empty())
+        throw Exception("attempt to obtain value for object that never "
+                        "existed");
+    
+    for (int i = entries.size() - 1;  i >= 0;  --i)
+        if (entries[i]->epoch <= epoch) return entries[i]->value;
+        
+    cerr << "--------------- expired epoch -------------" << endl;
+    cerr << "current_epoch = " << current_epoch << endl;
+    cerr << "epoch = " << epoch << endl;
+    dump();
+    snapshot_info.dump();
+    if (current_trans) current_trans->dump();
+    cerr << "--------------- end expired epoch" << endl;
+    
+    abort();
+    
+    
+    throw Exception("attempt to obtain value for expired epoch");
+}
+
+template<typename T>
 struct Value : public Object {
     Value()
+        : history(T())
     {
     }
 
@@ -1218,7 +1226,13 @@ struct Value : public Object {
     {
         ACE_Guard<ACE_Mutex> guard(lock);
         //history.validate();
+        cerr << endl << "rollback: current_epoch = " << current_epoch
+             << " new_epoch = " << new_epoch << endl;
+        cerr << "before rollback: " << endl;
+        dump_itl();
         history.rollback(new_epoch);
+        cerr << "after rollback: " << endl;
+        dump_itl();
         //history.validate();
     }
 
@@ -1233,10 +1247,14 @@ struct Value : public Object {
     virtual void dump(int indent = 0) const
     {
         ACE_Guard<ACE_Mutex> guard(lock);
+        dump_itl(indent);
+    }
+
+    void dump_itl(int indent = 0) const
+    {
         string s(indent, ' ');
         cerr << s << "object at " << this << endl;
         history.dump(indent + 2);
-        //history.validate();
     }
 
     virtual std::string print_local_value(void * val) const
@@ -1519,13 +1537,142 @@ void run_object_test(int nthreads, int niter)
              << val.history.entries[i].value << endl;
 #endif
 
+    BOOST_CHECK_EQUAL(val.history.size(), 1);
     BOOST_CHECK_EQUAL(val.read(), niter * nthreads * 2);
 }
 
 
 BOOST_AUTO_TEST_CASE( test1 )
 {
-    run_object_test(1, 100000);
-    run_object_test(10, 10000);
-    run_object_test(100, 1000);
+    //run_object_test(1, 100000);
+    //run_object_test(10, 10000);
+    //run_object_test(100, 1000);
+    //run_object_test(1000, 100);
 }
+
+struct Object_Test_Thread2 {
+    Value<int> * vars;
+    int nvars;
+    int iter;
+    boost::barrier & barrier;
+    size_t & failures;
+
+    Object_Test_Thread2(Value<int> * vars,
+                        int nvars,
+                        int iter, boost::barrier & barrier,
+                        size_t & failures)
+        : vars(vars), nvars(nvars), iter(iter), barrier(barrier),
+          failures(failures)
+    {
+    }
+
+    void operator () ()
+    {
+        // Wait for all threads to start up before we continue
+        barrier.wait();
+        
+        int errors = 0;
+        int local_failures = 0;
+        
+        for (unsigned i = 0;  i < iter;  ++i) {
+            // Keep going until we succeed
+            int var1 = random() % nvars, var2 = random() % nvars;
+            
+            {
+                Local_Transaction trans;
+                
+                // Now that we're inside, the total should be zero
+                ssize_t total = 0;
+                for (unsigned i = 0;  i < nvars;  ++i)
+                    total += vars[i].read();
+                if (total != 0) {
+                    cerr << "total is " << total << endl;
+                    ++errors;
+                }
+                
+                int tries = 0;
+                do {
+                    ++tries;
+                    int & val1 = vars[var1].mutate();
+                    int & val2 = vars[var2].mutate();
+                    
+                    val1 -= 1;
+                    val2 += 1;
+
+                    if (tries == 1000) {
+                        static Lock lock;
+                        Guard guard(lock);
+                        cerr << "-----------------------" << endl;
+                        cerr << "thread " << &current_trans << endl;
+                        cerr << "1000 failures" << endl;
+                        cerr << "var1 = " << var1 << endl;
+                        cerr << "var2 = " << var2 << endl;
+                        cerr << "---- snapshot" << endl;
+                        snapshot_info.dump();
+                        cerr << "---- trans" << endl;
+                        trans.dump();
+                        cerr << "---- var1" << endl;
+                        vars[var1].dump();
+                        cerr << "---- var2" << endl;
+                        vars[var2].dump();
+                        
+                        sleep(1);
+                        abort();
+                    }
+
+                } while (!trans.commit());
+                
+                local_failures += tries - 1;
+            }
+        }
+
+        static Lock lock;
+        Guard guard(lock);
+        
+        BOOST_CHECK_EQUAL(errors, 0);
+        
+        failures += local_failures;
+    }
+};
+
+void run_object_test2(int nthreads, int niter, int nvals)
+{
+    cerr << "testing with " << nthreads << " threads and " << niter << " iter"
+         << endl;
+    Value<int> vals[nvals];
+    boost::barrier barrier(nthreads);
+    boost::thread_group tg;
+
+    size_t failures = 0;
+
+    Timer timer;
+    for (unsigned i = 0;  i < nthreads;  ++i)
+        tg.create_thread(Object_Test_Thread2(vals, nvals, niter, barrier,
+                                             failures));
+    
+    tg.join_all();
+
+    cerr << "elapsed: " << timer.elapsed() << endl;
+
+    ssize_t total = 0;
+    for (unsigned i = 0;  i < nvals;  ++i)
+        total += vals[i].read();
+
+    BOOST_CHECK_EQUAL(total, 0);
+    for (unsigned i = 0;  i < nvals;  ++i)
+        BOOST_CHECK_EQUAL(vals[i].history.size(), 1);
+}
+
+
+BOOST_AUTO_TEST_CASE( test2 )
+{
+    cerr << endl << endl << "========= test 2: multiple variables" << endl;
+    
+    //run_object_test2(1, 100000, 10);
+    run_object_test2(2,  50000, 2);
+    //run_object_test2(10, 10000, 10);
+    //run_object_test2(100, 1000, 10);
+    //run_object_test2(1000, 100, 10);
+}
+
+
