@@ -104,7 +104,7 @@ ACE_Mutex earliest_epoch_lock;
 void set_earliest_epoch(size_t val)
 {
     ACE_Guard<ACE_Mutex> guard(earliest_epoch_lock);
-    if (val <= earliest_epoch_) {
+    if (val < earliest_epoch_) {
         cerr << "val = " << val << endl;
         cerr << "earliest_epoch = " << earliest_epoch_ << endl;
         throw Exception("earliest epoch was not increasing");
@@ -1157,8 +1157,12 @@ register_snapshot(Snapshot * snapshot)
     Entries::iterator it = entries.find(snapshot->epoch_);
     if (it == entries.end())
         throw Exception("inserted but not found");
-    if (it != boost::prior(entries.end()))
+    if (it != boost::prior(entries.end())) {
+        cerr << "stale snapshot" << endl;
+        dump_unlocked();
+        cerr << "snapshot->epoch_ = " << snapshot->epoch_ << endl;
         throw Exception("inserted stale snapshot");
+    }
 
     /* Since we don't clean up anything based upon the most recent snapshot,
        we now need to look at what was the most recent snapshot and see if
@@ -1206,7 +1210,7 @@ remove_snapshot(Snapshot * snapshot)
     /* Is this the most recent snapshot?  If so, we can't clean up,
        even if we're removing the last entry, as there might be a
        new snapshot created with the same epoch. */
-    bool most_recent = (it == boost::prior(entries.end()) && it->first == get_current_epoch());
+    //bool most_recent = (it == boost::prior(entries.end()));
     
     Entry & entry = it->second;
     
@@ -1226,7 +1230,7 @@ remove_snapshot(Snapshot * snapshot)
     
     // NOTE: this must be last in the function; it causes the guard to be
     // released
-    if (entry.snapshots.empty() && !most_recent)
+    if (entry.snapshots.empty() /* && !most_recent*/)
         perform_cleanup(it, guard);
 }
 
@@ -1239,8 +1243,8 @@ perform_cleanup(Entries::iterator it, ACE_Guard<ACE_Mutex> & guard)
     
     if (!it->second.snapshots.empty())
         throw Exception("perform_cleanup with snapshots");
-    if (it == boost::prior(entries.end()) && it->first == get_current_epoch())
-        throw Exception("cleaning up most recent entry");
+    //if (it == boost::prior(entries.end()) && it->first == get_current_epoch())
+    //    throw Exception("cleaning up most recent entry");
     if (it == entries.end())
         throw Exception("cleaning up invalid entry");
 
@@ -1659,11 +1663,17 @@ BOOST_AUTO_TEST_CASE( test0 )
     // Check strong exception safety
     BOOST_CHECK_EQUAL(myval.history.size(), 1);
     BOOST_CHECK_EQUAL(myval.read(), 6);
+
+    cerr << "------------------ at start" << endl;
+    snapshot_info.dump();
+    cerr << "------------------ end at start" << endl;
     
     // Create a transaction
     {
         Local_Transaction trans1;
         
+        cerr << "&trans1 = " << &trans1 << endl;
+
         BOOST_CHECK_EQUAL(myval.history.size(), 1);
         BOOST_CHECK_EQUAL(myval.read(), 6);
         
@@ -1698,13 +1708,17 @@ BOOST_AUTO_TEST_CASE( test0 )
         // Finish the transaction without committing it
     }
 
+    cerr << "------------------ at end" << endl;
+    snapshot_info.dump();
+    cerr << "------------------ end at end" << endl;
+
     BOOST_CHECK_EQUAL(myval.history.size(), 1);
     BOOST_CHECK_EQUAL(myval.read(), 6);
     BOOST_CHECK_EQUAL(snapshot_info.entries.size(), 0);
     BOOST_CHECK_EQUAL(get_current_epoch(), starting_epoch + 1);
 
-    set_current_epoch(1);
-    set_earliest_epoch(1);
+    current_epoch_ = 1;
+    earliest_epoch_ = 1;
 }
 
 void object_test_thread(Value<int> & var, int iter, boost::barrier & barrier,
