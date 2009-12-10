@@ -36,11 +36,6 @@ using namespace std;
 
 using boost::unit_test::test_suite;
 
-void microsleep()
-{
-    //usleep(10);
-}
-
 struct Transaction;
 struct Snapshot;
 
@@ -50,7 +45,6 @@ struct Object {
 
     Object()
     {
-        cleanup_list.reserve(50000);
     }
 
     // Lock the current value into memory, so that no other transaction is
@@ -82,8 +76,6 @@ struct Object {
     {
         return format("%08p", val);
     }
-
-    vector<vector<pair<int, int> > > cleanup_list;
 };
 
 /// Global variable giving the number of committed transactions since the
@@ -311,7 +303,6 @@ struct History {
                     backtrace();
                     cerr << "  unneeded_epoch = " << unneeded_epoch << endl;
                     cerr << "  trigger_epoch = " << trigger_epoch << endl;
-                    cerr << "  epochs = " << obj->cleanup_list.at(unneeded_epoch) << endl;
                     cerr << "  earliest_epoch = " << my_earliest_epoch << endl;
                     cerr << "  OBJECT SHOULD BE DESTROYED AT EPOCH "
                          << my_earliest_epoch << endl;
@@ -1305,7 +1296,6 @@ perform_cleanup(Entries::iterator it, ACE_Guard<ACE_Mutex> & guard)
         if (prev_epoch >= epoch && prev_snapshot) {
             // still needed by prev snapshot
             prev_snapshot->cleanups.push_back(make_pair(obj, epoch));
-            obj->cleanup_list[epoch].push_back(make_pair(prev_epoch, get_current_epoch()));
         }
         else entry.cleanups[num_to_cleanup++] = entry.cleanups[i]; // not needed anymore
     }
@@ -1403,19 +1393,7 @@ register_cleanup(Object * obj, size_t epoch_to_cleanup,
         throw Exception("register_cleanup with no snapshots");
 
     Entries::iterator it = boost::prior(entries.end());
-    if (obj->cleanup_list.size() <= epoch_to_cleanup)
-        obj->cleanup_list.resize(epoch_to_cleanup + 1);
-
     it->second.cleanups.push_back(make_pair(obj, epoch_to_cleanup));
-    if (obj->cleanup_list[epoch_to_cleanup].size()) {
-        cerr << "epoch_to_cleanup = " << epoch_to_cleanup << endl;
-        cerr << "cleanup in " << it->first << endl;
-        cerr << "cleanup list = " << obj->cleanup_list[epoch_to_cleanup]
-             << endl;
-        throw Exception("already had a cleanup");
-    }
-    obj->cleanup_list[epoch_to_cleanup].reserve(4);
-    obj->cleanup_list[epoch_to_cleanup].push_back(make_pair(it->first, new_latest_epoch));
 }
 
 void
