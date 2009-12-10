@@ -83,7 +83,17 @@ struct Object {
 
 /// Global variable giving the number of committed transactions since the
 /// beginning of the program
-volatile size_t current_epoch = 1;
+volatile size_t current_epoch_ = 1;
+
+size_t get_current_epoch()
+{
+    return current_epoch_;
+}
+
+void set_current_epoch(size_t val)
+{
+    current_epoch_ = val;
+}
 
 /// Global variable giving the earliest epoch for which there is a snapshot
 size_t earliest_epoch_ = 1;
@@ -148,6 +158,8 @@ struct Snapshot_Info {
 
     void dump(std::ostream & stream = std::cerr);
 
+    void dump_unlocked(std::ostream & stream = std::cerr);
+
     void validate() const
     {
         ACE_Guard<ACE_Mutex> guard(lock);
@@ -184,7 +196,7 @@ struct History {
     History(const T & initial)
         : entries(1)
     {
-        entries.push_back(new Entry(current_epoch, initial));
+        entries.push_back(new Entry(get_current_epoch(), initial));
     }
 
     History(const History & other)
@@ -208,7 +220,7 @@ struct History {
         if (entries.empty())
             throw Exception("attempt to obtain value for object that never "
                             "existed");
-        return value_at_epoch(current_epoch, obj);
+        return value_at_epoch(get_current_epoch(), obj);
     }
 
     /// Return the value for the given epoch
@@ -346,7 +358,7 @@ private:
 
         for (unsigned i = 0;  i < entries.size();  ++i) {
             size_t e2 = entries[i]->epoch;
-            if (e2 > current_epoch + 1) {
+            if (e2 > get_current_epoch() + 1) {
                 cerr << "e = " << e << " e2 = " << e2 << endl;
                 dump();
                 cerr << "invalid current epoch" << endl;
@@ -372,9 +384,41 @@ private:
 /// hot backups or for replication).  We need to be efficient in order to
 /// do so.
 
+enum Status {
+    UNINITIALIZED,
+    INITIALIZED,
+    RESTARTING,
+    RESTARTING0,
+    RESTARTING0A,
+    RESTARTING0B,
+    RESTARTING2,
+    RESTARTED,
+    COMMITTING,
+    COMMITTED,
+    FAILED
+};
+
+std::ostream & operator << (std::ostream & stream, const Status & status)
+{
+    switch (status) {
+    case UNINITIALIZED: return stream << "UNINITIALIZED";
+    case INITIALIZED:   return stream << "INITIALIZED";
+    case RESTARTING:    return stream << "RESTARTING";
+    case RESTARTING0:   return stream << "RESTARTING0";
+    case RESTARTING0A:  return stream << "RESTARTING0A";
+    case RESTARTING0B:  return stream << "RESTARTING0B";
+    case RESTARTING2:   return stream << "RESTARTING2";
+    case RESTARTED:     return stream << "RESTARTED";
+    case COMMITTING:    return stream << "COMMITTING";
+    case COMMITTED:     return stream << "COMMITTED";
+    case FAILED:        return stream << "FAILED";
+    default:            return stream << format("Status(%d)", status);
+    }
+}
+
 struct Snapshot : boost::noncopyable {
     Snapshot()
-        : retries_(0)
+        : retries_(0), status(UNINITIALIZED)
     {
         register_me();
     }
@@ -386,10 +430,12 @@ struct Snapshot : boost::noncopyable {
 
     void restart()
     {
+        status = RESTARTING;
         ++retries_;
         //size_t new_epoch = current_epoch;
         //if (new_epoch != epoch_) {
             snapshot_info.remove_snapshot(this);
+        status = RESTARTING2;
             register_me();
         //}
     }
@@ -397,6 +443,10 @@ struct Snapshot : boost::noncopyable {
     void register_me()
     {
         epoch_ = snapshot_info.register_snapshot(this);
+        if (status == UNINITIALIZED)
+            status = INITIALIZED;
+        else if (status == RESTARTING)
+            status = RESTARTED;
     }
 
     size_t epoch() const { return epoch_; }
@@ -407,6 +457,9 @@ private:
     friend class Snapshot_Info;
     size_t epoch_;  ///< Epoch at which snapshot was taken
     int retries_;
+
+public:
+    Status status;
 };
 
 /* Obsolete Version Cleanups
@@ -913,7 +966,7 @@ struct Sandbox {
     {
         ACE_Guard<ACE_Mutex> guard(commit_lock);
 
-        size_t new_epoch = current_epoch + 1;
+        size_t new_epoch = get_current_epoch() + 1;
 
         bool result = true;
 
@@ -933,7 +986,7 @@ struct Sandbox {
             // Make sure these writes are seen before we update the epoch
             __sync_synchronize();
 
-            current_epoch = new_epoch;
+            set_current_epoch(new_epoch);
 
             __sync_synchronize();
         }
@@ -979,7 +1032,9 @@ struct Transaction : public Snapshot, public Sandbox {
 
     bool commit()
     {
+        status = COMMITTING;
         bool result = Sandbox::commit(epoch());
+        status = result ? COMMITTED : FAILED;
         if (!result) restart();
         return result;
     }
@@ -1014,7 +1069,7 @@ Snapshot_Info::
 register_snapshot(Snapshot * snapshot)
 {
     ACE_Guard<ACE_Mutex> guard(lock);
-    snapshot->epoch_ = current_epoch;
+    snapshot->epoch_ = get_current_epoch();
 
     // NOTE: race with register cleanup: imagine that we finish our timeslice
     // exactly here.  Then something can commit a transaction, and call
@@ -1030,15 +1085,22 @@ void
 Snapshot_Info::
 remove_snapshot(Snapshot * snapshot)
 {
+    snapshot->status = RESTARTING0;
+
     ostringstream debug;
 
-    dump(debug);
-    debug << "snapshot " << snapshot << ": epoch " << snapshot->epoch()
-          << " retries " << snapshot->retries() << endl;
+    dump(debug);  // having this here makes it much more likely
 
     vector<pair<Object *, size_t> > to_clean_up;
     {
         ACE_Guard<ACE_Mutex> guard(lock);
+
+        snapshot->status = RESTARTING0A;
+
+        dump_unlocked(debug);
+        debug << "snapshot " << snapshot << ": epoch " << snapshot->epoch()
+              << " retries " << snapshot->retries() << endl;
+
         
         Entries::iterator it = entries.find(snapshot->epoch());
         if (it == entries.end()) {
@@ -1094,7 +1156,7 @@ remove_snapshot(Snapshot * snapshot)
                 // Earliest epoch has changed, as this is the earliest known
                 // and it just disappeared.
                 if (itnext == entries.end())
-                    set_earliest_epoch(current_epoch);
+                    set_earliest_epoch(get_current_epoch());
                 else set_earliest_epoch(itnext->first);
             }
 
@@ -1147,7 +1209,7 @@ remove_snapshot(Snapshot * snapshot)
                 if (prev_epoch >= epoch && prev_snapshot) {
                     // still needed by prev snapshot
                     prev_snapshot->cleanups.push_back(make_pair(obj, epoch));
-                    obj->cleanup_list[epoch].push_back(make_pair(prev_epoch, current_epoch));
+                    obj->cleanup_list[epoch].push_back(make_pair(prev_epoch, get_current_epoch()));
                 }
                 else entry.cleanups[num_to_cleanup++] = entry.cleanups[i]; // not needed anymore
             }
@@ -1161,6 +1223,8 @@ remove_snapshot(Snapshot * snapshot)
             entries.erase(it);
         }
     }
+
+    snapshot->status = RESTARTING0B;
 
     // Now do the actual cleanups with no lock held, to avoid deadlock (we can't
     // take the object lock with the snapshot_info lock held).
@@ -1202,13 +1266,13 @@ register_cleanup(Object * obj, size_t epoch_to_cleanup,
     //  snapshot epochs: 2
     //  0 at epoch 2798
     //    1 snapshots
-    //      0 0x7f2cf393b000 epoch 2798
+    //      0 0x7f2cf393b000 epoch 2798 COMMITTED
     //    2 cleanups
     //      0: object 0x7fff7da0a600 with version 2798
     //      1: object 0x7fff7da0a680 with version 2797
     //  1 at epoch 2799
     //    1 snapshots
-    //      0 0x7f2cf313a000 epoch 2799
+    //      0 0x7f2cf313a000 epoch 2799 RESTARTING
     //    0 cleanups
 
     //object at 0x7fff7da0a680
@@ -1253,12 +1317,11 @@ register_cleanup(Object * obj, size_t epoch_to_cleanup,
 
 void
 Snapshot_Info::
-dump(std::ostream & stream)
+dump_unlocked(std::ostream & stream)
 {
-    ACE_Guard<ACE_Mutex> guard (lock);
 
     stream << "global state: " << endl;
-    stream << "  current_epoch: " << current_epoch << endl;
+    stream << "  current_epoch: " << get_current_epoch() << endl;
     stream << "  earliest_epoch: " << get_earliest_epoch() << endl;
     stream << "  current_trans: " << current_trans << endl;
     stream << "  snapshot epochs: " << entries.size() << endl;
@@ -1275,12 +1338,21 @@ dump(std::ostream & stream)
                  jt = entry.snapshots.begin(), jend = entry.snapshots.end();
              jt != jend;  ++jt, ++j)
             stream << "      " << j << " " << *jt << " epoch "
-                 << (*jt)->epoch() << endl;
+                   << (*jt)->epoch() << " status " << (*jt)->status
+                   << endl;
         stream << "    " << entry.cleanups.size() << " cleanups" << endl;
         for (unsigned j = 0;  j < entry.cleanups.size();  ++j)
             stream << "      " << j << ": object " << entry.cleanups[j].first
                  << " with version " << entry.cleanups[j].second << endl;
     }
+}
+
+void
+Snapshot_Info::
+dump(std::ostream & stream)
+{
+    ACE_Guard<ACE_Mutex> guard (lock);
+    dump_unlocked(stream);
 }
 
 void
@@ -1308,7 +1380,7 @@ value_at_epoch(size_t epoch, const Object * obj) const
         if (entries[i]->epoch <= epoch) return entries[i]->value;
         
     cerr << "--------------- expired epoch -------------" << endl;
-    cerr << "current_epoch = " << current_epoch << endl;
+    cerr << "current_epoch = " << get_current_epoch() << endl;
     cerr << "epoch = " << epoch << endl;
     dump();
     snapshot_info.dump();
@@ -1424,14 +1496,14 @@ struct Value : public Object {
         ACE_Guard<ACE_Mutex> guard(lock);
         std::ostringstream stream;
         stream << "cleaning up epoch " << unused_epoch << " for object "
-               << this << " current_epoch = " << current_epoch << endl;
+               << this << " current_epoch = " << get_current_epoch() << endl;
         snapshot_info.dump(stream);
         stream << "before: " << endl;
         dump_itl(stream, 4, false);
         history.cleanup(unused_epoch, this);
         stream << "after: " << endl;
         dump_itl(stream, 4, false);
-        stream << "current_epoch = " << current_epoch << endl;
+        stream << "current_epoch = " << get_current_epoch() << endl;
         last_cleanup = stream.str();
     }
 
@@ -1475,7 +1547,7 @@ BOOST_AUTO_TEST_CASE( test0 )
     BOOST_CHECK_EQUAL(current_trans, (Transaction *)0);
     BOOST_CHECK_EQUAL(snapshot_info.entries.size(), 0);
 
-    size_t starting_epoch = current_epoch;
+    size_t starting_epoch = get_current_epoch();
 
     Value<int> myval(6);
 
@@ -1502,7 +1574,7 @@ BOOST_AUTO_TEST_CASE( test0 )
         
         // Check that the snapshot is properly there
         BOOST_REQUIRE_EQUAL(snapshot_info.entries.size(), 1);
-        BOOST_CHECK_EQUAL(snapshot_info.entries.begin()->first, current_epoch);
+        BOOST_CHECK_EQUAL(snapshot_info.entries.begin()->first, get_current_epoch());
         BOOST_REQUIRE_EQUAL(snapshot_info.entries.begin()->second.snapshots.size(), 1);
         BOOST_CHECK_EQUAL(*snapshot_info.entries.begin()->second.snapshots.begin(), &trans1);
         
@@ -1516,7 +1588,7 @@ BOOST_AUTO_TEST_CASE( test0 )
         BOOST_CHECK_EQUAL(trans1.local_values.size(), 1);
 
         // FOR TESTING, increment the current epoch
-        ++current_epoch;
+        set_current_epoch(get_current_epoch() + 1);
 
         // Restart the transaction; check that it was properly recorded by the
         // snapshot info
@@ -1524,7 +1596,7 @@ BOOST_AUTO_TEST_CASE( test0 )
 
         // Check that the snapshot is properly there
         BOOST_REQUIRE_EQUAL(snapshot_info.entries.size(), 1);
-        BOOST_CHECK_EQUAL(snapshot_info.entries.begin()->first, current_epoch);
+        BOOST_CHECK_EQUAL(snapshot_info.entries.begin()->first, get_current_epoch());
         BOOST_REQUIRE_EQUAL(snapshot_info.entries.begin()->second.snapshots.size(), 1);
         BOOST_CHECK_EQUAL(*snapshot_info.entries.begin()->second.snapshots.begin(), &trans1);
 
@@ -1534,9 +1606,9 @@ BOOST_AUTO_TEST_CASE( test0 )
     BOOST_CHECK_EQUAL(myval.history.size(), 1);
     BOOST_CHECK_EQUAL(myval.read(), 6);
     BOOST_CHECK_EQUAL(snapshot_info.entries.size(), 0);
-    BOOST_CHECK_EQUAL(current_epoch, starting_epoch + 1);
+    BOOST_CHECK_EQUAL(get_current_epoch(), starting_epoch + 1);
 
-    current_epoch = 1;
+    set_current_epoch(1);
 }
 
 
@@ -1728,7 +1800,7 @@ void run_object_test(int nthreads, int niter)
     cerr << "val.history.entries.size() = " << val.history.size()
          << endl;
 
-    cerr << "current_epoch = " << current_epoch << endl;
+    cerr << "current_epoch = " << get_current_epoch() << endl;
     cerr << "failures: " << failures << endl;
 
 #if 0
