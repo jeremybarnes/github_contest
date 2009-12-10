@@ -11,6 +11,8 @@
 #include "jgraph/attribute.h"
 #include "jgraph/attribute_basic_types.h"
 #include "utils/string_functions.h"
+#include "utils/vector_utils.h"
+#include "utils/pair_utils.h"
 #include <boost/test/unit_test.hpp>
 #include <boost/bind.hpp>
 #include <iostream>
@@ -40,6 +42,11 @@ struct Snapshot;
 /// This is an actual object.  Contains metadata and value history of an
 /// object.
 struct Object {
+
+    Object()
+    {
+        cleanup_list.reserve(50000);
+    }
 
     // Lock the current value into memory, so that no other transaction is
     // allowed to modify it
@@ -71,6 +78,7 @@ struct Object {
         return format("%08p", val);
     }
 
+    vector<vector<pair<int, int> > > cleanup_list;
 };
 
 /// Global variable giving the number of committed transactions since the
@@ -78,7 +86,26 @@ struct Object {
 volatile size_t current_epoch = 1;
 
 /// Global variable giving the earliest epoch for which there is a snapshot
-size_t earliest_epoch = 1;
+size_t earliest_epoch_ = 1;
+
+ACE_Mutex earliest_epoch_lock;
+
+void set_earliest_epoch(size_t val)
+{
+    ACE_Guard<ACE_Mutex> guard(earliest_epoch_lock);
+    if (val <= earliest_epoch_) {
+        cerr << "val = " << val << endl;
+        cerr << "earliest_epoch = " << earliest_epoch_ << endl;
+        throw Exception("earliest epoch was not increasing");
+    }
+    earliest_epoch_ = val;
+}
+
+size_t get_earliest_epoch()
+{
+    ACE_Guard<ACE_Mutex> guard(earliest_epoch_lock);
+    return earliest_epoch_;
+}
 
 /// Current transaction for this thread
 __thread Transaction * current_trans = 0;
@@ -100,7 +127,7 @@ ACE_Mutex commit_lock;
 
 /// Information about transactions in progress
 struct Snapshot_Info {
-    ACE_Mutex lock;
+    mutable ACE_Mutex lock;
 
     struct Entry {
         set<Snapshot *> snapshots;
@@ -110,19 +137,24 @@ struct Snapshot_Info {
     typedef map<size_t, Entry> Entries;
     Entries entries;
 
-    vector<size_t> cleanups;
-
-    set<size_t> deleted_shapshots;
-
     // Register the snapshot for the current epoch.  Returns the number of
     // the epoch it was registered under.
     size_t register_snapshot(Snapshot * snapshot);
 
     void remove_snapshot(Snapshot * snapshot);
 
-    void register_cleanup(Object * obj, size_t epoch_to_cleanup);
+    void register_cleanup(Object * obj, size_t epoch_to_cleanup,
+                          size_t new_latest_epoch);
 
     void dump(std::ostream & stream = std::cerr);
+
+    void validate() const
+    {
+        ACE_Guard<ACE_Mutex> guard(lock);
+        validate_unlocked();
+    }
+
+    void validate_unlocked() const;
 
 } snapshot_info;
 
@@ -218,17 +250,9 @@ struct History {
         //if (entries.size() < 2) return;
 
         // The second last entry needs to be cleaned up by the last snapshot
-        //cerr << "entries[-2] = " << entries[-2] << endl;
-        //cerr << "entries[entries.size() -2 ] = " << entries[entries.size() -2] << endl;
-        //for (unsigned i = 0;  i < entries.size();  ++i)
-        //    cerr << "entries[" << i << "] = " << entries[i] << endl;
-
-        //obj->dump();
-        //obj->dump();
-
         size_t epoch = entries[-2]->epoch;
 
-        snapshot_info.register_cleanup(obj, epoch);
+        snapshot_info.register_cleanup(obj, epoch, entries[-1]->epoch);
     }
 
     /// Erase the entry that was speculatively added
@@ -254,12 +278,15 @@ struct History {
         for (unsigned i = 0, sz = entries.size();  i < sz;  ++i) {
             if (entries[i]->epoch == unneeded_epoch) {
 
-                size_t my_earliest_epoch = earliest_epoch;
+                size_t my_earliest_epoch = get_earliest_epoch();
                 if (i == 0 && entries[1]->epoch > my_earliest_epoch) {
                     cerr << "*** DESTROYING EARLIEST EPOCH FOR OBJECT "
                          << obj << endl;
                     cerr << "  unneeded_epoch = " << unneeded_epoch << endl;
+                    cerr << "  epochs = " << obj->cleanup_list.at(unneeded_epoch) << endl;
                     cerr << "  earliest_epoch = " << my_earliest_epoch << endl;
+                    cerr << "  OBJECT SHOULD BE DESTROYED AT EPOCH "
+                         << my_earliest_epoch << endl;
                     snapshot_info.dump();
                     obj->dump_unlocked();
                     throw Exception("destroying earliest epoch");
@@ -274,7 +301,7 @@ struct History {
         }
 
         cerr << "----------- cleaning up didn't exist ---------" << endl;
-        obj->dump();
+        obj->dump_unlocked();
         cerr << "unneeded_epoch = " << unneeded_epoch << endl;
         cerr << "----------- end cleaning up didn't exist ---------" << endl;
 
@@ -347,6 +374,7 @@ private:
 
 struct Snapshot : boost::noncopyable {
     Snapshot()
+        : retries_(0)
     {
         register_me();
     }
@@ -358,11 +386,12 @@ struct Snapshot : boost::noncopyable {
 
     void restart()
     {
-        size_t new_epoch = current_epoch;
-        if (new_epoch != epoch_) {
+        ++retries_;
+        //size_t new_epoch = current_epoch;
+        //if (new_epoch != epoch_) {
             snapshot_info.remove_snapshot(this);
             register_me();
-        }
+        //}
     }
 
     void register_me()
@@ -372,9 +401,12 @@ struct Snapshot : boost::noncopyable {
 
     size_t epoch() const { return epoch_; }
 
+    int retries() const { return retries_; }
+
 private:
     friend class Snapshot_Info;
     size_t epoch_;  ///< Epoch at which snapshot was taken
+    int retries_;
 };
 
 /* Obsolete Version Cleanups
@@ -902,6 +934,8 @@ struct Sandbox {
             __sync_synchronize();
 
             current_epoch = new_epoch;
+
+            __sync_synchronize();
         }
         else {
             // Rollback any that were set up if there was a problem
@@ -953,7 +987,8 @@ struct Transaction : public Snapshot, public Sandbox {
     void dump(std::ostream & stream = std::cerr, int indent = 0)
     {
         string s(indent, ' ');
-        stream << s << "snapshot: epoch " << epoch() << endl;
+        stream << s << "snapshot: epoch " << epoch() << " retries "
+               << retries() << endl;
         stream << s << "sandbox" << endl;
         Sandbox::dump(stream, indent);
     }
@@ -980,6 +1015,13 @@ register_snapshot(Snapshot * snapshot)
 {
     ACE_Guard<ACE_Mutex> guard(lock);
     snapshot->epoch_ = current_epoch;
+
+    // NOTE: race with register cleanup: imagine that we finish our timeslice
+    // exactly here.  Then something can commit a transaction, and call
+    // register_cleanup.  That will run until it tries to get its lock, where
+    // it will fail.
+
+
     entries[snapshot->epoch_].snapshots.insert(snapshot);
     return snapshot->epoch_;
 }
@@ -991,6 +1033,8 @@ remove_snapshot(Snapshot * snapshot)
     ostringstream debug;
 
     dump(debug);
+    debug << "snapshot " << snapshot << ": epoch " << snapshot->epoch()
+          << " retries " << snapshot->retries() << endl;
 
     vector<pair<Object *, size_t> > to_clean_up;
     {
@@ -1034,7 +1078,12 @@ remove_snapshot(Snapshot * snapshot)
                moved to that list */
             Entry * prev_snapshot = 0;
             size_t prev_epoch = 0;
+
+            Entries::iterator itnext = boost::next(it);
             
+            Entry * next_snapshot = 0;
+            size_t next_epoch = 0;
+
             if (it != entries.begin()) {
                 Entries::iterator jt = boost::prior(it);
                 
@@ -1044,10 +1093,18 @@ remove_snapshot(Snapshot * snapshot)
             else {
                 // Earliest epoch has changed, as this is the earliest known
                 // and it just disappeared.
-                Entries::iterator jt = boost::next(it);
-                if (jt == entries.end())
-                    earliest_epoch = current_epoch;
-                else earliest_epoch = jt->first;
+                if (itnext == entries.end())
+                    set_earliest_epoch(current_epoch);
+                else set_earliest_epoch(itnext->first);
+            }
+
+            /* Find the next snapshot as well.  There is a race between
+               snapshot creation and the addition to the list of snapshots;
+               in this case it is possible for the cleanup to be added
+               to the wrong entry.  */
+            if (itnext != entries.end()) {
+                next_snapshot = &itnext->second;
+                next_epoch = itnext->first;
             }
 
             //cerr << "prev_epoch = " << prev_epoch << endl;
@@ -1055,16 +1112,10 @@ remove_snapshot(Snapshot * snapshot)
             
             int num_to_cleanup = 0;
 
-#if 0
-            string message = format("cleaning up %zd: prev_snapshot %p prev_epoch %zd", it->first, prev_snapshot, prev_epoch);
-            cleanups[it->first] = message;
-#endif
-            if (cleanups.size() <= it->first)
-                cleanups.resize(it->first + 1);
-            cleanups[it->first] = prev_epoch;
-
             debug << "cleaning up " << it->first << ": prev_snapshot "
-                  << prev_snapshot << " prev_epoch " << prev_epoch << endl;
+                  << prev_snapshot << " prev_epoch " << prev_epoch
+                  << " next_snapshot " << next_snapshot
+                  << " next_epoch " << next_epoch << endl;
 
             for (unsigned i = 0;  i < entry.cleanups.size();  ++i) {
                 Object * obj = entry.cleanups[i].first;
@@ -1072,14 +1123,31 @@ remove_snapshot(Snapshot * snapshot)
                 
                 //cerr << "epoch = " << epoch << endl;
                 
-                //debug << "object " << obj << " epoch " << epoch << " cleanup "
-                //      << (prev_epoch >= epoch) << endl;
+                debug << "object " << obj << " epoch " << epoch << " keep "
+                      << (prev_epoch >= epoch) << endl;
                 
+#if 0
                 /* Is the object needed by the previous snapshot?  It is if
                    the previous shapshot's epoch is greater than or equal the
                    current snapshot's epoch. */
-                if (prev_epoch >= epoch && prev_snapshot) { // still needed by prev snapshot
+                if (next_epoch >= epoch && next_snapshot) {
+                    // should be in next snapshot's list
+                    next_snapshot->cleanups.push_back(make_pair(obj, epoch));
+#if 0
+                    cerr << "*** WAS IN WRONG LIST ***" << endl;
+                    cerr << "prev_epoch = " << prev_epoch << endl;
+                    cerr << "prev_snapshot = " << prev_snapshot << endl;
+                    cerr << "next_epoch = " << next_epoch << endl;
+                    cerr << "next_snapshot = " << next_snapshot << endl;
+                    cerr << "epoch = " << epoch << endl;
+#endif
+                }
+                else
+#endif                    
+                if (prev_epoch >= epoch && prev_snapshot) {
+                    // still needed by prev snapshot
                     prev_snapshot->cleanups.push_back(make_pair(obj, epoch));
+                    obj->cleanup_list[epoch].push_back(make_pair(prev_epoch, current_epoch));
                 }
                 else entry.cleanups[num_to_cleanup++] = entry.cleanups[i]; // not needed anymore
             }
@@ -1109,6 +1177,8 @@ remove_snapshot(Snapshot * snapshot)
         catch (...) {
             cerr << "got exception" << endl;
             cerr << debug.str();
+            cerr << "object before cleanup: " << endl;
+            obj->dump(cerr);
             abort();
         }
     }
@@ -1116,8 +1186,49 @@ remove_snapshot(Snapshot * snapshot)
 
 void
 Snapshot_Info::
-register_cleanup(Object * obj, size_t epoch_to_cleanup)
+register_cleanup(Object * obj, size_t epoch_to_cleanup,
+                 size_t new_latest_epoch)
 {
+    // BUG: race condition
+    // When we register this cleanup, we register with the last snapshot.
+    // However, it is possible that there is another snapshot, with a higher
+    // epoch, waiting to be registered.  Once that is created, this
+    // cleanup should have been in that list, not this one.
+
+    //global state: 
+    //  current_epoch: 2800
+    //  earliest_epoch: 2798
+    //  current_trans: 0
+    //  snapshot epochs: 2
+    //  0 at epoch 2798
+    //    1 snapshots
+    //      0 0x7f2cf393b000 epoch 2798
+    //    2 cleanups
+    //      0: object 0x7fff7da0a600 with version 2798
+    //      1: object 0x7fff7da0a680 with version 2797
+    //  1 at epoch 2799
+    //    1 snapshots
+    //      0 0x7f2cf313a000 epoch 2799
+    //    0 cleanups
+
+    //object at 0x7fff7da0a680
+    //  history with 3 values
+    //    0: epoch 2797 addr 0x7f2ce4016920 value 3
+    //    1: epoch 2802 addr 0x7f2cec025470 value 2
+    //    2: epoch 2803 addr 0x7f2cec025370 value 2
+    
+    //      epochs = [ (2798,2800) ] (means transaction 2800 was committed
+    //                                to put this value on the cleanup list,
+    //                                and when it was the highest snapshot
+    //                                on the list was 2798).
+
+
+    // HERE, the cleanup for value 2797 should happen at 2799, not 2798
+    // This must be because the highest snapshot in the list was 2798
+    // when the cleanup was registered: either because a) snapshot 2799
+    // wasn't registered yet, or b) snapshot 2799 has already terminated
+
+
     // NOTE: this is called with the object's lock held
     ACE_Guard<ACE_Mutex> guard(lock);
 
@@ -1125,7 +1236,19 @@ register_cleanup(Object * obj, size_t epoch_to_cleanup)
         throw Exception("register_cleanup with no snapshots");
 
     Entries::iterator it = boost::prior(entries.end());
+    if (obj->cleanup_list.size() <= epoch_to_cleanup)
+        obj->cleanup_list.resize(epoch_to_cleanup + 1);
+
     it->second.cleanups.push_back(make_pair(obj, epoch_to_cleanup));
+    if (obj->cleanup_list[epoch_to_cleanup].size()) {
+        cerr << "epoch_to_cleanup = " << epoch_to_cleanup << endl;
+        cerr << "cleanup in " << it->first << endl;
+        cerr << "cleanup list = " << obj->cleanup_list[epoch_to_cleanup]
+             << endl;
+        throw Exception("already had a cleanup");
+    }
+    obj->cleanup_list[epoch_to_cleanup].reserve(4);
+    obj->cleanup_list[epoch_to_cleanup].push_back(make_pair(it->first, new_latest_epoch));
 }
 
 void
@@ -1136,7 +1259,7 @@ dump(std::ostream & stream)
 
     stream << "global state: " << endl;
     stream << "  current_epoch: " << current_epoch << endl;
-    stream << "  earliest_epoch: " << earliest_epoch << endl;
+    stream << "  earliest_epoch: " << get_earliest_epoch() << endl;
     stream << "  current_trans: " << current_trans << endl;
     stream << "  snapshot epochs: " << entries.size() << endl;
     int i = 0;
@@ -1158,6 +1281,13 @@ dump(std::ostream & stream)
             stream << "      " << j << ": object " << entry.cleanups[j].first
                  << " with version " << entry.cleanups[j].second << endl;
     }
+}
+
+void
+Snapshot_Info::
+validate_unlocked() const
+{
+    
 }
 
 void no_transaction_exception(const Object * obj)
@@ -1295,8 +1425,6 @@ struct Value : public Object {
         std::ostringstream stream;
         stream << "cleaning up epoch " << unused_epoch << " for object "
                << this << " current_epoch = " << current_epoch << endl;
-        stream << "last_epoch = " << snapshot_info.cleanups.at(unused_epoch)
-               << endl;
         snapshot_info.dump(stream);
         stream << "before: " << endl;
         dump_itl(stream, 4, false);
@@ -1319,7 +1447,7 @@ struct Value : public Object {
         dump_itl(stream, indent);
     }
 
-    void dump_itl(std::ostream & stream, int indent = 0, bool lc = true) const
+    void dump_itl(std::ostream & stream, int indent = 0, bool lc = false) const
     {
         string s(indent, ' ');
         stream << s << "object at " << this << endl;
