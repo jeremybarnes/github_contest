@@ -149,8 +149,7 @@ struct Snapshot_Info {
 
     void remove_snapshot(Snapshot * snapshot);
 
-    void register_cleanup(Object * obj, size_t epoch_to_cleanup,
-                          size_t new_latest_epoch);
+    void register_cleanup(Object * obj, size_t epoch_to_cleanup);
 
     void
     perform_cleanup(Entries::iterator it, ACE_Guard<ACE_Mutex> & guard);
@@ -241,8 +240,10 @@ struct History {
 
         //cerr << "entries.size() = " << entries.size() << endl;
 
-        // Do the common case where the previous one is no longer needed
-        //while (entries.front().epoch < earliest_epoch && entries.size() > 1)
+        // Do the common case where the first entry is no longer needed
+        // NOTE: dicey; needs to be properly analysed
+        //while (entries.size() >= 2
+        //       && entries[1]->epoch < get_earliest_epoch())
         //    entries.pop_front();
 
         //if (entries.size() < 2) return;
@@ -250,7 +251,7 @@ struct History {
         // The second last entry needs to be cleaned up by the last snapshot
         size_t epoch = entries[-2]->epoch;
 
-        snapshot_info.register_cleanup(obj, epoch, entries[-1]->epoch);
+        snapshot_info.register_cleanup(obj, epoch);
     }
 
     /// Erase the entry that was speculatively added
@@ -996,49 +997,8 @@ perform_cleanup(Entries::iterator it, ACE_Guard<ACE_Mutex> & guard)
 
 void
 Snapshot_Info::
-register_cleanup(Object * obj, size_t epoch_to_cleanup,
-                 size_t new_latest_epoch)
+register_cleanup(Object * obj, size_t epoch_to_cleanup)
 {
-    // BUG: race condition
-    // When we register this cleanup, we register with the last snapshot.
-    // However, it is possible that there is another snapshot, with a higher
-    // epoch, waiting to be registered.  Once that is created, this
-    // cleanup should have been in that list, not this one.
-
-    //global state: 
-    //  current_epoch: 2800
-    //  earliest_epoch: 2798
-    //  current_trans: 0
-    //  snapshot epochs: 2
-    //  0 at epoch 2798
-    //    1 snapshots
-    //      0 0x7f2cf393b000 epoch 2798 COMMITTED
-    //    2 cleanups
-    //      0: object 0x7fff7da0a600 with version 2798
-    //      1: object 0x7fff7da0a680 with version 2797
-    //  1 at epoch 2799
-    //    1 snapshots
-    //      0 0x7f2cf313a000 epoch 2799 RESTARTING
-    //    0 cleanups
-
-    //object at 0x7fff7da0a680
-    //  history with 3 values
-    //    0: epoch 2797 addr 0x7f2ce4016920 value 3
-    //    1: epoch 2802 addr 0x7f2cec025470 value 2
-    //    2: epoch 2803 addr 0x7f2cec025370 value 2
-    
-    //      epochs = [ (2798,2800) ] (means transaction 2800 was committed
-    //                                to put this value on the cleanup list,
-    //                                and when it was the highest snapshot
-    //                                on the list was 2798).
-
-
-    // HERE, the cleanup for value 2797 should happen at 2799, not 2798
-    // This must be because the highest snapshot in the list was 2798
-    // when the cleanup was registered: either because a) snapshot 2799
-    // wasn't registered yet, or b) snapshot 2799 has already terminated
-
-
     // NOTE: this is called with the object's lock held
     ACE_Guard<ACE_Mutex> guard(lock);
 
