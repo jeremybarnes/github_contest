@@ -82,28 +82,21 @@ struct Object {
 /// beginning of the program
 volatile size_t current_epoch_ = 1;
 
-ACE_Mutex current_epoch_lock;
-
 size_t get_current_epoch()
 {
-    //ACE_Guard<ACE_Mutex> guard(current_epoch_lock);
     return current_epoch_;
 }
 
 void set_current_epoch(size_t val)
 {
-    //ACE_Guard<ACE_Mutex> guard(current_epoch_lock);
     current_epoch_ = val;
 }
 
 /// Global variable giving the earliest epoch for which there is a snapshot
 size_t earliest_epoch_ = 1;
 
-ACE_Mutex earliest_epoch_lock;
-
 void set_earliest_epoch(size_t val)
 {
-    //ACE_Guard<ACE_Mutex> guard(earliest_epoch_lock);
     if (val < earliest_epoch_) {
         cerr << "val = " << val << endl;
         cerr << "earliest_epoch = " << earliest_epoch_ << endl;
@@ -114,7 +107,6 @@ void set_earliest_epoch(size_t val)
 
 size_t get_earliest_epoch()
 {
-    //ACE_Guard<ACE_Mutex> guard(earliest_epoch_lock);
     return earliest_epoch_;
 }
 
@@ -176,19 +168,6 @@ struct Snapshot_Info {
 
 } snapshot_info;
 
-
-namespace JML_HASH_NS {
-
-template<typename T>
-struct hash<T *> {
-    size_t operator () (const T * ptr) const
-    {
-        return reinterpret_cast<size_t>(ptr);
-    }
-
-};
-
-} // namespace HASH_NS
 
 /// Object that records the history of committed values.  Only the values
 /// needed for active transactions are kept.
@@ -438,29 +417,17 @@ struct Snapshot : boost::noncopyable {
 
     ~Snapshot()
     {
-        //cerr << "cleaning up snapshot at " << this << " epoch " << epoch()
-        //     << endl;
-        //cerr << "before: " << endl;
-        //snapshot_info.dump();
         snapshot_info.remove_snapshot(this);
-        //cerr << "after: " << endl;
-        //snapshot_info.dump();
     }
 
     void restart()
     {
         status = RESTARTING;
         ++retries_;
-        //size_t new_epoch = current_epoch;
-        //if (new_epoch != epoch_) {
-
-        //cerr << "RESTARTING" << endl;
-
+        if (get_current_epoch() != epoch_) {
             snapshot_info.remove_snapshot(this);
-        status = RESTARTING2;
             register_me();
-
-        //}
+        }
     }
 
     void register_me()
