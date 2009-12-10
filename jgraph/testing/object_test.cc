@@ -1636,7 +1636,6 @@ struct Value : public Object {
 struct List : public Object {
 };
 
-#if 0
 BOOST_AUTO_TEST_CASE( test0 )
 {
     // Check basic invariants
@@ -1705,8 +1704,8 @@ BOOST_AUTO_TEST_CASE( test0 )
     BOOST_CHECK_EQUAL(get_current_epoch(), starting_epoch + 1);
 
     set_current_epoch(1);
+    set_earliest_epoch(1);
 }
-#endif
 
 void object_test_thread(Value<int> & var, int iter, boost::barrier & barrier,
                         size_t & failures)
@@ -1913,10 +1912,10 @@ void run_object_test(int nthreads, int niter)
 
 BOOST_AUTO_TEST_CASE( test1 )
 {
-    //run_object_test(1, 100000);
-    //run_object_test(10, 10000);
-    //run_object_test(100, 1000);
-    //run_object_test(1000, 100);
+    run_object_test(1, 100000);
+    run_object_test(10, 10000);
+    run_object_test(100, 1000);
+    run_object_test(1000, 100);
 }
 
 struct Object_Test_Thread2 {
@@ -2020,10 +2019,10 @@ BOOST_AUTO_TEST_CASE( test2 )
     cerr << endl << endl << "========= test 2: multiple variables" << endl;
     
     run_object_test2(1, 10, 1);
-    //run_object_test2(2,  50000, 2);
+    run_object_test2(2,  50000, 2);
     run_object_test2(10, 10000, 100);
-    //run_object_test2(100, 1000, 10);
-    //run_object_test2(1000, 100, 10);
+    run_object_test2(100, 1000, 10);
+    run_object_test2(1000, 100, 100);
 }
 
 
