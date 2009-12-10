@@ -86,13 +86,13 @@ ACE_Mutex current_epoch_lock;
 
 size_t get_current_epoch()
 {
-    ACE_Guard<ACE_Mutex> guard(current_epoch_lock);
+    //ACE_Guard<ACE_Mutex> guard(current_epoch_lock);
     return current_epoch_;
 }
 
 void set_current_epoch(size_t val)
 {
-    ACE_Guard<ACE_Mutex> guard(current_epoch_lock);
+    //ACE_Guard<ACE_Mutex> guard(current_epoch_lock);
     current_epoch_ = val;
 }
 
@@ -103,7 +103,7 @@ ACE_Mutex earliest_epoch_lock;
 
 void set_earliest_epoch(size_t val)
 {
-    ACE_Guard<ACE_Mutex> guard(earliest_epoch_lock);
+    //ACE_Guard<ACE_Mutex> guard(earliest_epoch_lock);
     if (val < earliest_epoch_) {
         cerr << "val = " << val << endl;
         cerr << "earliest_epoch = " << earliest_epoch_ << endl;
@@ -114,7 +114,7 @@ void set_earliest_epoch(size_t val)
 
 size_t get_earliest_epoch()
 {
-    ACE_Guard<ACE_Mutex> guard(earliest_epoch_lock);
+    //ACE_Guard<ACE_Mutex> guard(earliest_epoch_lock);
     return earliest_epoch_;
 }
 
