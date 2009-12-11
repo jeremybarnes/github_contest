@@ -238,14 +238,11 @@ struct History {
     {
         if (entries.size() < 2) return;  // nothing to clean up
 
-        //cerr << "entries.size() = " << entries.size() << endl;
-
         // Do the common case where the first entry is no longer needed
         // NOTE: dicey; needs to be properly analysed
         //while (entries.size() >= 2
         //       && entries[1]->epoch < get_earliest_epoch())
         //    entries.pop_front();
-
         //if (entries.size() < 2) return;
 
         // The second last entry needs to be cleaned up by the last snapshot
@@ -607,6 +604,22 @@ struct Sandbox {
     //typedef std::hash_map<Object *, Entry> Local_Values;
     Local_Values local_values;
 
+    ~Sandbox()
+    {
+        clear();
+    }
+
+    void clear()
+    {
+        for (Local_Values::iterator
+                 it = local_values.begin(),
+                 end = local_values.end();
+             it != end;  ++it) {
+            free(it->second.val);
+        }
+        local_values.clear();
+    }
+
     template<typename T>
     T * local_value(Object * obj)
     {
@@ -623,7 +636,8 @@ struct Sandbox {
         boost::tie(it, inserted)
             = local_values.insert(make_pair(obj, Entry()));
         if (inserted) {
-            it->second.val = new T(initial_value);
+            it->second.val = malloc(sizeof(T));
+            new (it->second.val) T(initial_value);
             it->second.size = sizeof(T);
         }
         return reinterpret_cast<T *>(it->second.val);
@@ -685,7 +699,8 @@ struct Sandbox {
 
         // TODO: for failed transactions, we'd do better to keep the
         // structure to avoid reallocations
-        local_values.clear();
+        // TODO: clear as we go to better use cache
+        clear();
         
         return result;
     }
@@ -750,47 +765,12 @@ struct Local_Transaction : public Transaction {
     Transaction * old_trans;
 };
 
-/* Race Condition Problem
-   When we commit a transaction on epoch 1000, we do the following:
-   1.  Add a new version to all of the modified objects at epoch 1001
-   2.  Call cleanup on the objects, to cleanup the old version
-
-   Let's say that there was an object with version 998, to which we added
-   a new version 1000 as part of step 1.  When we come to step 2, we have
-   to put the cleanup for that object on a list somewhere.  That list is
-   the last entry on the cleanups list.
-
-   If there is already a new snapshot created for epoch 1001, then the
-   cleanup for the deleted version will go there.  Otherwise, it will go
-   on the cleanup list for epoch 1000.
-
-   If it goes on the list for epoch 1000, then...
-
-   If it goes on the list for epoch 1001...
-
-   When we perform step 2, there is not necessarily any snapshot registered
-   with epoch 1001.  As a result, 
-
-   ---
-
-   When we are committing, we create a new epoch.  Consider 10 non-interfering
-   transactions that commit one after the other.  Then we have incremented our
-   current epoch by 10, possibly without ever having created a new snapshot.
-
-   
-
-*/
 size_t
 Snapshot_Info::
 register_snapshot(Snapshot * snapshot)
 {
     ACE_Guard<ACE_Mutex> guard(lock);
     snapshot->epoch_ = get_current_epoch();
-
-    // NOTE: race with register cleanup: imagine that we finish our timeslice
-    // exactly here.  Then something can commit a transaction, and call
-    // register_cleanup.  That will run until it tries to get its lock, where
-    // it will fail.
 
     // TODO: since we know it will be inserted at the end, we can do a more
     // efficient lookup that only looks at the end.
@@ -959,7 +939,9 @@ perform_cleanup(Entries::iterator it, ACE_Guard<ACE_Mutex> & guard)
     entry.cleanups.resize(num_to_cleanup);
     
     to_clean_up.swap(entry.cleanups);
-    
+
+    size_t snapshot_epoch = it->first;
+
     entries.erase(it);
 
     // Release the guard so that we can lock the objects
@@ -978,7 +960,7 @@ perform_cleanup(Entries::iterator it, ACE_Guard<ACE_Mutex> & guard)
         //obj->dump(obj_stream_before);
         
         try {
-            obj->cleanup(epoch, it->first);
+            obj->cleanup(epoch, snapshot_epoch);
         }
         catch (const std::exception & exc) {
             ostringstream obj_stream;
@@ -1163,16 +1145,11 @@ struct Value : public Object {
     History<T> history;
     mutable ACE_Mutex lock;
 
-    //std::string last_cleanup;  // debug
-
     virtual bool setup(size_t old_epoch, size_t new_epoch, void * data)
     {
         ACE_Guard<ACE_Mutex> guard(lock);
-        //history.validate();
         bool result = history.set_current_value(old_epoch, new_epoch,
                                                 *reinterpret_cast<T *>(data));
-        //cerr << "result = " << result << endl;
-        //history.validate();
         return result;
     }
 
@@ -1180,39 +1157,19 @@ struct Value : public Object {
     {
         // Now that it's definitive, we can clean up any old values
         ACE_Guard<ACE_Mutex> guard(lock);
-        //history.validate();
         history.cleanup_old_value(this);
-        //history.validate();
     }
 
     virtual void rollback(size_t new_epoch, void * data) throw ()
     {
         ACE_Guard<ACE_Mutex> guard(lock);
-        //history.validate();
-        //cerr << endl << "rollback: current_epoch = " << current_epoch
-        //     << " new_epoch = " << new_epoch << endl;
-        //cerr << "before rollback: " << endl;
-        //dump_itl(cerr);
         history.rollback(new_epoch);
-        //cerr << "after rollback: " << endl;
-        //dump_itl(cerr);
-        //history.validate();
     }
 
     virtual void cleanup(size_t unused_epoch, size_t trigger_epoch)
     {
         ACE_Guard<ACE_Mutex> guard(lock);
-        //std::ostringstream stream;
-        //stream << "cleaning up epoch " << unused_epoch << " for object "
-        //       << this << " current_epoch = " << get_current_epoch() << endl;
-        //snapshot_info.dump(stream);
-        //stream << "before: " << endl;
-        //dump_itl(stream, 4, false);
         history.cleanup(unused_epoch, this, trigger_epoch);
-        //stream << "after: " << endl;
-        //dump_itl(stream, 4, false);
-        //stream << "current_epoch = " << get_current_epoch() << endl;
-        //last_cleanup = stream.str();
     }
 
     virtual void dump(std::ostream & stream = std::cerr, int indent = 0) const
@@ -1227,15 +1184,11 @@ struct Value : public Object {
         dump_itl(stream, indent);
     }
 
-    void dump_itl(std::ostream & stream, int indent = 0, bool lc = true) const
+    void dump_itl(std::ostream & stream, int indent = 0) const
     {
         string s(indent, ' ');
         stream << s << "object at " << this << endl;
         history.dump(stream, indent + 2);
-        //if (lc) {
-        //    stream << "last cleanup:" << endl;
-        //    stream << last_cleanup << endl;
-        //}
     }
 
     virtual std::string print_local_value(void * val) const
@@ -1535,6 +1488,8 @@ void run_object_test(int nthreads, int niter)
 
 BOOST_AUTO_TEST_CASE( test1 )
 {
+    //run_object_test(1, 10000);
+    //run_object_test(10, 1000);
     run_object_test(1, 100000);
     run_object_test(10, 10000);
     run_object_test(100, 1000);
@@ -1642,6 +1597,7 @@ BOOST_AUTO_TEST_CASE( test2 )
     cerr << endl << endl << "========= test 2: multiple variables" << endl;
     
     run_object_test2(1, 10, 1);
+    //run_object_test2(2, 20, 10);
     run_object_test2(2,  50000, 2);
     run_object_test2(10, 10000, 100);
     run_object_test2(100, 1000, 10);
